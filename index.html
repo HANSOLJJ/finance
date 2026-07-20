@@ -1498,13 +1498,30 @@
         <input type="file" id="fileInputSettings" accept=".json" style="display:none;" onchange="importJSON(event)" />
       </div>
       <div class="backup-actions" style="margin-top:10px;">
-        <button class="btn" onclick="exportEncrypted()" style="border-color:#7c3aed;color:#7c3aed;">🔐 암호화 스냅샷 (GitHub 배포용)</button>
+        <button class="btn" onclick="exportEncrypted()" style="border-color:#7c3aed;color:#7c3aed;">🔐 암호화 스냅샷 (다운로드)</button>
       </div>
       <div class="backup-desc" style="margin-top:6px;">
         🔐 버튼: 현재 데이터를 비밀번호로 암호화한 <code>portfolio.enc</code> 파일을 만듭니다.
-        이 파일만 GitHub repo에 커밋하면 공개 저장소여도 안전합니다 (복호화는 브라우저 안에서 비번 입력 시에만).
+        이 파일만 GitHub repo에 올리면 공개 저장소여도 안전합니다 (복호화는 브라우저 안에서 비번 입력 시에만).
         <b>긴 패스프레이즈(15자 이상)</b>를 쓰세요.
       </div>
+
+      <!-- ☁️ GitHub 직접 업로드 (로컬에서만 노출) -->
+      <div id="ghUploadBox" style="display:none; margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
+        <div class="backup-actions">
+          <button class="btn primary" onclick="uploadToGitHub()" style="background:#2563eb;border-color:#2563eb;">☁️ GitHub에 업로드</button>
+          <button class="btn" onclick="setGitHubToken()">🔑 토큰 설정</button>
+          <button class="btn" onclick="clearGitHubToken()">토큰 지우기</button>
+        </div>
+        <div class="backup-desc" style="margin-top:6px;">
+          ☁️ 버튼: 암호화 후 <b>GitHub에 자동 업로드</b>(다운로드·git 불필요). 1~2분 뒤 사이트 반영.<br>
+          <span id="ghTokenStatus"></span>
+          토큰은 <b>이 브라우저에만</b> 저장되며 repo엔 올라가지 않습니다.
+          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" style="color:#60a5fa;">토큰 발급</a>
+          (Repository access → <code>finance</code>만 · Permissions → Contents: Read and write)
+        </div>
+      </div>
+
       <div class="backup-meta" id="backupMeta"></div>
     </div>
   </div>
@@ -5772,6 +5789,109 @@ window.exportEncrypted = exportEncrypted;
 window.encryptData = encryptData;
 window.decryptData = decryptData;
 
+// ==================== ☁️ GitHub 직접 업로드 (서버 없이 Contents API) ====================
+const GH_DEFAULT = { owner: 'HANSOLJJ', repo: 'finance', branch: 'main', path: 'portfolio.enc' };
+function ghConfig() {
+  return {
+    owner:  localStorage.getItem('gh_owner')  || GH_DEFAULT.owner,
+    repo:   localStorage.getItem('gh_repo')   || GH_DEFAULT.repo,
+    branch: localStorage.getItem('gh_branch') || GH_DEFAULT.branch,
+    path:   localStorage.getItem('gh_path')   || GH_DEFAULT.path,
+  };
+}
+function isLocalEnv() {
+  return location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+}
+function ghErrHint(code) {
+  if (code === 401) return '토큰이 잘못됐거나 만료됨';
+  if (code === 403) return '권한 부족 (Contents: Read and write 확인) 또는 요청 제한';
+  if (code === 404) return 'repo 경로/접근권한 확인 (owner·repo·토큰의 repo 접근)';
+  if (code === 409) return '충돌 — 다시 시도하세요';
+  if (code === 422) return '요청 형식 오류';
+  return '알 수 없는 오류';
+}
+function b64utf8(str) {
+  const bytes = new TextEncoder().encode(str); let s = ''; const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(s);
+}
+function setGitHubToken() {
+  if (!isLocalEnv() && !confirm('공개 사이트에서 토큰을 넣는 건 권장하지 않습니다. 로컬 앱에서 설정하세요.\n그래도 진행할까요?')) return;
+  const note = localStorage.getItem('gh_pat') ? ' (이미 저장됨 — 새로 넣으면 교체)' : '';
+  const t = prompt('GitHub Fine-grained 토큰을 붙여넣으세요' + note + '\n· finance repo · Contents: Read and write 권한');
+  if (t === null) return;
+  const tok = t.trim();
+  if (!tok) { alert('입력이 비어 있습니다.'); return; }
+  localStorage.setItem('gh_pat', tok);
+  toast('🔑 토큰 저장됨 (이 브라우저에만)');
+  refreshGitHubUI();
+}
+function clearGitHubToken() {
+  localStorage.removeItem('gh_pat');
+  toast('토큰을 지웠습니다.');
+  refreshGitHubUI();
+}
+function refreshGitHubUI() {
+  const box = document.getElementById('ghUploadBox');
+  if (box) box.style.display = isLocalEnv() ? 'block' : 'none';
+  const st = document.getElementById('ghTokenStatus');
+  if (st) {
+    const c = ghConfig();
+    st.innerHTML = localStorage.getItem('gh_pat')
+      ? '상태: <b style="color:#22c55e;">토큰 저장됨</b> · 대상 <code>' + c.owner + '/' + c.repo + '</code> / <code>' + c.path + '</code><br>'
+      : '상태: <b style="color:#f59e0b;">토큰 미설정</b> — 먼저 [🔑 토큰 설정] 을 누르세요<br>';
+  }
+}
+async function uploadToGitHub() {
+  const token = localStorage.getItem('gh_pat');
+  if (!token) { alert('먼저 [🔑 토큰 설정] 으로 GitHub 토큰을 저장하세요.'); return; }
+  const hasData = state.holdings && state.holdings.some(h => h.name || h.price || h.priceUSD);
+  if (!hasData) { alert('업로드할 데이터가 없습니다.'); return; }
+  const pw = prompt('암호화 비밀번호\n(사이트 접속 시 쓸 비번과 반드시 동일해야 합니다)');
+  if (!pw) return;
+  const pw2 = prompt('확인을 위해 비밀번호를 한 번 더 입력하세요.');
+  if (pw !== pw2) { alert('비밀번호가 일치하지 않습니다. 취소되었습니다.'); return; }
+
+  const c = ghConfig();
+  const apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + c.path;
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  try {
+    state.lastUpdated = localDateStr();
+    const blobObj = await encryptData(JSON.stringify(state), pw);
+    const contentB64 = b64utf8(JSON.stringify(blobObj));
+
+    // 기존 파일 sha 조회 (있으면 덮어쓰기 위해 필요)
+    let sha;
+    const getRes = await fetch(apiBase + '?ref=' + encodeURIComponent(c.branch), { headers, cache: 'no-store' });
+    if (getRes.ok) { sha = (await getRes.json()).sha; }
+    else if (getRes.status !== 404) { throw new Error('파일 조회 실패 (' + getRes.status + ') — ' + ghErrHint(getRes.status)); }
+
+    const body = { message: 'update portfolio ' + state.lastUpdated, content: contentB64, branch: c.branch };
+    if (sha) body.sha = sha;
+    const putRes = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
+    if (!putRes.ok) {
+      let extra = ''; try { extra = '\n' + (await putRes.text()).slice(0, 200); } catch (_) {}
+      throw new Error('업로드 실패 (' + putRes.status + ') — ' + ghErrHint(putRes.status) + extra);
+    }
+    state.lastBackupAt = new Date().toISOString();
+    saveState();
+    renderSettings();
+    refreshGitHubUI();
+    toast('☁️ 업로드 완료! 1~2분 뒤 사이트에서 Ctrl+Shift+R 로 새로고침하세요.');
+  } catch (err) {
+    console.error('[Upload] 에러:', err);
+    alert('GitHub 업로드 실패:\n' + err.message);
+  }
+}
+window.uploadToGitHub = uploadToGitHub;
+window.setGitHubToken = setGitHubToken;
+window.clearGitHubToken = clearGitHubToken;
+window.refreshGitHubUI = refreshGitHubUI;
+
 // 잠금 화면 DOM을 동적으로 생성 (스크립트가 body 끝에서 실행되므로 JS로 주입)
 function _buildGate() {
   if (document.getElementById('unlockGate')) return document.getElementById('unlockGate');
@@ -5827,6 +5947,7 @@ function boot() {
   initTabs();
   render();
   updateFxBadge();
+  if (typeof refreshGitHubUI === 'function') refreshGitHubUI(); // ☁️ 업로드 UI 로컬에서만 노출
   // 페이지 로드 시 환율 자동 갱신 (rateUpdatedAt이 1시간 이상 지났거나 비어있으면)
   const stale = !state.rateUpdatedAt
     || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;
@@ -5845,7 +5966,7 @@ async function bootstrap() {
     const res = await fetch('./portfolio.enc', { cache: 'no-store' });
     if (res.ok) encData = await res.json();
   } catch (_) {}
-  if (!encData) { if (gate) gate.style.display = 'none'; boot(); return; }
+  if (!encData) { gate.style.display = 'none'; boot(); return; }
   showUnlockGate(encData);
 }
 
