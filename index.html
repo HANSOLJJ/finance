@@ -5201,6 +5201,12 @@ const CORS_PROXIES = [
     parse: async r => _validateJSON(await r.text()),
   },
   {
+    // 내 전용 Cloudflare Worker 프록시 (배포 사이트에서 실시간 시세용 - 안정적)
+    name: 'cf-worker',
+    build: url => `https://broad-waterfall-7379.noblein12.workers.dev/?url=${encodeURIComponent(url)}`,
+    parse: async r => _validateJSON(await r.text()),
+  },
+  {
     name: 'corsproxy.io',
     build: url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
     parse: async r => _validateJSON(await r.text()),
@@ -5816,7 +5822,7 @@ function b64utf8(str) {
   return btoa(s);
 }
 function setGitHubToken() {
-  if (!isLocalEnv() && !confirm('공개 사이트에서 토큰을 넣는 건 권장하지 않습니다. 로컬 앱에서 설정하세요.\n그래도 진행할까요?')) return;
+  if (!isLocalEnv() && !confirm('이 기기(공개 사이트)의 브라우저에 토큰을 저장합니다.\n· 신뢰하는 내 기기면 OK\n· 공용 PC라면 작업 후 반드시 [토큰 지우기]로 삭제하세요\n계속할까요?')) return;
   const note = localStorage.getItem('gh_pat') ? ' (이미 저장됨 — 새로 넣으면 교체)' : '';
   const t = prompt('GitHub Fine-grained 토큰을 붙여넣으세요' + note + '\n· finance repo · Contents: Read and write 권한');
   if (t === null) return;
@@ -5833,13 +5839,14 @@ function clearGitHubToken() {
 }
 function refreshGitHubUI() {
   const box = document.getElementById('ghUploadBox');
-  if (box) box.style.display = isLocalEnv() ? 'block' : 'none';
+  if (box) box.style.display = 'block'; // 어느 기기/사이트에서든 업로드 가능
   const st = document.getElementById('ghTokenStatus');
   if (st) {
     const c = ghConfig();
-    st.innerHTML = localStorage.getItem('gh_pat')
+    const warn = isLocalEnv() ? '' : '⚠️ 공용 PC라면 작업 후 [토큰 지우기]로 흔적을 지우세요.<br>';
+    st.innerHTML = warn + (localStorage.getItem('gh_pat')
       ? '상태: <b style="color:#22c55e;">토큰 저장됨</b> · 대상 <code>' + c.owner + '/' + c.repo + '</code> / <code>' + c.path + '</code><br>'
-      : '상태: <b style="color:#f59e0b;">토큰 미설정</b> — 먼저 [🔑 토큰 설정] 을 누르세요<br>';
+      : '상태: <b style="color:#f59e0b;">토큰 미설정</b> — 먼저 [🔑 토큰 설정] 을 누르세요<br>');
   }
 }
 async function uploadToGitHub() {
