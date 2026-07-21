@@ -5196,7 +5196,9 @@ function _validateJSON(text) {
 const CORS_PROXIES = [
   {
     // 로컬 Python 프록시 (proxy_server.py가 떠있으면 가장 안정적, 같은 origin)
+    // 배포(호스팅) 환경에선 서버가 없어 항상 404 → 아예 건너뜀 (콘솔 노이즈 제거)
     name: 'local',
+    localOnly: true,
     build: url => `/api/proxy?url=${encodeURIComponent(url)}`,
     parse: async r => _validateJSON(await r.text()),
   },
@@ -5230,6 +5232,7 @@ const CORS_PROXIES = [
 async function fetchViaProxy(url) {
   let lastErr;
   for (const p of CORS_PROXIES) {
+    if (p.localOnly && !isLocalEnv()) continue; // 배포 환경에선 로컬 프록시 건너뜀
     try {
       const r = await fetch(p.build(url));
       if (!r.ok) { lastErr = new Error(`${p.name}: HTTP ${r.status}`); continue; }
