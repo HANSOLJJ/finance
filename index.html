@@ -1333,7 +1333,10 @@
           <h2 id="treemap-title">🗺️ 종목별 비중 (트리맵)</h2>
           <div class="desc" id="treemap-desc">자산타입을 클릭하면 그 안의 종목만 펼쳐 볼 수 있어요 · 같은 종목은 자동 합산</div>
         </div>
-        <button class="btn primary" id="treemap-toggle-flat" style="font-size:12.5px;padding:8px 14px;flex-shrink:0;" title="자산타입 그룹 없이 모든 종목을 한 화면에 flat 표시">⊟ 전체 종목 펼치기</button>
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+          <button class="btn" id="treemap-toggle-heat" style="font-size:12.5px;padding:8px 14px;flex-shrink:0;" title="색상을 자산타입 대신 손익률(빨강=손실, 초록=수익)로 표시 · 여러 계좌에 흩어진 같은 종목은 통합 수익률 기준">🌡 손익 색상</button>
+          <button class="btn primary" id="treemap-toggle-flat" style="font-size:12.5px;padding:8px 14px;flex-shrink:0;" title="자산타입 그룹 없이 모든 종목을 한 화면에 flat 표시">⊟ 전체 종목 펼치기</button>
+        </div>
       </div>
       <div class="treemap-breadcrumb" id="treemap-breadcrumb" style="display:none;"></div>
       <div class="treemap-legend" id="treemap-legend"></div>
@@ -4084,6 +4087,9 @@ function lineOpts() {
 let _treemapDrill = null;
 let _treemapFlat = false;
 let _treemapHidden = new Set();
+// _treemapHeat: true면 색상 = 손익률 히트맵 (Finviz 스타일). 모든 뷰 모드(테마별/flat/drill)에 적용.
+// 같은 종목이 여러 계좌(카테고리)에 흩어져 있으면 _mergedPnL(Σ손익/Σ원금)의 통합 수익률 사용.
+let _treemapHeat = false;
 
 // 같은 종목(같은 ticker, 같은 자산타입)을 하나로 합치기
 // ticker가 없으면 (현금/금/부동산 등) name + assetType 으로 매칭
@@ -4212,6 +4218,21 @@ function generateDrillPalette(baseHex, count) {
     palette.push(_hslToHex(h, sat, lit));
   }
   return palette;
+}
+
+// 손익률 → 히트맵 색상 (Finviz 스타일 diverging: 빨강 ↔ 중립 회색 ↔ 초록)
+// ±HEAT_CLAMP(30%)에서 최대 채도로 포화. pct가 null(평단가 없음: 현금/부동산 등)이면 밝은 회색으로 구분.
+const HEAT_CLAMP = 0.30;
+function heatColor(pct) {
+  if (pct === null || pct === undefined || !isFinite(pct)) return '#9ca3af';
+  const t = Math.max(-1, Math.min(1, pct / HEAT_CLAMP));
+  const neutral = [82, 82, 91];    // #52525b (0% 근처)
+  const red     = [185, 28, 28];   // #b91c1c (-30% 이하)
+  const green   = [21, 128, 61];   // #15803d (+30% 이상)
+  const target = t < 0 ? red : green;
+  const a = Math.abs(t);
+  const c = neutral.map((n, i) => Math.round(n + (target[i] - n) * a));
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
 }
 
 function renderTreemap() {
@@ -4382,6 +4403,21 @@ function renderTreemap() {
     }
   }
 
+  // 손익 히트맵 토글 버튼 (모든 뷰 모드에서 사용 가능)
+  const heatBtn = document.getElementById('treemap-toggle-heat');
+  if (heatBtn) {
+    heatBtn.textContent = _treemapHeat ? '🎨 자산타입 색상' : '🌡 손익 색상';
+    heatBtn.classList.toggle('primary', _treemapHeat);
+    heatBtn.onclick = () => {
+      _treemapHeat = !_treemapHeat;
+      renderTreemap();
+    };
+  }
+  // 히트맵 모드 안내 문구
+  if (_treemapHeat && descEl) {
+    descEl.textContent += ' · 🌡 색상 = 손익률 (여러 계좌에 흩어진 같은 종목은 통합 수익률)';
+  }
+
   // === 레전드 ===
   if (_treemapDrill) {
     // drill 모드: 들어간 자산타입 색상 안내 + 종목 수
@@ -4425,6 +4461,15 @@ function renderTreemap() {
     };
   }
 
+  // 히트맵 모드: 손실↔수익 색상 스케일 레전드 추가
+  if (_treemapHeat && legendEl) {
+    legendEl.insertAdjacentHTML('beforeend',
+      '<span class="lg-item" style="gap:6px;">손실이 큼' +
+      '<span style="display:inline-block;width:120px;height:11px;border-radius:3px;vertical-align:middle;' +
+      'background:linear-gradient(90deg,#b91c1c,#52525b,#15803d);"></span>수익이 큼' +
+      '<span style="color:var(--text-muted);font-size:11px;">±30% 포화 · 회색 = 평단가 없음</span></span>');
+  }
+
   // === 트리맵 차트 ===
   // 표시 모드 3가지:
   //   - default (테마별): 자산타입 5개 rectangle만 표시 (종목 안 보임). groups: ['_atype']
@@ -4440,13 +4485,17 @@ function renderTreemap() {
 
   // drill 모드: 비중 순 정렬 + 종목별 다채로운 팔레트 색상 부여
   let sortedItems = items;
+  // 히트맵용 통합 수익률/손익 추출 (mergeHoldingItems가 여러 계좌 합산해 둔 _mergedPnL 기반)
+  const heatOf = (it) => (it._mergedPnL && it._mergedPnL.cost > 0)
+    ? { _heatPct: it._mergedPnL.pct, _heatPnl: it._mergedPnL.pnl }
+    : { _heatPct: null, _heatPnl: null };
   if (_treemapDrill) {
     sortedItems = [...items].sort((a, b) => b._value - a._value);
     const palette = generateDrillPalette(drillBaseColor, sortedItems.length);
-    sortedItems = sortedItems.map((it, idx) => ({ ...it, _drillColor: palette[idx] }));
+    sortedItems = sortedItems.map((it, idx) => ({ ...it, _drillColor: palette[idx], ...heatOf(it) }));
   } else if (_treemapFlat) {
     // flat 모드: 모든 종목을 leaf로 (각 종목 고유 키)
-    sortedItems = items.map((it, idx) => ({ ...it, _uid: 'i' + idx }));
+    sortedItems = items.map((it, idx) => ({ ...it, _uid: 'i' + idx, ...heatOf(it) }));
     // 한 자산타입만 보이는 경우 → 종목별 다채로운 팔레트 (단일 색상이면 구분 안 되니까)
     const visibleAtypes = new Set(items.map(i => i._atype));
     if (visibleAtypes.size === 1) {
@@ -4463,10 +4512,16 @@ function renderTreemap() {
     const cashLeaves = [];
     items.forEach(it => {
       if (it._atype === '현금') { cashLeaves.push(it); return; }
-      if (!agg.has(it._atype)) agg.set(it._atype, { _atype: it._atype, _name: it._atype, _value: 0, _mergedCount: 0 });
+      if (!agg.has(it._atype)) agg.set(it._atype, { _atype: it._atype, _name: it._atype, _value: 0, _mergedCount: 0, _hPnl: 0, _hCost: 0 });
       const g = agg.get(it._atype); g._value += it._value; g._mergedCount += 1;
+      // 자산타입 통합 손익 (평단가 있는 종목만 합산)
+      if (it._mergedPnL && it._mergedPnL.cost > 0) { g._hPnl += it._mergedPnL.pnl; g._hCost += it._mergedPnL.cost; }
     });
-    sortedItems = [...agg.values(), ...cashLeaves].map((it, idx) => ({ ...it, _uid: 'i' + idx }));
+    sortedItems = [...agg.values(), ...cashLeaves].map((it, idx) => ({
+      ...it, _uid: 'i' + idx,
+      _heatPct: it._hCost > 0 ? it._hPnl / it._hCost : null,
+      _heatPnl: it._hCost > 0 ? it._hPnl : null,
+    }));
   }
 
   // 필터로 모든 종목이 숨겨졌으면 차트 생성 안 함 (레전드만 보임)
@@ -4492,6 +4547,16 @@ function renderTreemap() {
         backgroundColor: (ctx) => {
           if (ctx.type !== 'data') return 'transparent';
           const r = ctx.raw;
+          // === 손익 히트맵 모드: 모든 leaf 색상 = 통합 수익률 ===
+          if (_treemapHeat) {
+            // 그룹 밴드(l=0)는 자산타입 색 유지 (spacing 틈으로 살짝 보이는 정도)
+            if (!_treemapDrill && r.l === 0) return ASSET_TYPE_COLORS[r.g] || '#94a3b8';
+            let hItem = r._data;
+            if ((!hItem || hItem._heatPct === undefined) && r.g) {
+              hItem = sortedItems.find(it => it._uid === r.g);
+            }
+            return heatColor(hItem ? hItem._heatPct : null);
+          }
           if (_treemapDrill) {
             // drill: 종목별 팔레트 색상
             return r._data?._drillColor || drillBaseColor || '#94a3b8';
@@ -4533,6 +4598,26 @@ function renderTreemap() {
             }
             if (!item) return '';
             const sizeRatio = r.v / baseTotal;
+
+            // === 손익 히트맵 모드: 비중 대신 통합 수익률 표시 (비중·금액은 툴팁에) ===
+            if (_treemapHeat) {
+              const hl = (item._heatPct === null || item._heatPct === undefined) ? null : fmtSignedPct(item._heatPct);
+              if (_treemapDrill) {
+                if (sizeRatio < 0.005) return hl || '';
+                if (sizeRatio < 0.03) return hl ? [item._name, hl] : [item._name];
+                const lines = [item._name];
+                if (item._displayTicker) lines.push(item._displayTicker);
+                lines.push(fmtKRWshort(r.v) + ' · ' + pctOfBase + '%' + (hl ? ' · ' + hl : ''));
+                return lines;
+              }
+              if (_treemapFlat) {
+                if (sizeRatio < 0.005) return '';
+                return hl ? [item._shortName || item._name, hl] : [item._shortName || item._name];
+              }
+              // default(테마별)
+              if (sizeRatio < 0.004) return hl || '';
+              return hl ? [item._name, hl] : [item._name];
+            }
 
             // === default(테마별) 모드: 자산타입 라벨 + % (현금은 현금(원화)/현금($)) ===
             if (!_treemapDrill && !_treemapFlat) {
@@ -4618,7 +4703,20 @@ function renderTreemap() {
             label: ctx => {
               const r = ctx.raw;
               const pct = ((r.v / baseTotal) * 100).toFixed(1);
-              return fmtKRWshort(r.v) + '  ·  ' + pct + '%';
+              const lines = [fmtKRWshort(r.v) + '  ·  ' + pct + '%'];
+              // 통합 손익 (여러 계좌 합산: Σ손익 / Σ원금). 그룹 밴드(l=0) 제외
+              if (r.l !== 0) {
+                let item = r._data;
+                if ((!item || item._heatPct === undefined) && r.g) {
+                  item = sortedItems.find(it => it._uid === r.g);
+                }
+                if (item && item._heatPct !== null && item._heatPct !== undefined) {
+                  const sign = item._heatPnl >= 0 ? '+' : '';
+                  lines.push('손익 ' + sign + fmtKRWshort(item._heatPnl) + '  ·  ' + fmtSignedPct(item._heatPct)
+                    + (item._mergedFrom && item._mergedCount > 1 ? '  (' + item._mergedCount + '계좌 통합)' : ''));
+                }
+              }
+              return lines;
             },
             afterLabel: ctx => {
               try {
