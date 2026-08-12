@@ -4222,7 +4222,7 @@ function generateDrillPalette(baseHex, count) {
 
 // 손익률 → 히트맵 색상 (Finviz 스타일 diverging: 빨강 ↔ 중립 회색 ↔ 초록)
 // 비대칭 스케일: 손실은 -30%에서 최대 빨강 (그 이상 손실은 드묾),
-// 수익은 2단계 — 0~+30% 회색→초록, +30%~+100% 초록→진한 초록 (고수익 종목 구분용).
+// 수익은 2단계 — 0~+30% 회색→초록, +30%~+100% 초록→밝은 초록 (Finviz 컨벤션: 0%가 어두운 회색이므로 수익률 클수록 밝아짐).
 // pct가 null(평단가 없음: 현금/부동산 등)이면 밝은 회색으로 구분.
 const HEAT_CLAMP = 0.30;       // 손실 포화점 & 수익 1단계 경계
 const HEAT_GREEN_MAX = 1.00;   // 수익 2단계 포화점 (+100% 이상 = 최심 초록)
@@ -4235,10 +4235,10 @@ function heatColor(pct) {
     c = mix(neutral, [185, 28, 28], Math.min(1, -pct / HEAT_CLAMP));   // → #b91c1c (-30% 이하)
   } else {
     const green = [21, 128, 61];   // #15803d (+30%)
-    const deep  = [16, 63, 34];    // #103f22 (+100% 이상, 진한 초록)
+    const bright = [34, 197, 94];  // #22c55e (+100% 이상, 밝고 쨍한 초록)
     c = pct <= HEAT_CLAMP
       ? mix(neutral, green, pct / HEAT_CLAMP)
-      : mix(green, deep, Math.min(1, (pct - HEAT_CLAMP) / (HEAT_GREEN_MAX - HEAT_CLAMP)));
+      : mix(green, bright, Math.min(1, (pct - HEAT_CLAMP) / (HEAT_GREEN_MAX - HEAT_CLAMP)));
   }
   return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
 }
@@ -4474,7 +4474,7 @@ function renderTreemap() {
     legendEl.insertAdjacentHTML('beforeend',
       '<span class="lg-item" style="gap:6px;">손실이 큼' +
       '<span style="display:inline-block;width:140px;height:11px;border-radius:3px;vertical-align:middle;' +
-      'background:linear-gradient(90deg,#b91c1c 0%,#52525b 30%,#15803d 55%,#103f22 100%);"></span>수익이 큼' +
+      'background:linear-gradient(90deg,#b91c1c 0%,#52525b 30%,#15803d 55%,#22c55e 100%);"></span>수익이 큼' +
       '<span style="color:var(--text-muted);font-size:11px;">-30% ~ +100% 포화 · 회색 = 평단가 없음</span></span>');
   }
 
