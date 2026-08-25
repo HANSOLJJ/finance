@@ -5305,12 +5305,6 @@ const CORS_PROXIES = [
     parse: async r => _validateJSON(await r.text()),
   },
   {
-    // 구 Cloudflare Worker 프록시 (전환기 폴백 — Pages 이전 완료 후 제거 예정)
-    name: 'cf-worker',
-    build: url => `https://broad-waterfall-7379.noblein12.workers.dev/?url=${encodeURIComponent(url)}`,
-    parse: async r => _validateJSON(await r.text()),
-  },
-  {
     name: 'corsproxy.io',
     build: url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
     parse: async r => _validateJSON(await r.text()),
@@ -6033,13 +6027,6 @@ async function bootstrap() {
     const res = await fetch('/api/portfolio', { cache: 'no-store' });
     if (res.ok) encData = await res.json();
   } catch (_) {}
-  if (!encData) {
-    // 마이그레이션 폴백: KV에 아직 없으면 구 체제의 repo 내 portfolio.enc (KV 씨딩 후 제거 예정)
-    try {
-      const res = await fetch('./portfolio.enc', { cache: 'no-store' });
-      if (res.ok) encData = await res.json();
-    } catch (_) {}
-  }
   if (!encData) { gate.style.display = 'none'; boot(); return; }
   const savedPw = localStorage.getItem('pf_pw');
   if (savedPw) {
