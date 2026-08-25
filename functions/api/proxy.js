@@ -12,7 +12,7 @@ const ALLOW = [
   'data.krx.co.kr',
 ];
 
-export async function onRequest({ request }) {
+export async function onRequest({ request, env }) {
   if (request.method !== 'GET' && request.method !== 'POST') {
     return new Response('method not allowed', { status: 405 });
   }
@@ -21,6 +21,11 @@ export async function onRequest({ request }) {
   let t;
   try { t = new URL(target); } catch { return new Response('bad url', { status: 400 }); }
   if (!ALLOW.includes(t.hostname)) return new Response('host not allowed', { status: 403 });
+
+  // FRED 요청에 서버 보관 키 주입 — 브라우저마다 localStorage에 키를 등록할 필요 제거
+  if (t.hostname === 'api.stlouisfed.org' && env.FRED_API_KEY && !t.searchParams.get('api_key')) {
+    t.searchParams.set('api_key', env.FRED_API_KEY);
+  }
 
   const init = { method: request.method, headers: { 'User-Agent': 'Mozilla/5.0' } };
   if (request.method === 'POST') {
