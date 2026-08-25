@@ -330,39 +330,31 @@
   <!-- 데이터 백업/복원 -->
   <div class="section">
     <div class="section-header">
-      <h2>💾 데이터 백업 / 복원</h2>
-      <div class="desc">브라우저 localStorage에만 저장되므로 정기 백업 필수</div>
+      <h2>💾 데이터 백업 / 저장</h2>
+      <div class="desc">서버 저장으로 기기 간 동기화 · JSON 백업은 사고 대비 안전망</div>
     </div>
     <div class="backup-card">
-      <div class="backup-title">⚠️ 데이터 안전망</div>
-      <div class="backup-desc">
-        모든 자산 내역·이력·목표 비중은 이 브라우저의 localStorage에만 저장됩니다.
-        브라우저 캐시 삭제·시크릿 모드·다른 PC 사용 시 데이터가 사라질 수 있어요.
-        주기적으로 JSON 백업을 다운로드해 두세요.
-      </div>
-      <div class="backup-actions">
-        <button class="btn primary" onclick="exportJSON()">💾 JSON 백업 다운로드</button>
-        <button class="btn" onclick="document.getElementById('fileInputSettings').click()">📂 JSON에서 복원</button>
-        <input type="file" id="fileInputSettings" accept=".json" style="display:none;" onchange="importJSON(event)" />
-      </div>
-      <div class="backup-actions" style="margin-top:10px;">
-        <button class="btn" onclick="exportEncrypted()" style="border-color:#7c3aed;color:#7c3aed;">🔐 암호화 스냅샷 (다운로드)</button>
-      </div>
-      <div class="backup-desc" style="margin-top:6px;">
-        🔐 버튼: 현재 데이터를 비밀번호로 암호화한 <code>portfolio.enc</code> 파일을 만듭니다.
-        서버 장애·비번 분실 대비 비상 백업용 로컬 보관 파일입니다 (복호화는 브라우저 안에서 비번 입력 시에만).
-        <b>긴 패스프레이즈(15자 이상)</b>를 쓰세요.
-      </div>
-
-      <!-- ☁️ 서버 저장 (Cloudflare KV — 인증은 Access가 전담) -->
-      <div id="syncBox" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
+      <!-- ☁️ 서버 저장 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담) -->
+      <div id="syncBox">
         <div class="backup-actions">
           <button class="btn primary" onclick="savePortfolio()" style="background:#2563eb;border-color:#2563eb;">☁️ 서버에 저장</button>
-          <button class="btn" onclick="forgetDevicePassword()">🔒 이 기기에서 비번 잊기</button>
         </div>
         <div class="backup-desc" style="margin-top:6px;">
-          ☁️ 버튼: 암호화 후 <b>서버(KV)에 즉시 저장</b> — 다른 기기에서 새로고침하면 바로 보입니다.<br>
+          ☁️ 버튼: <b>서버에 즉시 저장</b> — 다른 기기에서 새로고침하면 바로 보입니다. 데이터는 로그인 계정별로 분리 저장됩니다.<br>
           <span id="syncStatus"></span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
+        <div class="backup-title">⚠️ 데이터 안전망</div>
+        <div class="backup-desc">
+          실수로 잘못 저장하거나 데이터가 꼬였을 때를 대비해 주기적으로 JSON 백업을 받아두세요.
+          (서버에도 날짜별 버전이 90일 보관되지만, 내 손에 있는 백업이 최후의 안전망입니다.)
+        </div>
+        <div class="backup-actions">
+          <button class="btn primary" onclick="exportJSON()">💾 JSON 백업 다운로드</button>
+          <button class="btn" onclick="document.getElementById('fileInputSettings').click()">📂 JSON에서 복원</button>
+          <input type="file" id="fileInputSettings" accept=".json" style="display:none;" onchange="importJSON(event)" />
         </div>
       </div>
 

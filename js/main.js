@@ -32,33 +32,22 @@ function boot() {
 }
 
 async function bootstrap() {
+  localStorage.removeItem('pf_pw'); // 구 암호화 체제의 잔여 비번 일회성 청소
   const hadSaved = localStorage.getItem(STORAGE_KEY) !== null;
-  if (hadSaved) { boot(); return; }               // 내 PC(기존 데이터) → 그대로
+  if (hadSaved) { boot(); return; }               // 이 기기에 데이터 있음 → 그대로
   if (location.protocol === 'file:') { boot(); return; } // 로컬 파일은 fetch 불가
-  // 신규 기기: 서버(KV)에서 암호문 로드 → 기억된 비번 있으면 무프롬프트, 없으면 잠금 화면
-  const gate = _buildGate();
-  gate.style.display = 'flex'; // 깜빡임 방지용 선표시
-  let encData = null;
+  // 새 기기: 서버(KV)에서 내 데이터 로드 — 누구의 데이터인지는 Access 로그인이 결정
   try {
     const res = await fetch('/api/portfolio', { cache: 'no-store' });
-    if (res.ok) encData = await res.json();
-  } catch (_) {}
-  if (!encData) { gate.style.display = 'none'; boot(); return; }
-  const savedPw = localStorage.getItem('pf_pw');
-  if (savedPw) {
-    try {
-      const data = JSON.parse(await decryptData(encData, savedPw));
+    if (res.ok) {
+      const data = await res.json();
       if (data.holdings && Array.isArray(data.holdings)) {
         state = migrateState({ ...defaultState(), ...data });
-        gate.style.display = 'none';
-        boot();
-        return;
+        saveState(); // 이 기기에 캐시 — 접근 통제는 Access 로그인이 담당
       }
-    } catch (_) {
-      localStorage.removeItem('pf_pw'); // 비번이 바뀐 경우 — 기억 폐기 후 잠금 화면으로
     }
-  }
-  showUnlockGate(encData);
+  } catch (_) {}
+  boot(); // 서버에 데이터가 없으면(신규 사용자) 빈 포트폴리오로 시작
 }
 
 bootstrap();
