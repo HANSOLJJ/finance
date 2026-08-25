@@ -1,5 +1,6 @@
 // 상태(state) 관리 — 기본값·localStorage 로드/저장·마이그레이션·메모 헬퍼
 // ==================== 상태 관리 ====================
+// 최초 실행용 초기 상태 — 카테고리별 빈 행 1개 + 목표비중·환율 등 기본 설정값
 function defaultState() {
   return {
     holdings: CATEGORIES.flatMap(c => [{
@@ -31,6 +32,7 @@ function defaultState() {
 
 let state = loadState() || defaultState();
 
+// localStorage에서 상태 로드 후 마이그레이션 적용 (실패 시 null → 기본값 사용)
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -40,6 +42,8 @@ function loadState() {
   } catch (e) { return null; }
 }
 
+// 구버전 저장 데이터를 현재 스키마로 보정 — 카테고리/통화노출 rename,
+// 신규 필드 기본값 채우기, 목표비중 키 보정, 과거 스냅샷 USD 누락 보정
 function migrateState(s) {
   const RENAMES = { 'ETF': '국내주식', 'KRX 금현물': '금' };
   const EXPOSURE_RENAMES = {
@@ -122,11 +126,13 @@ function migrateState(s) {
   return s;
 }
 
+// 현재 상태를 localStorage에 저장 (lastUpdated 갱신 포함)
 function saveState() {
   state.lastUpdated = localDateStr();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
+// 홀딩/스냅샷 식별용 랜덤 8자리 id 생성
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
 // ==================== 메모 헬퍼 ====================
@@ -134,10 +140,12 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 function memoKey(name) {
   return (name || '').trim().toLowerCase();
 }
+// 종목명 기준 메모 조회
 function getHoldingMemo(name) {
   if (!state.holdingMemos) return '';
   return state.holdingMemos[memoKey(name)] || '';
 }
+// 종목명 기준 메모 저장 (빈 값이면 삭제)
 function setHoldingMemo(name, text) {
   if (!state.holdingMemos) state.holdingMemos = {};
   const key = memoKey(name);
@@ -146,10 +154,12 @@ function setHoldingMemo(name, text) {
   if (v) state.holdingMemos[key] = v;
   else delete state.holdingMemos[key];
 }
+// 스냅샷 id 기준 메모 조회
 function getSnapshotMemo(id) {
   const s = state.history.find(h => h.id === id);
   return (s && s.memo) ? s.memo : '';
 }
+// 스냅샷 id 기준 메모 저장 (빈 값이면 삭제)
 function setSnapshotMemo(id, text) {
   const s = state.history.find(h => h.id === id);
   if (!s) return;

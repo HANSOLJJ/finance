@@ -111,6 +111,7 @@ function openHistoricalAddModal() {
   amtEl.addEventListener('input', updatePreview);
 
   const close = () => backdrop.remove();
+  // 입력 검증 → 최종 확인(confirm) → 소급 적용 실행
   const apply = () => {
     const data = {
       category: catEl.value,
@@ -194,6 +195,7 @@ function applyHistoricalAsset(data) {
   render();
 }
 
+// 현재 state 전체를 JSON 파일로 다운로드 (백업). 성공 시 lastBackupAt 기록
 function exportJSON() {
   console.log('[Export] 시작');
   try {
@@ -235,6 +237,7 @@ function exportJSON() {
   }
 }
 
+// 파일 선택 input에서 백업 JSON을 읽어 복원 시작. input value 초기화는 같은 파일 재선택 허용용
 function importJSON(e) {
   console.log('[Import] 호출됨, event:', e);
   const file = e && e.target && e.target.files && e.target.files[0];
@@ -253,6 +256,7 @@ function importJSON(e) {
   if (e.target) e.target.value = '';
 }
 
+// 백업 JSON 텍스트 검증(holdings·목표비중 필수) 후 state 교체. 구버전 형식은 migrateState로 흡수
 function applyImportedJSON(text, fileName) {
   try {
     if (!text) throw new Error('파일이 비어있습니다');
@@ -271,6 +275,8 @@ function applyImportedJSON(text, fileName) {
   }
 }
 
+// 현재 자산 총계를 오늘 날짜 스냅샷으로 저장 (같은 날짜는 덮어씀)
+// CPI·M2는 자동 수집하되, 실패해도 마지막 캐시값으로 대체하고 스냅샷 자체는 계속 진행
 async function snapshot() {
   const date = localDateStr();
   const total = grandTotal();
@@ -524,6 +530,7 @@ function generateDummyHistory() {
   toast(`🧪 데모 데이터 생성됨 · 자산 ${state.holdings.length}종목 + ${numMonths}개월 이력 (자산 +${((Math.pow(1.008, numMonths-1)-1)*100).toFixed(1)}% / CPI +${((Math.pow(1.0028, numMonths-1)-1)*100).toFixed(1)}%)`);
 }
 
+// 확인 후 모든 데이터(자산·이력·설정)를 기본값으로 초기화
 function resetAll() {
   if (!confirm('정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라집니다.')) return;
   state = defaultState();
@@ -532,6 +539,7 @@ function resetAll() {
   toast('🔄 초기화 완료');
 }
 
+// 하단 토스트 메시지를 2.2초간 표시
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;

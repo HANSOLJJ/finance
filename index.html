@@ -11,6 +11,7 @@
 <body>
 
 <div class="app">
+  <!-- file:// 로 직접 열었을 때 표시되는 경고 배너 (로컬 서버 안내) -->
   <div id="fileWarn" class="file-warn" style="display:none;">
     ⚠️ <b>file:// 으로 열림 — 주식 시세/검색이 차단됩니다</b><br />
     브라우저 보안 정책상 파일을 직접 열면 외부 API 호출이 막힙니다. 같은 폴더의
@@ -18,6 +19,7 @@
     (암호화폐, 환율, 금 카테고리는 그대로 작동합니다)
   </div>
 
+  <!-- 상단 헤더: 타이틀 · 환율 배지 · 전역 액션 버튼 -->
   <header class="top">
     <h1><span class="dot"></span> 자산 포트폴리오</h1>
     <div class="actions">
@@ -219,6 +221,7 @@
         <h2>📈 자산 이력 (USD 구매력 기준)</h2>
         <div class="desc">"이력 저장" 시 미국 CPI도 함께 자동 수집 → 인플레이션 대비 실질 자산 변화 추적</div>
       </div>
+      <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시) -->
       <div class="metrics-box" id="realReturnBox" style="display:none;">
         <div class="metric-cell">
           <div class="lbl">명목 USD 수익률<span class="help" title="첫 스냅샷 대비 현재 USD 자산 변화율. 인플레이션이나 통화확장 보정 안 함. 그냥 절대 USD 금액의 변화.">?</span></div>
@@ -247,6 +250,7 @@
         <button class="btn primary" id="chartModeNormBtn" onclick="setChartMode('normalized')" style="padding:4px 10px;font-size:12px;">정규화 (%) <span class="help" title="모든 라인이 첫 스냅샷=0%에서 시작. 비중 무관하게 성과 비교 가능. 환율(USD/KRW) 변화도 함께 표시.">?</span></button>
       </div>
       <div class="chart-wrap tall"><canvas id="historyChart"></canvas></div>
+      <!-- 스냅샷 이력 테이블 (CPI·M2 기준선 비교) -->
       <table class="history-table">
         <thead>
           <tr>
@@ -424,8 +428,10 @@
   </footer>
 </div>
 
+<!-- 우하단 토스트 알림 -->
 <div class="toast" id="toast"></div>
 
+<!-- 클래식 스크립트 분할 — 로드 순서 중요: 상수 → 상태 → 계산 → 렌더/차트 → IO/시세/동기화 → 초기화 -->
 <script src="js/constants.js"></script>
 <script src="js/state.js"></script>
 <script src="js/calc.js"></script>

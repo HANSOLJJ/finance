@@ -1,5 +1,6 @@
 // 금액 계산 — 합계·검산·View Scope·P&L·세금 추정
 // ==================== 계산 함수 ====================
+// 콤마·공백 섞인 입력값을 숫자로 변환 (파싱 실패 시 0)
 function num(v) {
   if (v === null || v === undefined || v === '') return 0;
   const cleaned = String(v).replace(/,/g, '').trim();
@@ -7,6 +8,7 @@ function num(v) {
   return isFinite(n) ? n : 0;
 }
 
+// 입력창 표시용 천단위 콤마 포맷 (소수점 입력 유지)
 function fmtNumInput(v) {
   // Format number with commas for input display, preserving decimals
   if (v === '' || v === null || v === undefined) return '';
@@ -25,6 +27,7 @@ function fmtNumInput(v) {
   return n.toLocaleString('en-US');
 }
 
+// 보유 항목 1건의 KRW 평가액 — 금액직접입력(amountOnly)·해외주식(USD×환율) 규칙 반영
 function holdingValue(h) {
   const cat = CATEGORY_MAP[h.category];
   if (cat && cat.amountOnly) {
@@ -60,6 +63,7 @@ function categoryTotalUSD(catKey) {
     .reduce((sum, h) => sum + holdingValueUSD(h), 0);
 }
 
+// USD 금액 표시 포맷 ($ + 천단위 콤마, 소수 2자리)
 function fmtUSD(n) {
   if (!isFinite(n) || n === 0) return '$0';
   const sign = n < 0 ? '-' : '';
@@ -67,12 +71,14 @@ function fmtUSD(n) {
   return sign + '$' + abs.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
+// 카테고리별 KRW 합계
 function categoryTotal(cat) {
   return state.holdings
     .filter(h => h.category === cat)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
+// 통화노출별 KRW 합계
 function exposureTotal(exp) {
   return state.holdings
     .filter(h => h.exposure === exp)
@@ -92,6 +98,7 @@ function assetTypeTotal(type) {
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
+// 전체 보유 자산 KRW 총합
 function grandTotal() {
   return state.holdings.reduce((sum, h) => sum + holdingValue(h), 0);
 }
@@ -102,6 +109,7 @@ function liquidityTotal(kind /* 'liquid' | 'locked' */) {
     .filter(h => (h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid') === kind)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
+// 항목의 유동성 값 (미지정 시 카테고리 기본값)
 function holdingLiquidity(h) {
   return h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid';
 }
@@ -148,6 +156,7 @@ function verifyTotals() {
   r.ok = r.orphans.length === 0 && r.warnings.length === 0;
   return r;
 }
+// 검산 결과를 설정 탭에 표로 렌더링 (자산타입/통화노출/유동성 + orphan·경고)
 function renderVerifyResult() {
   const box = document.getElementById('verifyResult');
   if (!box) return;
@@ -242,18 +251,23 @@ function scopedHoldings() {
   }
   return state.holdings;
 }
+// View Scope 적용 총자산
 function scopedTotal() {
   return scopedHoldings().reduce((sum, h) => sum + holdingValue(h), 0);
 }
+// View Scope 적용 통화노출 합계
 function scopedExposureTotal(exp) {
   return scopedHoldings().filter(h => h.exposure === exp).reduce((sum, h) => sum + holdingValue(h), 0);
 }
+// View Scope 적용 자산타입 합계
 function scopedAssetTypeTotal(type) {
   return scopedHoldings().filter(h => assetTypeOf(h) === type).reduce((sum, h) => sum + holdingValue(h), 0);
 }
+// View Scope 적용 카테고리 합계
 function scopedCategoryTotal(cat) {
   return scopedHoldings().filter(h => h.category === cat).reduce((sum, h) => sum + holdingValue(h), 0);
 }
+// 현재 뷰가 '유동만' 모드인지 여부
 function isLiquidScope() {
   return (state.viewScope || 'all') === 'liquid';
 }
@@ -266,6 +280,7 @@ function setViewScope(scope) {
   syncScopeToggleUI();
   render();
 }
+// 스코프 토글 버튼 활성 상태·힌트 문구를 현재 scope에 맞춰 동기화
 function syncScopeToggleUI() {
   const scope = state.viewScope || 'all';
   ['scopeAllBtn', 'scopeAllBtn2'].forEach(id => {

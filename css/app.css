@@ -1,4 +1,5 @@
 /* 자산 포트폴리오 앱 전체 스타일 (구 index.html <style> 블록 분리) */
+  /* 전역 CSS 변수 — 기본 팔레트·그림자·카테고리/통화 색상 */
   :root {
     --bg: #f5f6fa;
     --card: #ffffff;
@@ -28,6 +29,7 @@
     --c-commodity: #d97706;
   }
 
+  /* 기본 리셋 · 전역 폰트 */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, '맑은 고딕', 'Malgun Gothic', sans-serif;
@@ -118,6 +120,7 @@
     font-size: 11px; color: var(--text-muted);
     flex: 1; min-width: 200px;
   }
+  /* KPI 카드 (대시보드 상단 지표) */
   .kpi-card {
     background: var(--card);
     border-radius: 12px;
@@ -739,6 +742,7 @@
     font-weight: 400;
     text-align: left;
   }
+  /* 메모 편집 모달 (배경 + 본문) */
   .memo-modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(15, 23, 42, 0.55);
@@ -994,6 +998,7 @@
     cursor: pointer;
   }
   .treemap-legend .lg-only:hover { background: white; }
+  /* 트리맵 드릴다운 브레드크럼 바 */
   .treemap-breadcrumb {
     display: flex; align-items: center; gap: 8px;
     padding: 12px 20px;
@@ -1082,6 +1087,7 @@
     grid-template-columns: 1fr;
     gap: 16px;
   }
+  /* 백업/서버 저장 카드 (설정 탭, 노란 강조) */
   .backup-card {
     padding: 20px;
     background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);

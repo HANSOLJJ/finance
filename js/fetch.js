@@ -38,6 +38,7 @@ const CORS_PROXIES = [
   },
 ];
 
+// CORS 우회 공통 함수: CORS_PROXIES를 순서대로 시도해 첫 성공 JSON 반환, 전부 실패하면 마지막 에러 throw
 async function fetchViaProxy(url) {
   let lastErr;
   for (const p of CORS_PROXIES) {
@@ -81,6 +82,7 @@ function parseNaverResults(data) {
     });
 }
 
+// 네이버 자동완성 API로 한국주식 검색. 직접 호출 먼저 시도하고 CORS 차단 시 프록시로 폴백
 async function searchNaverFinance(query) {
   const url = `https://m.stock.naver.com/front-api/search/autoComplete?query=${encodeURIComponent(query)}&target=stock,index,marketindicator`;
   // 1) 직접 호출 시도 (네이버가 CORS 허용해 줄 수도)
@@ -99,6 +101,8 @@ async function searchNaverFinance(query) {
   return parseNaverResults(data);
 }
 
+// USD/KRW 환율 갱신: 1순위 야후 KRW=X(실시간, 프록시 경유) → 실패 시 Frankfurter(ECB 공식, 전일자) 폴백
+// 성공 시 state에 저장하고 환율에 의존하는 UI(KPI/목표/차트/보유목록)를 다시 렌더
 async function fetchExchangeRate(showToast = false) {
   const badge = document.getElementById('fxBadge');
   badge.classList.add('loading');
@@ -147,6 +151,7 @@ async function fetchExchangeRate(showToast = false) {
   badge.classList.remove('loading');
 }
 
+// 상단 환율 배지에 현재 환율과 마지막 갱신 시각 표시
 function updateFxBadge() {
   document.getElementById('fxRate').textContent = num(state.usdKrwRate).toFixed(2);
   if (state.rateUpdatedAt) {
@@ -159,6 +164,8 @@ function updateFxBadge() {
   }
 }
 
+// 코인 KRW 시세 수집: 설정된 거래소(빗썸/업비트/코인게코) API를 프록시 없이 직접 호출
+// 빗썸/업비트는 symbol(BTC 등), 코인게코는 ticker(coingecko id) 필요 — 검색으로 선택해야 채워짐
 async function fetchCryptoPrice(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -204,6 +211,7 @@ async function fetchCryptoPrice(holdingId) {
 // ==================== 검색 (자동완성) ====================
 let _searchTimer = null;
 
+// 종목 검색 통합 진입점: 코인은 코인게코, 주식은 한글 쿼리면 네이버 우선 → 실패 시 야후(프록시) 폴백
 async function searchQuotes(query, isCrypto) {
   query = String(query || '').trim();
   if (query.length < 1) return [];
@@ -242,6 +250,7 @@ async function searchQuotes(query, isCrypto) {
   }
 }
 
+// 종목명 입력 핸들러: 입력값을 name에 즉시 저장하고 300ms 디바운스로 자동완성 드롭다운 갱신
 function onSearchInput(e) {
   const id = e.target.getAttribute('data-search');
   const h = state.holdings.find(x => x.id === id);
@@ -297,6 +306,7 @@ function onSearchInput(e) {
   }, 300);
 }
 
+// 검색칸 재포커스 시 이전 검색 결과 드롭다운 복원
 function onSearchFocus(e) {
   // 포커스 시 기존 드롭다운 표시 (있으면)
   const id = e.target.getAttribute('data-search');
@@ -306,6 +316,7 @@ function onSearchFocus(e) {
   }
 }
 
+// 검색칸 블러 시 드롭다운 닫기 — 결과 클릭(mousedown)이 먼저 처리되도록 200ms 지연
 function onSearchBlur(e) {
   // mousedown 으로 처리되도록 약간 지연
   const id = e.target.getAttribute('data-search');
@@ -315,6 +326,7 @@ function onSearchBlur(e) {
   }, 200);
 }
 
+// 자동완성 결과 선택: 이름/티커/심볼 반영 후 곧바로 해당 종목 시세 갱신
 async function selectSearchResult(holdingId, result) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -327,6 +339,8 @@ async function selectSearchResult(holdingId, result) {
   await refreshHolding(holdingId);
 }
 
+// 주식/ETF 시세 수집 (야후 차트 API, 프록시 경유). 6자리 숫자 티커는 코스피(.KS)로 간주
+// 해외주식(isUSD 카테고리)은 priceUSD에, 나머지는 price(KRW)에 저장
 async function fetchStockPrice(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -358,6 +372,7 @@ async function fetchStockPrice(holdingId) {
   }
 }
 
+// 단일 종목 시세 갱신: 카테고리에 따라 코인/주식 fetch로 분기, 진행 중 버튼 스피너 표시
 async function refreshHolding(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -450,6 +465,8 @@ async function fetchUSCPI() {
   };
 }
 
+// 금 시세 갱신: COMEX 금 선물(GC=F, USD/oz)을 환율로 KRW/g 환산해 '금' 카테고리 전체 행에 적용
+// 국제 시세 환산값이라 KRX 국내 금시세와 괴리가 있을 수 있음 — 의도된 동작
 async function fetchAndApplyGoldPrice(btn) {
   const original = btn?.textContent;
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 갱신 중...'; }
@@ -488,6 +505,7 @@ async function fetchAndApplyGoldPrice(btn) {
   }
 }
 
+// 전체 시세 일괄 갱신: 환율 → 주식/코인 순차 갱신(요청 간 250ms 간격은 API rate limit 회피용) → 금 보유 시 금 시세도 갱신
 async function refreshAllPrices() {
   const btn = document.getElementById('refreshAllBtn');
   btn.disabled = true;

@@ -1,5 +1,6 @@
 // 화면 렌더링 — 탭·포맷터·대시보드/분석/이력/설정 탭 그리기
 // ==================== 탭 네비게이션 ====================
+// 탭 전환 — 버튼/패널 active 토글, URL 해시 동기화, 탭 표시 후 차트 재렌더.
 function switchTab(tabName) {
   if (!tabName) return;
   document.querySelectorAll('.tab-btn').forEach(b => {
@@ -19,6 +20,7 @@ function switchTab(tabName) {
   setTimeout(() => { try { renderCharts(); } catch (_) {} }, 50);
 }
 
+// 탭 클릭/해시 변경 리스너 등록 및 초기 탭 결정 (URL 해시 > 저장된 state > dashboard 순).
 function initTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
@@ -36,6 +38,7 @@ function initTabs() {
 }
 
 // ==================== 포맷팅 ====================
+// 원화 전체 자릿수 포맷 (₩1,234,567). 비정상 값은 ₩0 처리.
 function fmtKRW(n) {
   if (!isFinite(n) || n === 0) return '₩0';
   const sign = n < 0 ? '-' : '';
@@ -43,6 +46,7 @@ function fmtKRW(n) {
   return sign + '₩' + abs.toLocaleString('ko-KR');
 }
 
+// 원화 축약 포맷 — 억/만 단위로 줄여 카드·칩 등 좁은 공간용.
 function fmtKRWshort(n) {
   if (!isFinite(n)) return '0';
   const abs = Math.abs(n);
@@ -52,11 +56,13 @@ function fmtKRWshort(n) {
   return sign + Math.round(abs).toLocaleString('ko-KR');
 }
 
+// 비율(0~1)을 소수 1자리 % 문자열로 변환.
 function fmtPct(p) {
   if (!isFinite(p)) return '0.0%';
   return (p * 100).toFixed(1) + '%';
 }
 
+// 부호(+/-) 붙은 % 포맷 — 증감 표시용. 비정상 값은 — 처리.
 function fmtSignedPct(p) {
   if (!isFinite(p)) return '—';
   const v = (p * 100).toFixed(1);
@@ -64,6 +70,7 @@ function fmtSignedPct(p) {
 }
 
 // ==================== 렌더링 ====================
+// 전체 화면 재렌더 총괄 — 상태 저장 후 KPI/입력테이블/목표/리밸런싱/세후/이력/설정/차트를 순서대로 갱신.
 function render() {
   // 진행 중인 debounce 큐가 있으면 취소 (어차피 전체 갱신할 거니까)
   _debouncedChartRefresh.cancel();
@@ -87,6 +94,7 @@ function render() {
 const REBAL_CORE_TYPES = ['현금', '주식', '금', '원자재', '암호화폐'];
 const REBAL_THRESHOLD = 0.02;  // 2%p
 
+// 자산타입 리밸런싱 카드 렌더 — 현재/목표 비중 차이를 금액·%p로 표시, 뷰 스코프(유동/전체) 반영.
 function renderRebalancing() {
   const grid = document.getElementById('rebal-grid');
   const summary = document.getElementById('rebal-summary');
@@ -345,6 +353,8 @@ function _removed_renderHedgePerformance() {
 }
 
 // ==================== 세후 평가 (분석 탭) ====================
+// 카테고리별 예상 양도세·세후 평가금액 요약 카드와 상세 표 렌더 (즉시 매도 가정).
+// 손익·세금은 평단가가 입력된 종목만 계산 대상.
 function renderTaxAnalysis() {
   const summaryEl = document.getElementById('tax-summary');
   const tbody = document.querySelector('#taxTable tbody');
@@ -428,6 +438,7 @@ function renderTaxAnalysis() {
 }
 
 // ==================== 설정 탭 (백업 메타 + 환율/CPI 인풋) ====================
+// 설정 탭 렌더 — 백업 경과 경고, 환율/CPI 수동 입력 바인딩. 포커스 중인 인풋은 덮어쓰지 않음(입력 유실 방지).
 function renderSettings() {
   const meta = document.getElementById('backupMeta');
   if (meta) {
@@ -477,6 +488,7 @@ function renderSettings() {
   }
 }
 
+// 대시보드 KPI 카드 갱신 — 총자산은 항상 전체 기준, 통화노출/유동성 비중은 뷰 스코프 반영.
 function renderKPIs() {
   // 총자산 / 유동 / 묶임 카드는 항상 전체 기준 (사용자가 자기 총 자산을 항상 알아야 함)
   const total = grandTotal();
@@ -591,6 +603,8 @@ function renderInflationKPI() {
   `;
 }
 
+// 자산 입력 테이블 전체 렌더 — 카테고리 섹션별 헤더/행/추가버튼을 새로 만들고 이벤트를 다시 바인딩.
+// 카테고리 성격(검색형/금액직접입력형/금)에 따라 행 구성이 다르지만, 컬럼 정렬을 맞추기 위해 11-column grid로 통일.
 function renderHoldings() {
   const container = document.getElementById('holdingsContainer');
   container.innerHTML = '';
@@ -926,6 +940,7 @@ function renderHoldings() {
   });
 }
 
+// 숫자 인풋 포커스 핸들러 — 콤마를 제거한 raw 값으로 바꿔 편집을 편하게 함.
 function onNumericFocus(e) {
   // 편집 시 콤마 제거해서 raw 숫자만 보여주기
   const raw = String(e.target.value).replace(/,/g, '');
@@ -936,12 +951,15 @@ function onNumericFocus(e) {
   }, 0);
 }
 
+// 숫자 인풋 블러 핸들러 — 편집이 끝나면 콤마 포맷을 복원.
 function onNumericBlur(e) {
   // 포커스 나가면 콤마 자동 포맷
   const formatted = fmtNumInput(e.target.value);
   e.target.value = formatted;
 }
 
+// 보유 행 필드 변경 핸들러 — 필드 종류에 따라 전체 재렌더/부분 갱신을 선택.
+// 숫자 필드는 입력 중 포커스 유지를 위해 partialUpdate만, blur(change) 시에만 전체 재렌더.
 function onFieldChange(e) {
   const id = e.target.getAttribute('data-id');
   const field = e.target.getAttribute('data-field');
@@ -968,6 +986,7 @@ function onFieldChange(e) {
   }
 }
 
+// 입력 중 부분 갱신 — 입력 행 DOM은 건드리지 않고(포커스 유지) KPI·계산 셀·합계만 갱신, 무거운 차트는 debounce.
 function partialUpdate(h) {
   // 입력 중 포커스를 잃지 않도록 입력 행 자체는 건드리지 않고
   // KPI, 합계, 차트, 목표 테이블만 갱신
@@ -1012,12 +1031,14 @@ function partialUpdate(h) {
   _debouncedChartRefresh();
 }
 
+// HTML 특수문자 이스케이프 — 사용자 입력을 innerHTML에 넣을 때 XSS/마크업 깨짐 방지.
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, m => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[m]));
 }
 
+// 자산타입별 목표 비중 테이블 렌더 — 목표 입력 시 '금'은 통화노출 '달러헤지' 목표와 자동 동기화.
 function renderAssetTypeTargets() {
   const total = grandTotal();
   const tbody = document.querySelector('#assetTypeTargetsTable tbody');
@@ -1081,6 +1102,7 @@ function renderAssetTypeTargets() {
   });
 }
 
+// 통화노출별 목표 비중 테이블 렌더 — '달러헤지' 목표 변경 시 자산타입 '금' 목표와 역방향 동기화.
 function renderExpTargets() {
   const total = grandTotal();
   const tbody = document.querySelector('#expTargetsTable tbody');
@@ -1142,6 +1164,8 @@ function renderExpTargets() {
   });
 }
 
+// 이력 탭 렌더 — 스냅샷별 USD 자산을 CPI/M2 기준선과 비교해 실질 성과를 표와 상단 KPI로 표시.
+// 첫 스냅샷이 모든 누적 비교의 기준점. CPI 지수가 없으면 연율 가정치로 근사.
 function renderHistory() {
   const tbody = document.getElementById('historyTbody');
   tbody.innerHTML = '';
@@ -1184,6 +1208,7 @@ function renderHistory() {
     return best;
   }
 
+  // 이력 표 안의 작은 증감률 표시용 — 색상 입힌 부호 % HTML 조각 생성.
   function fmtSignedPctSmall(p, label) {
     if (p === null || !isFinite(p)) return '—';
     const sign = p >= 0 ? '+' : '';

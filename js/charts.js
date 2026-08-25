@@ -2,6 +2,8 @@
 // ==================== 차트 ====================
 let charts = {};
 
+// 모든 차트를 destroy 후 재생성하는 메인 렌더 진입점 (도넛·막대·트리맵·이력 라인)
+// 이력 차트의 legend 가시성만은 renderCharts._histPrevVis 에 라벨 기준으로 저장해 재생성 후 복원 (모드 토글 시 유지 목적)
 function renderCharts() {
   // 이력 차트의 legend 보이기/숨기기 상태를 라벨 기준으로 저장 (모드 토글 시 보존)
   const histPrevVis = {};
@@ -380,6 +382,8 @@ function normLineOpts(rawMap) {
   };
 }
 
+// 도넛 차트 공통 옵션 빌더. useTooltip=false 는 '데이터 없음' placeholder 렌더 시 툴팁 차단용,
+// percentage=true 면 데이터 값을 비율(0~1)로 간주해 %만 표시 (합산 비중 계산 생략)
 function doughnutOpts(useTooltip = true, percentage = false) {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -402,6 +406,7 @@ function doughnutOpts(useTooltip = true, percentage = false) {
   };
 }
 
+// 현재 vs 목표 비중 비교용 가로 막대 차트 공통 옵션 (indexAxis:'y', X축 % 단위)
 function barOpts() {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -426,6 +431,7 @@ function barOpts() {
   };
 }
 
+// KRW 기준 일반 라인 차트 공통 옵션 (Y축 원화 축약 표시) — USD/정규화 이력 차트는 별도 옵션 사용
 function lineOpts() {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -613,6 +619,9 @@ function heatColor(pct) {
   return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
 }
 
+// 종목별 트리맵 렌더 (Finviz 스타일). 모듈 상태(_treemapDrill/_treemapFlat/_treemapHidden/_treemapHeat)에 따라
+// 테마별·flat·drill 3가지 뷰 + 손익 히트맵을 매번 destroy 후 재생성.
+// 현금은 음수 계좌(마이너스 통장)를 area로 못 그리므로 통화별 net 2타일로만 표시 (총액을 리밸런싱/목표표와 일치시키기 위함)
 function renderTreemap() {
   const canvas = document.getElementById('treemapChart');
   if (!canvas) return;
