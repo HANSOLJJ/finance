@@ -1,0 +1,19 @@
+# ⚠️ 민감 개인정보 — 절대 GitHub에 커밋 금지
+# 실제 자산 데이터가 담긴 평문 파일들
+*.json
+portfolio_*.json
+portfolio_backup.json
+*.backup
+backups/
+
+# 로컬 작업 노트 (커밋 불필요)
+checklist.md
+context-notes.md
+
+# 로컬 실행용 (배포에 불필요)
+proxy_server.py
+*.vbs
+*.bat
+*.lnk
+
+# 암호화된 파일(portfolio.enc)은 .json 확장자가 아니므로 위 규칙에 걸리지 않음 → 정상 커밋됨
