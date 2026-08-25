@@ -1505,23 +1505,19 @@
       </div>
       <div class="backup-desc" style="margin-top:6px;">
         🔐 버튼: 현재 데이터를 비밀번호로 암호화한 <code>portfolio.enc</code> 파일을 만듭니다.
-        이 파일만 GitHub repo에 올리면 공개 저장소여도 안전합니다 (복호화는 브라우저 안에서 비번 입력 시에만).
+        서버 장애·비번 분실 대비 비상 백업용 로컬 보관 파일입니다 (복호화는 브라우저 안에서 비번 입력 시에만).
         <b>긴 패스프레이즈(15자 이상)</b>를 쓰세요.
       </div>
 
-      <!-- ☁️ GitHub 직접 업로드 (로컬에서만 노출) -->
-      <div id="ghUploadBox" style="display:none; margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
+      <!-- ☁️ 서버 저장 (Cloudflare KV — 인증은 Access가 전담) -->
+      <div id="syncBox" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
         <div class="backup-actions">
-          <button class="btn primary" onclick="uploadToGitHub()" style="background:#2563eb;border-color:#2563eb;">☁️ GitHub에 업로드</button>
-          <button class="btn" onclick="setGitHubToken()">🔑 토큰 설정</button>
-          <button class="btn" onclick="clearGitHubToken()">토큰 지우기</button>
+          <button class="btn primary" onclick="savePortfolio()" style="background:#2563eb;border-color:#2563eb;">☁️ 서버에 저장</button>
+          <button class="btn" onclick="forgetDevicePassword()">🔒 이 기기에서 비번 잊기</button>
         </div>
         <div class="backup-desc" style="margin-top:6px;">
-          ☁️ 버튼: 암호화 후 <b>GitHub에 자동 업로드</b>(다운로드·git 불필요). 1~2분 뒤 사이트 반영.<br>
-          <span id="ghTokenStatus"></span>
-          토큰은 <b>이 브라우저에만</b> 저장되며 repo엔 올라가지 않습니다.
-          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" style="color:#60a5fa;">토큰 발급</a>
-          (Repository access → <code>finance</code>만 · Permissions → Contents: Read and write)
+          ☁️ 버튼: 암호화 후 <b>서버(KV)에 즉시 저장</b> — 다른 기기에서 새로고침하면 바로 보입니다.<br>
+          <span id="syncStatus"></span>
         </div>
       </div>
 
@@ -1684,6 +1680,7 @@ function defaultState() {
     cryptoExchange: 'bithumb',  // 'bithumb' | 'upbit' | 'coingecko'
     usCpiAnnual: 0.035,  // 미국 CPI 연율 (인플레이션 기준선용, default 3.5%)
     lastBackupAt: '',  // 마지막 JSON 백업 시점
+    lastServerSaveAt: '',  // 마지막 서버(KV) 저장 시점
     activeTab: 'dashboard',  // 마지막 활성 탭
     historyChartMode: 'normalized',  // 'absolute' | 'normalized' (이력 차트 표시 모드) — 기본: 정규화
     holdingMemos: {},  // { [normalizedName]: memoText } - 종목명 기준 멀티라인 메모 (자산 입력의 짧은 라벨 memo와 별개)
@@ -1769,6 +1766,7 @@ function migrateState(s) {
   if (s.cryptoExchange === undefined) s.cryptoExchange = 'bithumb';
   if (s.usCpiAnnual === undefined) s.usCpiAnnual = 0.035;
   if (s.lastBackupAt === undefined) s.lastBackupAt = '';
+  if (s.lastServerSaveAt === undefined) s.lastServerSaveAt = '';
   if (s.activeTab === undefined) s.activeTab = 'dashboard';
   if (s.historyChartMode === undefined) s.historyChartMode = 'normalized';
   if (s.holdingMemos === undefined || s.holdingMemos === null) s.holdingMemos = {};
@@ -5301,15 +5299,13 @@ function _validateJSON(text) {
 
 const CORS_PROXIES = [
   {
-    // 로컬 Python 프록시 (proxy_server.py가 떠있으면 가장 안정적, 같은 origin)
-    // 배포(호스팅) 환경에선 서버가 없어 항상 404 → 아예 건너뜀 (콘솔 노이즈 제거)
-    name: 'local',
-    localOnly: true,
+    // 같은 origin의 /api/proxy — 배포(Cloudflare Pages Functions)와 로컬(proxy_server.py) 모두 이 경로
+    name: 'api-proxy',
     build: url => `/api/proxy?url=${encodeURIComponent(url)}`,
     parse: async r => _validateJSON(await r.text()),
   },
   {
-    // 내 전용 Cloudflare Worker 프록시 (배포 사이트에서 실시간 시세용 - 안정적)
+    // 구 Cloudflare Worker 프록시 (전환기 폴백 — Pages 이전 완료 후 제거 예정)
     name: 'cf-worker',
     build: url => `https://broad-waterfall-7379.noblein12.workers.dev/?url=${encodeURIComponent(url)}`,
     parse: async r => _validateJSON(await r.text()),
@@ -5338,7 +5334,6 @@ const CORS_PROXIES = [
 async function fetchViaProxy(url) {
   let lastErr;
   for (const p of CORS_PROXIES) {
-    if (p.localOnly && !isLocalEnv()) continue; // 배포 환경에선 로컬 프록시 건너뜀
     try {
       const r = await fetch(p.build(url));
       if (!r.ok) { lastErr = new Error(`${p.name}: HTTP ${r.status}`); continue; }
@@ -5872,7 +5867,7 @@ async function decryptData(obj, password) {
   return new TextDecoder().decode(pt);
 }
 
-// 현재 데이터를 암호화한 portfolio.enc 다운로드 (GitHub에 커밋할 파일)
+// 현재 데이터를 암호화한 portfolio.enc 다운로드 (서버 장애·비번 분실 대비 비상 백업)
 async function exportEncrypted() {
   const hasData = state.holdings && state.holdings.some(h => h.name || h.price || h.priceUSD);
   if (!hasData) {
@@ -5894,7 +5889,7 @@ async function exportEncrypted() {
     a.href = url; a.download = 'portfolio.enc'; a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(() => { try { document.body.removeChild(a); } catch (_) {} URL.revokeObjectURL(url); }, 1000);
-    toast('🔐 portfolio.enc 생성 완료 — 이 파일을 repo에 커밋/푸시하세요');
+    toast('🔐 portfolio.enc 생성 완료 — 비상 백업용으로 안전한 곳에 보관하세요');
   } catch (err) {
     console.error('[Encrypt] 에러:', err);
     alert('암호화 실패: ' + err.message);
@@ -5904,109 +5899,60 @@ window.exportEncrypted = exportEncrypted;
 window.encryptData = encryptData;
 window.decryptData = decryptData;
 
-// ==================== ☁️ GitHub 직접 업로드 (서버 없이 Contents API) ====================
-const GH_DEFAULT = { owner: 'HANSOLJJ', repo: 'finance', branch: 'main', path: 'portfolio.enc' };
-function ghConfig() {
-  return {
-    owner:  localStorage.getItem('gh_owner')  || GH_DEFAULT.owner,
-    repo:   localStorage.getItem('gh_repo')   || GH_DEFAULT.repo,
-    branch: localStorage.getItem('gh_branch') || GH_DEFAULT.branch,
-    path:   localStorage.getItem('gh_path')   || GH_DEFAULT.path,
-  };
-}
-function isLocalEnv() {
-  return location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-}
-function ghErrHint(code) {
-  if (code === 401) return '토큰이 잘못됐거나 만료됨';
-  if (code === 403) return '권한 부족 (Contents: Read and write 확인) 또는 요청 제한';
-  if (code === 404) return 'repo 경로/접근권한 확인 (owner·repo·토큰의 repo 접근)';
-  if (code === 409) return '충돌 — 다시 시도하세요';
-  if (code === 422) return '요청 형식 오류';
-  return '알 수 없는 오류';
-}
-function b64utf8(str) {
-  const bytes = new TextEncoder().encode(str); let s = ''; const CH = 0x8000;
-  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
-  return btoa(s);
-}
-function setGitHubToken() {
-  if (!isLocalEnv() && !confirm('이 기기(공개 사이트)의 브라우저에 토큰을 저장합니다.\n· 신뢰하는 내 기기면 OK\n· 공용 PC라면 작업 후 반드시 [토큰 지우기]로 삭제하세요\n계속할까요?')) return;
-  const note = localStorage.getItem('gh_pat') ? ' (이미 저장됨 — 새로 넣으면 교체)' : '';
-  const t = prompt('GitHub Fine-grained 토큰을 붙여넣으세요' + note + '\n· finance repo · Contents: Read and write 권한');
-  if (t === null) return;
-  const tok = t.trim();
-  if (!tok) { alert('입력이 비어 있습니다.'); return; }
-  localStorage.setItem('gh_pat', tok);
-  toast('🔑 토큰 저장됨 (이 브라우저에만)');
-  refreshGitHubUI();
-}
-function clearGitHubToken() {
-  localStorage.removeItem('gh_pat');
-  toast('토큰을 지웠습니다.');
-  refreshGitHubUI();
-}
-function refreshGitHubUI() {
-  const box = document.getElementById('ghUploadBox');
-  if (box) box.style.display = 'block'; // 어느 기기/사이트에서든 업로드 가능
-  const st = document.getElementById('ghTokenStatus');
-  if (st) {
-    const c = ghConfig();
-    const warn = isLocalEnv() ? '' : '⚠️ 공용 PC라면 작업 후 [토큰 지우기]로 흔적을 지우세요.<br>';
-    st.innerHTML = warn + (localStorage.getItem('gh_pat')
-      ? '상태: <b style="color:#22c55e;">토큰 저장됨</b> · 대상 <code>' + c.owner + '/' + c.repo + '</code> / <code>' + c.path + '</code><br>'
-      : '상태: <b style="color:#f59e0b;">토큰 미설정</b> — 먼저 [🔑 토큰 설정] 을 누르세요<br>');
-  }
-}
-async function uploadToGitHub() {
-  const token = localStorage.getItem('gh_pat');
-  if (!token) { alert('먼저 [🔑 토큰 설정] 으로 GitHub 토큰을 저장하세요.'); return; }
+// ==================== ☁️ 서버 저장 (Cloudflare KV — 인증은 Access가 전담) ====================
+// 비밀번호는 복호화 성공 시 이 기기 localStorage('pf_pw')에 기억 → 저장/로드 모두 무프롬프트.
+// 신뢰 기기의 localStorage엔 이미 평문 state가 있으므로 보안 수준은 동일하다.
+async function savePortfolio() {
   const hasData = state.holdings && state.holdings.some(h => h.name || h.price || h.priceUSD);
-  if (!hasData) { alert('업로드할 데이터가 없습니다.'); return; }
-  const pw = prompt('암호화 비밀번호\n(사이트 접속 시 쓸 비번과 반드시 동일해야 합니다)');
-  if (!pw) return;
-  const pw2 = prompt('확인을 위해 비밀번호를 한 번 더 입력하세요.');
-  if (pw !== pw2) { alert('비밀번호가 일치하지 않습니다. 취소되었습니다.'); return; }
-
-  const c = ghConfig();
-  const apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + c.path;
-  const headers = {
-    'Authorization': 'Bearer ' + token,
-    'Accept': 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28'
-  };
+  if (!hasData) { alert('저장할 데이터가 없습니다.'); return; }
+  let pw = localStorage.getItem('pf_pw');
+  if (!pw) {
+    const p1 = prompt('암호화 비밀번호\n(사이트 접속 시 쓰는 비번과 동일해야 합니다)');
+    if (!p1) return;
+    const p2 = prompt('확인을 위해 비밀번호를 한 번 더 입력하세요.');
+    if (p1 !== p2) { alert('비밀번호가 일치하지 않습니다. 취소되었습니다.'); return; }
+    pw = p1;
+    localStorage.setItem('pf_pw', pw);
+  }
   try {
     state.lastUpdated = localDateStr();
     const blobObj = await encryptData(JSON.stringify(state), pw);
-    const contentB64 = b64utf8(JSON.stringify(blobObj));
-
-    // 기존 파일 sha 조회 (있으면 덮어쓰기 위해 필요)
-    let sha;
-    const getRes = await fetch(apiBase + '?ref=' + encodeURIComponent(c.branch), { headers, cache: 'no-store' });
-    if (getRes.ok) { sha = (await getRes.json()).sha; }
-    else if (getRes.status !== 404) { throw new Error('파일 조회 실패 (' + getRes.status + ') — ' + ghErrHint(getRes.status)); }
-
-    const body = { message: 'update portfolio ' + state.lastUpdated, content: contentB64, branch: c.branch };
-    if (sha) body.sha = sha;
-    const putRes = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
-    if (!putRes.ok) {
-      let extra = ''; try { extra = '\n' + (await putRes.text()).slice(0, 200); } catch (_) {}
-      throw new Error('업로드 실패 (' + putRes.status + ') — ' + ghErrHint(putRes.status) + extra);
+    const res = await fetch('/api/portfolio', { method: 'PUT', body: JSON.stringify(blobObj) });
+    if (!res.ok) {
+      const hint = res.status === 404 ? ' — 이 환경엔 /api 서버가 없습니다 (배포 사이트에서 저장하세요)' : '';
+      throw new Error('HTTP ' + res.status + hint);
     }
-    state.lastBackupAt = new Date().toISOString();
+    state.lastServerSaveAt = new Date().toISOString();
     saveState();
     renderSettings();
-    refreshGitHubUI();
-    toast('☁️ 업로드 완료! 1~2분 뒤 사이트에서 Ctrl+Shift+R 로 새로고침하세요.');
+    refreshSyncUI();
+    toast('☁️ 서버에 저장됨 — 즉시 반영');
   } catch (err) {
-    console.error('[Upload] 에러:', err);
-    alert('GitHub 업로드 실패:\n' + err.message);
+    console.error('[Save] 에러:', err);
+    alert('서버 저장 실패:\n' + err.message);
   }
 }
-window.uploadToGitHub = uploadToGitHub;
-window.setGitHubToken = setGitHubToken;
-window.clearGitHubToken = clearGitHubToken;
-window.refreshGitHubUI = refreshGitHubUI;
+function forgetDevicePassword() {
+  localStorage.removeItem('pf_pw');
+  toast('🔒 이 기기에서 비밀번호를 지웠습니다 — 다음 접속부터 다시 묻습니다');
+  refreshSyncUI();
+}
+function refreshSyncUI() {
+  const st = document.getElementById('syncStatus');
+  if (!st) return;
+  const pwNote = localStorage.getItem('pf_pw')
+    ? '🔑 비번: <b style="color:#22c55e;">이 기기에 기억됨</b>'
+    : '🔑 비번: <b style="color:#f59e0b;">기억 안 됨</b> — 저장 시 물어봅니다';
+  let saveNote = '';
+  if (state.lastServerSaveAt) {
+    const dt = new Date(state.lastServerSaveAt);
+    saveNote = ' · 마지막 서버 저장: ' + dt.toLocaleString('ko-KR');
+  }
+  st.innerHTML = pwNote + saveNote + '<br>';
+}
+window.savePortfolio = savePortfolio;
+window.forgetDevicePassword = forgetDevicePassword;
+window.refreshSyncUI = refreshSyncUI;
 
 // 잠금 화면 DOM을 동적으로 생성 (스크립트가 body 끝에서 실행되므로 JS로 주입)
 function _buildGate() {
@@ -6021,6 +5967,9 @@ function _buildGate() {
       '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px;">비밀번호를 입력하면 데이터를 복호화합니다.<br>복호화는 이 브라우저 안에서만 이뤄집니다.</div>' +
       '<input id="unlockPw" type="password" placeholder="비밀번호" autocomplete="current-password" ' +
         'style="width:100%;box-sizing:border-box;padding:12px 14px;font-size:15px;border:1px solid #374151;border-radius:10px;background:#1a1d26;color:#e5e7eb;outline:none;margin-bottom:10px;" />' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9ca3af;margin-bottom:10px;cursor:pointer;">' +
+        '<input id="unlockRemember" type="checkbox" checked style="accent-color:#7c3aed;" /> 이 기기에서 기억 (다음부터 안 물어봄)' +
+      '</label>' +
       '<button id="unlockBtn" style="width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;background:#7c3aed;color:#fff;cursor:pointer;">복호화</button>' +
       '<div id="unlockErr" style="min-height:18px;margin-top:10px;font-size:13px;color:#f87171;"></div>' +
     '</div>';
@@ -6045,8 +5994,10 @@ function showUnlockGate(encData) {
       const data = JSON.parse(json);
       if (!data.holdings || !Array.isArray(data.holdings)) throw new Error('형식 오류');
       state = migrateState({ ...defaultState(), ...data });
-      // 보안: 복호화 결과는 메모리에만 유지 (localStorage 저장 안 함).
-      // 새로고침하면 다시 비번을 물어봄 → 공용 PC에서도 흔적이 남지 않음.
+      // "이 기기에서 기억" 체크 시 비번을 localStorage에 저장 → 이후 무프롬프트 자동 복호화.
+      // 체크 해제(공용 PC)면 메모리에만 유지 — 새로고침 시 다시 물어봄.
+      const remember = document.getElementById('unlockRemember');
+      if (remember && remember.checked) localStorage.setItem('pf_pw', input.value);
       gate.style.display = 'none';
       boot();
     } catch (e) {
@@ -6063,7 +6014,7 @@ function boot() {
   initTabs();
   render();
   updateFxBadge();
-  if (typeof refreshGitHubUI === 'function') refreshGitHubUI(); // ☁️ 업로드 UI 로컬에서만 노출
+  if (typeof refreshSyncUI === 'function') refreshSyncUI(); // ☁️ 서버 저장 상태 표시
   // 페이지 로드 시 환율 자동 갱신 (rateUpdatedAt이 1시간 이상 지났거나 비어있으면)
   const stale = !state.rateUpdatedAt
     || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;
@@ -6074,15 +6025,36 @@ async function bootstrap() {
   const hadSaved = localStorage.getItem(STORAGE_KEY) !== null;
   if (hadSaved) { boot(); return; }               // 내 PC(기존 데이터) → 그대로
   if (location.protocol === 'file:') { boot(); return; } // 로컬 파일은 fetch 불가
-  // 신규/공개 방문: 암호화 데이터 파일이 있으면 잠금 화면
+  // 신규 기기: 서버(KV)에서 암호문 로드 → 기억된 비번 있으면 무프롬프트, 없으면 잠금 화면
   const gate = _buildGate();
   gate.style.display = 'flex'; // 깜빡임 방지용 선표시
   let encData = null;
   try {
-    const res = await fetch('./portfolio.enc', { cache: 'no-store' });
+    const res = await fetch('/api/portfolio', { cache: 'no-store' });
     if (res.ok) encData = await res.json();
   } catch (_) {}
+  if (!encData) {
+    // 마이그레이션 폴백: KV에 아직 없으면 구 체제의 repo 내 portfolio.enc (KV 씨딩 후 제거 예정)
+    try {
+      const res = await fetch('./portfolio.enc', { cache: 'no-store' });
+      if (res.ok) encData = await res.json();
+    } catch (_) {}
+  }
   if (!encData) { gate.style.display = 'none'; boot(); return; }
+  const savedPw = localStorage.getItem('pf_pw');
+  if (savedPw) {
+    try {
+      const data = JSON.parse(await decryptData(encData, savedPw));
+      if (data.holdings && Array.isArray(data.holdings)) {
+        state = migrateState({ ...defaultState(), ...data });
+        gate.style.display = 'none';
+        boot();
+        return;
+      }
+    } catch (_) {
+      localStorage.removeItem('pf_pw'); // 비번이 바뀐 경우 — 기억 폐기 후 잠금 화면으로
+    }
+  }
   showUnlockGate(encData);
 }
 
