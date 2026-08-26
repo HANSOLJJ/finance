@@ -10,6 +10,9 @@ backups/
 checklist.md
 context-notes.md
 
+# 개인 스크린샷 (버그 리포트용 임시 폴더)
+screencapture/
+
 # 로컬 실행용 (배포에 불필요)
 proxy_server.py
 *.vbs

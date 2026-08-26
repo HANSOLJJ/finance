@@ -16,6 +16,9 @@ FRED 연동(`/api/proxy` + 서버 키 주입)이 이미 있으므로 **시리즈
 
 - **Cron 시세 적립** — Cloudflare Cron Worker가 매일 시세를 수집해 사용자별 스냅샷 기록.
   "앱을 안 여는 날은 이력이 빈다"는 3차 개편의 구조적 한계 해소. 시세 수집 로직(fetch.js)의 서버 이식 필요
-- **KIS 잔고 자동 동기화** — 한국투자 REST API로 보유 수량·평단 자동 반영 (`/api/kis/balance`).
-  KIS 개발자센터 앱 등록 + 토큰 발급/갱신 관리 필요. 키움 REST는 출시 여부 재확인
+- **증권사·거래소 잔고 자동 동기화** — 보유 수량·평단을 API로 자동 반영해 수동 입력 제거. 3사 대상.
+  - 한국투자증권(KIS): REST API (`/api/kis/balance`). 개발자센터 앱 등록 + 토큰 발급/갱신 관리 필요
+  - 키움증권: REST API 출시 여부 재확인 (2025 출시 정보 있음)
+  - 빗썸: 잔고 조회 API (API 키 발급 + 서명 인증). 시세는 이미 빗썸 공개 API 사용 중이라 잔고만 추가
+  - 공통 과제: API 키를 어디에 둘지 (KV per-user? Cloudflare secret?) + 자동 반영 vs 확인 후 반영 UX
 - **enc 히스토리 퍼지** — 공개 repo 히스토리에 남은 구 암호문(portfolio.enc) 커밋 청소 (git filter-repo)
