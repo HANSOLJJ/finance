@@ -1,6 +1,20 @@
-// 화면 렌더링 — 탭·포맷터·대시보드/분석/이력/설정 탭 그리기
+// 화면 렌더링 — 탭·포맷터·대시보드/분석/이력/설정 탭 그리기.
+//
+// 이 파일은 자산 포트폴리오 앱의 UI 렌더링 전담 계층이다. state 전역 객체(state.js)를
+// 읽어 DOM(innerHTML)을 다시 그리고, 계산은 전부 calc.js의 함수(num/holdingValue/
+// categoryTotal/grandTotal/holdingPnL/computeTaxByCategory 등)에 위임한다.
+// 주요 함수 그룹 — (1) 탭 전환(switchTab/initTabs), (2) 금액·% 포맷터(fmtKRW 계열),
+// (3) 전체 재렌더 총괄 render()와 대시보드(KPI/리밸런싱 카드), (4) 자산 입력 테이블
+// (renderHoldings + 입력 핸들러/partialUpdate), (5) 목표 비중 테이블, (6) 분석 탭 세후
+// 평가(renderTaxAnalysis), (7) 이력 탭(renderHistory), (8) 설정 탭(renderSettings).
+// 로드 순서는 index.html 기준 constants→state→calc→render→charts→data-io→fetch→sync→main.
+// 앞의 constants(CATEGORIES/EXPOSURES 등)·state·calc를 사용하고, 여기서 정의한 render()/
+// 포맷터를 뒤의 charts/data-io/fetch/sync/main이 호출한다(캔버스 차트 렌더 자체는 charts.js 담당).
 // ==================== 탭 네비게이션 ====================
-// 탭 전환 — 버튼/패널 active 토글, URL 해시 동기화, 탭 표시 후 차트 재렌더.
+// 탭 전환 — 버튼/패널의 active 클래스 토글로 표시 패널을 바꾸고 URL 해시를 동기화.
+// state.activeTab에 저장(saveState 호출)해 새로고침 후에도 같은 탭으로 복귀하게 한다.
+// initTabs의 클릭 리스너 외에 main.js가 window.switchTab으로 노출해 인라인 onclick에서도 호출됨.
+// Chart.js는 hidden 요소에 그리지 못하므로 탭 표시 후 renderCharts()(charts.js)를 지연 재호출.
 function switchTab(tabName) {
   if (!tabName) return;
   document.querySelectorAll('.tab-btn').forEach(b => {
@@ -21,6 +35,9 @@ function switchTab(tabName) {
 }
 
 // 탭 클릭/해시 변경 리스너 등록 및 초기 탭 결정 (URL 해시 > 저장된 state > dashboard 순).
+// main.js의 boot()에서 앱 시작 시 딱 한 번 호출된다. 초기 탭 결정도 switchTab을 거치므로
+// 첫 화면부터 해시·state 동기화와 차트 재렌더가 동일한 경로로 처리된다.
+// 뒤로가기 등 브라우저 해시 변경(hashchange)도 유효한 탭 이름일 때만 반영한다.
 function initTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
@@ -38,7 +55,10 @@ function initTabs() {
 }
 
 // ==================== 포맷팅 ====================
-// 원화 전체 자릿수 포맷 (₩1,234,567). 비정상 값은 ₩0 처리.
+// 아래 포맷터 4종은 render.js뿐 아니라 charts.js(툴팁·축 라벨)에서도 두루 쓰인다.
+// USD 포맷(fmtUSD)과 인풋용 콤마 포맷(fmtNumInput)은 calc.js에 있음에 유의.
+// 원화 전체 자릿수 포맷 (₩1,234,567). 입력은 KRW 금액, 반올림 후 콤마 구분.
+// NaN/Infinity 등 비정상 값은 ₩0으로 안전 처리해 화면 깨짐을 막는다.
 function fmtKRW(n) {
   if (!isFinite(n) || n === 0) return '₩0';
   const sign = n < 0 ? '-' : '';
@@ -46,7 +66,9 @@ function fmtKRW(n) {
   return sign + '₩' + abs.toLocaleString('ko-KR');
 }
 
-// 원화 축약 포맷 — 억/만 단위로 줄여 카드·칩 등 좁은 공간용.
+// 원화 축약 포맷 — KRW 금액을 억/만 단위로 줄여 카드·칩 등 좁은 공간용.
+// 1억 이상은 소수 1자리 '억', 1만 이상은 정수 '만', 그 미만은 원 단위 그대로.
+// 리밸런싱 카드의 매수/매도 금액, P&L 셀 등 공간이 좁은 곳에서 fmtKRW 대신 사용.
 function fmtKRWshort(n) {
   if (!isFinite(n)) return '0';
   const abs = Math.abs(n);
@@ -56,13 +78,15 @@ function fmtKRWshort(n) {
   return sign + Math.round(abs).toLocaleString('ko-KR');
 }
 
-// 비율(0~1)을 소수 1자리 % 문자열로 변환.
+// 비율(0~1)을 소수 1자리 % 문자열로 변환. 예: 0.153 → '15.3%'.
+// KPI 비중 표시 등 부호가 필요 없는 곳용. 증감 표시는 fmtSignedPct를 쓴다.
 function fmtPct(p) {
   if (!isFinite(p)) return '0.0%';
   return (p * 100).toFixed(1) + '%';
 }
 
-// 부호(+/-) 붙은 % 포맷 — 증감 표시용. 비정상 값은 — 처리.
+// 부호(+/-) 붙은 % 포맷 — 수익률·증감률 표시용. 입력은 비율(0~1), 소수 1자리.
+// null/NaN 등 계산 불가 값은 '—'(em dash)로 표시해 0%와 구분한다. 이력 탭에서 다용.
 function fmtSignedPct(p) {
   if (!isFinite(p)) return '—';
   const v = (p * 100).toFixed(1);
@@ -71,6 +95,11 @@ function fmtSignedPct(p) {
 
 // ==================== 렌더링 ====================
 // 전체 화면 재렌더 총괄 — 상태 저장 후 KPI/입력테이블/목표/리밸런싱/세후/이력/설정/차트를 순서대로 갱신.
+// 부수효과 — saveState()로 localStorage 저장이 항상 동반되므로 "state 변경 후 render()" 한 줄이면
+// 저장과 화면 반영이 동시에 끝난다. 마지막의 renderCharts()는 charts.js 소관.
+// 호출처 — main.js boot(), 필드 변경(onFieldChange), 행 추가/삭제, 시세 갱신(fetch.js),
+// JSON 가져오기/더미 생성(data-io.js) 등 데이터가 바뀌는 거의 모든 지점.
+// 입력 도중에는 포커스 유실을 피하려고 이 함수 대신 partialUpdate()를 쓴다.
 function render() {
   // 진행 중인 debounce 큐가 있으면 취소 (어차피 전체 갱신할 거니까)
   _debouncedChartRefresh.cancel();
@@ -89,12 +118,15 @@ function render() {
 }
 
 // ==================== 리밸런싱 카드 (대시보드) ====================
-// 자산타입 5개(현금/주식/금/원자재/암호화폐) 단위로 현재-목표 차이를 금액으로 표시
-// ±2%p 이상 차이는 강조
+// 자산타입 5개(현금/주식/금/원자재/암호화폐) 단위로 현재-목표 차이를 금액으로 표시.
+// ±2%p 이상 차이는 카드 색상으로 강조. 채권/부동산은 리밸런싱 대상에서 제외한 목록이다.
 const REBAL_CORE_TYPES = ['현금', '주식', '금', '원자재', '암호화폐'];
 const REBAL_THRESHOLD = 0.02;  // 2%p
 
-// 자산타입 리밸런싱 카드 렌더 — 현재/목표 비중 차이를 금액·%p로 표시, 뷰 스코프(유동/전체) 반영.
+// 자산타입 리밸런싱 카드 렌더 — 현재/목표 비중 차이를 금액(KRW)·%p로 표시, 뷰 스코프(유동/전체) 반영.
+// 현재값은 calc.js의 assetTypeTotal(유동 모드면 scopedAssetTypeTotal), 목표는 state.assetTypeTargets에서 읽음.
+// diff 양수는 매수 필요, 음수는 매도 필요. ±0.5%p 미만은 '적정', ±2%p(REBAL_THRESHOLD) 이상은 경고 색상.
+// #rebal-grid에 카드들, #rebal-summary에 요약 칩(총액·경고 개수·조정 필요 총액)을 innerHTML로 채운다.
 function renderRebalancing() {
   const grid = document.getElementById('rebal-grid');
   const summary = document.getElementById('rebal-summary');
@@ -157,7 +189,10 @@ function renderRebalancing() {
   `;
 }
 
-// 통화노출 리밸런싱 카드 — 원화/달러(노출)/달러헤지 대상, 목표는 state.expTargets
+// 통화노출 리밸런싱 카드 — 원화/달러(노출)/달러헤지(EXPOSURES, constants.js) 대상, 목표는 state.expTargets.
+// renderRebalancing과 같은 계산·표시 구조를 통화노출 축으로 반복한 것. 현재값은 exposureTotal/
+// scopedExposureTotal(calc.js)에서 오고, #rebal-exp-grid와 #rebal-exp-summary를 innerHTML로 채운다.
+// 자산과 달리 직접 매매 단위가 아니므로 조치 문구는 '매수/매도' 대신 '확대/축소 필요'로 표기.
 function renderRebalancingExposure() {
   const grid = document.getElementById('rebal-exp-grid');
   const summary = document.getElementById('rebal-exp-summary');
@@ -227,8 +262,10 @@ function renderRebalancingExposure() {
 }
 
 // ==================== 자산타입별 인플레 헤지 성과 (분석 탭) - 제거됨 ====================
-// 매수 시점이 종목마다 다르고 입출금 추적 없으면 정확한 측정 불가능 → 제거
-// 인플레 비교는 대시보드 KPI 카드 + 자산 이력 차트(실질 자산 라인)로 대체
+// 매수 시점이 종목마다 다르고 입출금 추적 없으면 정확한 측정 불가능 → 기능 제거.
+// 인플레 비교는 대시보드 KPI 카드(renderInflationKPI) + 자산 이력 차트(실질 자산 라인)로 대체.
+// 아래 함수는 어디서도 호출되지 않는 보존용 죽은 코드다. 대상 테이블(#hedgeTable)도 HTML에서
+// 제거되어 실행돼도 첫 가드에서 조기 반환된다. 로직 참고용으로만 남겨둔 것.
 function _removed_renderHedgePerformance() {
   const tbody = document.querySelector('#hedgeTable tbody');
   if (!tbody) return;
@@ -354,14 +391,18 @@ function _removed_renderHedgePerformance() {
 
 // ==================== 세후 평가 (분석 탭) ====================
 // 카테고리별 예상 양도세·세후 평가금액 요약 카드와 상세 표 렌더 (즉시 매도 가정).
-// 손익·세금은 평단가가 입력된 종목만 계산 대상.
+// 세금 계산 자체는 calc.js의 computeTaxByCategory()(TAX_RULES 기반, 현금/부동산 제외)가 담당하고
+// 여기서는 그 결과를 합산해 #tax-summary 카드 4장과 #taxTable tbody(행+합계 행)만 그린다.
+// 손익·세금은 평단가가 입력된 종목만 계산 대상이며, 미입력분은 표에 '평단가 미입력'으로 표시.
+// 금액은 전부 KRW, 손익률은 투자원금(매수원가) 대비 %.
 function renderTaxAnalysis() {
   const summaryEl = document.getElementById('tax-summary');
   const tbody = document.querySelector('#taxTable tbody');
   if (!summaryEl || !tbody) return;
   const rows = computeTaxByCategory();
 
-  // 합계
+  // 1단계 — 카테고리 행들을 합산해 상단 요약 카드용 합계(KRW)를 만든다.
+  // hasPnL(평단가 입력) 행만 손익·원금 합계에 포함해 손익률 왜곡을 방지.
   let totalValue = 0, totalPnL = 0, totalCost = 0, totalEvalForPnL = 0, totalDed = 0, totalBase = 0, totalTax = 0;
   rows.forEach(r => {
     totalValue += r.value;
@@ -375,6 +416,7 @@ function renderTaxAnalysis() {
   const pnlRate = totalCost > 0 ? totalPnL / totalCost : null;
   const pnlSign = totalPnL >= 0 ? '+' : '';
 
+  // 2단계 — 요약 카드 4장(세전/세후/예상 세금/평가 손익)을 innerHTML로 교체.
   summaryEl.innerHTML = `
     <div class="tax-card pretax">
       <div class="tax-lbl">세전 평가금액 (분석 대상)</div>
@@ -404,6 +446,7 @@ function renderTaxAnalysis() {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">분석 대상 자산이 없습니다</td></tr>`;
     return;
   }
+  // 3단계 — 카테고리별 상세 행 생성 (과세 규칙 라벨·손익·공제·과세표준·세금·세후 금액).
   rows.forEach(r => {
     const pnlCls = r.pnl > 0 ? 'tax-pos' : (r.pnl < 0 ? 'tax-neg' : '');
     const pnlSign = r.pnl > 0 ? '+' : '';
@@ -419,7 +462,7 @@ function renderTaxAnalysis() {
     `;
     tbody.appendChild(tr);
   });
-  // 합계 행
+  // 4단계 — 합계 행을 표 맨 아래에 추가 (1단계에서 만든 합산값 재사용).
   const sumRow = document.createElement('tr');
   sumRow.style.background = '#f8fafc';
   sumRow.style.fontWeight = '600';
@@ -439,6 +482,10 @@ function renderTaxAnalysis() {
 
 // ==================== 설정 탭 (백업 메타 + 환율/CPI 인풋) ====================
 // 설정 탭 렌더 — 백업 경과 경고, 환율/CPI 수동 입력 바인딩. 포커스 중인 인풋은 덮어쓰지 않음(입력 유실 방지).
+// 마지막 JSON 백업 시각(state.lastBackupAt)이 14일 이상 지났으면 빨간 경고를 띄운다.
+// 환율 인풋 onchange 시 state.usdKrwRate(KRW/USD)·갱신 시각·출처('manual')를 기록하고
+// saveState→render→updateFxBadge(fetch.js)→toast(data-io.js)까지 연쇄 실행된다.
+// CPI 인풋은 %로 받아 state.usCpiAnnual(연율, 비율)로 저장. sync.js의 동기화 완료 콜백도 이 함수를 호출.
 function renderSettings() {
   const meta = document.getElementById('backupMeta');
   if (meta) {
@@ -489,6 +536,10 @@ function renderSettings() {
 }
 
 // 대시보드 KPI 카드 갱신 — 총자산은 항상 전체 기준, 통화노출/유동성 비중은 뷰 스코프 반영.
+// 값은 calc.js(grandTotal/exposureTotal/liquidityTotal 등)에서 계산해 kpi-*, m-* 요소의
+// textContent만 바꾼다(DOM 구조 재생성 없음). USD 환산은 state.usdKrwRate(KRW/USD) 사용.
+// render() 외에 입력 중 partialUpdate()에서도 매번 호출되므로 가볍게 유지해야 한다.
+// 마지막에 renderInflationKPI()를 호출해 인플레 카드까지 함께 갱신.
 function renderKPIs() {
   // 총자산 / 유동 / 묶임 카드는 항상 전체 기준 (사용자가 자기 총 자산을 항상 알아야 함)
   const total = grandTotal();
@@ -534,7 +585,11 @@ function renderKPIs() {
   renderInflationKPI();
 }
 
-// 대시보드: 인플레 대비 실질 자산 KPI 카드
+// 대시보드 인플레 대비 실질 자산 KPI 카드 — renderKPIs() 말미에서만 호출된다.
+// state.history의 첫/마지막 스냅샷을 비교해 명목 USD 수익률에서 CPI 누적 상승률을 뺀
+// 실질 갭(%p)을 계산하고, 카드 클래스(win/lose/flat)로 색상 상태를 표현한다.
+// 스냅샷이 2개 미만이거나 기준 USD가 없으면 '대기' 상태로 안내 문구만 표시.
+// CPI 지수가 스냅샷에 없으면 state.usCpiAnnual(기본 3.5%) 연율로 경과 기간만큼 근사.
 function renderInflationKPI() {
   const card = document.getElementById('kpi-inflation');
   const gapEl = document.getElementById('kpi-inflation-gap');
@@ -604,15 +659,22 @@ function renderInflationKPI() {
 }
 
 // 자산 입력 테이블 전체 렌더 — 카테고리 섹션별 헤더/행/추가버튼을 새로 만들고 이벤트를 다시 바인딩.
-// 카테고리 성격(검색형/금액직접입력형/금)에 따라 행 구성이 다르지만, 컬럼 정렬을 맞추기 위해 11-column grid로 통일.
+// 이 파일에서 가장 큰 함수. #holdingsContainer를 통째로 비우고 constants.js의 CATEGORIES 순서대로
+// 섹션을 재구성하므로, 입력 중에 부르면 포커스가 날아간다(그래서 입력 중엔 partialUpdate 사용).
+// 카테고리 성격(검색형 hasTicker/금액직접입력형 amountOnly/일반형 금)에 따라 행 구성이 다르지만,
+// 컬럼 정렬을 맞추기 위해 11-column grid로 통일. 행 이벤트는 data-* 속성으로 식별해 렌더 후 일괄 바인딩.
+// 접힘 상태(state.collapsed)·거래소 선택(state.cryptoExchange) 변경은 saveState()로 즉시 저장된다.
 function renderHoldings() {
   const container = document.getElementById('holdingsContainer');
   container.innerHTML = '';
 
+  // 1단계 — 카테고리별 섹션 생성 (헤더 + 컬럼 헤더 행 + 보유 행들 + 추가 버튼).
   CATEGORIES.forEach(c => {
     const sect = document.createElement('div');
     sect.className = 'cat-section' + (state.collapsed[c.key] ? ' collapsed' : '');
 
+    // 섹션 헤더 — 카테고리 배지·보유 수·합계(KRW, USD 카테고리는 USD 병기)·전체대비 %.
+    // 헤더 클릭으로 접기/펼치기 토글. 암호화폐는 시세 출처 드롭다운, 금은 시세 갱신 버튼이 추가로 붙는다.
     const total = categoryTotal(c.key);
     const grand = grandTotal();
     const pctOfGrand = grand > 0 ? (total / grand * 100) : 0;
@@ -666,6 +728,7 @@ function renderHoldings() {
       });
     }
     if (c.key === '금') {
+      // 금 시세 자동 갱신 버튼 — fetch.js의 fetchAndApplyGoldPrice가 시세 조회 후 render()까지 수행.
       header.querySelector('.gold-refresh-btn').addEventListener('click', async (ev) => {
         ev.stopPropagation();
         await fetchAndApplyGoldPrice(ev.currentTarget);
@@ -716,6 +779,8 @@ function renderHoldings() {
     }
     body.appendChild(headRow);
 
+    // 2단계 — 이 카테고리에 속한 보유 종목 행 생성. 행마다 자산타입 칩·유동성 칩·
+    // 통화노출 셀렉트·메모 셀·삭제 버튼을 공통으로 만들고, 카테고리 유형별로 본문을 조립.
     state.holdings.filter(h => h.category === c.key).forEach(h => {
       const row = document.createElement('div');
       // .pnl 클래스 추가: 11-column grid 적용
@@ -746,7 +811,8 @@ function renderHoldings() {
       const deleteBtn = `<button class="icon-btn" data-delete="${h.id}" title="삭제">×</button>`;
       const chipCellWrap = `<div class="chip-cell">${assetChip}${liqChip}</div>`;
 
-      // P&L 셀 빌더 (검색형/금 카테고리에서 공통 사용)
+      // P&L 셀 빌더 (검색형/금 카테고리에서 공통 사용).
+      // calc.js의 holdingPnL(평단가 기반)이 null이면 '—', 아니면 손익 금액(KRW 축약)+%를 색상 클래스와 함께 출력.
       function pnlCellHTML(h) {
         const p = holdingPnL(h);
         if (!p) return `<div class="pnl-cell zero">—</div>`;
@@ -760,6 +826,8 @@ function renderHoldings() {
 
       if (c.hasTicker) {
         // === 검색형 (국내주식, 해외주식, 암호화폐, 연금저축, 퇴직연금, ISA) ===
+        // 종목명 검색 인풋(fetch.js onSearchInput 연동) + 수량/평단가/현재가 입력.
+        // isUSD 카테고리는 현재가·평단가를 USD로 받고 KRW 환산액을 병기한다.
         const priceCell = c.isUSD
           ? `<div class="dual-price">
                <div class="usd">$<input class="" placeholder="0" value="${fmtNumInput(h.priceUSD)}" data-field="priceUSD" data-id="${h.id}" data-numeric="1" /></div>
@@ -795,6 +863,8 @@ function renderHoldings() {
         `;
       } else if (c.amountOnly) {
         // === 평가금액 직접입력형 (현금, 부동산) - 평단가/손익 컬럼은 빈 셀 ===
+        // 수량 개념 없이 price 필드에 평가금액을 직접 입력받는다(quantity는 1 고정).
+        // 통화노출이 '달러(노출)'인 현금은 USD로 입력받아 KRW 환산액을 병기.
         const isDollarCash = h.exposure === '달러(노출)';
         const amountCell = isDollarCash
           ? `<div class="dual-price">
@@ -824,6 +894,7 @@ function renderHoldings() {
         `;
       } else {
         // === 일반형 (금) - 평단가 컬럼 추가 (g당 평단) ===
+        // 수량은 그램(g), 시세·평단가는 원/g 단위. 검색 없이 명칭·보관처를 직접 입력한다.
         const avgPriceCell = `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="g당 매수 평단가. 비우면 손익 계산 안 함" />`;
         row.innerHTML = `
           <input class="inp" placeholder="예: KRX 금현물 / 골드바" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
@@ -843,6 +914,8 @@ function renderHoldings() {
       body.appendChild(row);
     });
 
+    // 3단계 — 종목 추가 버튼. 클릭 시 카테고리 기본값(통화노출/자산타입/유동성, constants.js)으로
+    // 빈 보유 항목을 state.holdings에 push하고 render()로 전체 재렌더.
     const addBtn = document.createElement('button');
     addBtn.className = 'add-row';
     addBtn.textContent = `+ ${c.key} ${c.amountOnly ? '항목' : '종목'} 추가`;
@@ -866,6 +939,8 @@ function renderHoldings() {
     container.appendChild(sect);
   });
 
+  // 4단계 — 렌더가 끝난 뒤 data-* 속성 기준으로 이벤트를 일괄 바인딩.
+  // 필드 입력/변경 → onFieldChange, 숫자 필드는 포커스/블러 시 콤마 제거·복원 핸들러 추가.
   container.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
     el.addEventListener('input', onFieldChange);
     el.addEventListener('change', onFieldChange);
@@ -874,6 +949,7 @@ function renderHoldings() {
       el.addEventListener('focus', onNumericFocus);
     }
   });
+  // 행 삭제 버튼 — 확인 없이 즉시 제거 후 전체 재렌더(저장은 render 내부 saveState가 수행).
   container.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = e.target.getAttribute('data-delete');
@@ -881,12 +957,14 @@ function renderHoldings() {
       render();
     });
   });
+  // 행별 시세 갱신 버튼 — fetch.js의 refreshHolding이 API 조회·가격 반영·render()까지 수행.
   container.querySelectorAll('[data-refresh]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const id = e.currentTarget.getAttribute('data-refresh');
       await refreshHolding(id);
     });
   });
+  // 종목 메모 버튼/미리보기 — state.js의 openMemoModal로 멀티라인 메모 편집 모달을 연다.
   container.querySelectorAll('[data-holding-memo]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -896,6 +974,7 @@ function renderHoldings() {
       openMemoModal('holding', name, name);
     });
   });
+  // 자산타입 순환 토글(레거시 칩 버튼용) — 현재 행 템플릿은 select를 쓰므로 사실상 매칭 대상이 없다.
   container.querySelectorAll('[data-toggle-asset]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = e.currentTarget.getAttribute('data-toggle-asset');
@@ -909,6 +988,7 @@ function renderHoldings() {
       render();
     });
   });
+  // 유동성 칩(💧/🔒) 클릭 토글 — h.liquidity를 liquid↔locked로 뒤집고 저장 후 전체 재렌더.
   container.querySelectorAll('[data-toggle-liq]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -921,7 +1001,9 @@ function renderHoldings() {
       render();
     });
   });
-  // 검색 입력 핸들러 (IME 조합 중 검색 발사 방지)
+  // 검색 입력 핸들러 (IME 조합 중 검색 발사 방지).
+  // 한글은 compositionend(조합 확정) 시점에만, 영문 등은 input 즉시 fetch.js의 onSearchInput으로 넘긴다.
+  // 포커스/블러 시 드롭다운 표시·숨김도 fetch.js(onSearchFocus/onSearchBlur)가 담당.
   container.querySelectorAll('input[data-search]').forEach(input => {
     let composing = false;
     input.addEventListener('compositionstart', () => { composing = true; });
@@ -941,6 +1023,8 @@ function renderHoldings() {
 }
 
 // 숫자 인풋 포커스 핸들러 — 콤마를 제거한 raw 값으로 바꿔 편집을 편하게 함.
+// data-numeric="1" 인풋(가격/평단가류)에만 renderHoldings에서 바인딩된다.
+// setTimeout(0)으로 브라우저 기본 전체선택 이후에 커서를 끝으로 옮긴다.
 function onNumericFocus(e) {
   // 편집 시 콤마 제거해서 raw 숫자만 보여주기
   const raw = String(e.target.value).replace(/,/g, '');
@@ -951,7 +1035,8 @@ function onNumericFocus(e) {
   }, 0);
 }
 
-// 숫자 인풋 블러 핸들러 — 편집이 끝나면 콤마 포맷을 복원.
+// 숫자 인풋 블러 핸들러 — 편집이 끝나면 calc.js의 fmtNumInput으로 콤마 포맷을 복원.
+// onNumericFocus와 짝을 이뤄 "편집 중 raw 숫자, 평소엔 콤마 표시"를 구현한다.
 function onNumericBlur(e) {
   // 포커스 나가면 콤마 자동 포맷
   const formatted = fmtNumInput(e.target.value);
@@ -959,7 +1044,10 @@ function onNumericBlur(e) {
 }
 
 // 보유 행 필드 변경 핸들러 — 필드 종류에 따라 전체 재렌더/부분 갱신을 선택.
-// 숫자 필드는 입력 중 포커스 유지를 위해 partialUpdate만, blur(change) 시에만 전체 재렌더.
+// data-id로 state.holdings에서 해당 항목을 찾아 값을 반영하고 즉시 saveState()로 저장.
+// exposure/assetType(select)은 차트 색·리밸런싱에 바로 영향 → 무조건 render().
+// 숫자 필드는 입력 중 포커스 유지를 위해 input 이벤트엔 partialUpdate만, blur(change) 시에만 전체 재렌더.
+// name/account/memo 같은 텍스트 필드는 저장만 하고 재렌더하지 않는다(입력 흐름 유지).
 function onFieldChange(e) {
   const id = e.target.getAttribute('data-id');
   const field = e.target.getAttribute('data-field');
@@ -987,6 +1075,9 @@ function onFieldChange(e) {
 }
 
 // 입력 중 부분 갱신 — 입력 행 DOM은 건드리지 않고(포커스 유지) KPI·계산 셀·합계만 갱신, 무거운 차트는 debounce.
+// onFieldChange의 숫자 필드 input 이벤트에서만 호출된다. 해당 행의 평가금액·P&L 셀과
+// 카테고리 헤더 합계는 textContent/innerHTML 직접 교체, KPI·목표 테이블은 개별 render 함수 재호출.
+// 차트는 calc.js의 _debouncedChartRefresh(200ms)로 미뤄 타이핑마다 다시 그리는 비용을 줄인다.
 function partialUpdate(h) {
   // 입력 중 포커스를 잃지 않도록 입력 행 자체는 건드리지 않고
   // KPI, 합계, 차트, 목표 테이블만 갱신
@@ -1031,14 +1122,18 @@ function partialUpdate(h) {
   _debouncedChartRefresh();
 }
 
-// HTML 특수문자 이스케이프 — 사용자 입력을 innerHTML에 넣을 때 XSS/마크업 깨짐 방지.
+// HTML 특수문자 이스케이프 — 사용자 입력(종목명/메모 등)을 innerHTML 템플릿에 넣을 때 XSS/마크업 깨짐 방지.
+// null/undefined도 빈 문자열로 안전 처리. renderHoldings·renderHistory의 템플릿 전반에서 사용.
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, m => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[m]));
 }
 
-// 자산타입별 목표 비중 테이블 렌더 — 목표 입력 시 '금'은 통화노출 '달러헤지' 목표와 자동 동기화.
+// 자산타입별 목표 비중 테이블 렌더 — ASSET_TYPES 전체(부동산 포함)를 행으로, 목표는 % 인풋으로 편집.
+// 현재 금액(KRW)·비중은 calc.js의 assetTypeTotal/grandTotal, 목표는 state.assetTypeTargets에서 읽는다.
+// 목표 인풋 change 시 state에 저장하고 render()로 전체 반영. 합계 행은 목표 합이 100%인지 검증 표시.
+// '금' 목표 입력 시 통화노출 '달러헤지' 목표(state.expTargets)와 자동 동기화(현재 매핑상 둘이 같아야 함).
 function renderAssetTypeTargets() {
   const total = grandTotal();
   const tbody = document.querySelector('#assetTypeTargetsTable tbody');
@@ -1102,7 +1197,9 @@ function renderAssetTypeTargets() {
   });
 }
 
-// 통화노출별 목표 비중 테이블 렌더 — '달러헤지' 목표 변경 시 자산타입 '금' 목표와 역방향 동기화.
+// 통화노출별 목표 비중 테이블 렌더 — renderAssetTypeTargets와 동일 구조를 통화노출(EXPOSURES) 축으로 반복.
+// 현재값은 exposureTotal(calc.js), 목표는 state.expTargets. 목표 인풋 change 시 저장 후 render().
+// '달러헤지' 목표 변경 시 자산타입 '금' 목표와 역방향 동기화(renderAssetTypeTargets의 연동과 쌍).
 function renderExpTargets() {
   const total = grandTotal();
   const tbody = document.querySelector('#expTargetsTable tbody');
@@ -1164,8 +1261,11 @@ function renderExpTargets() {
   });
 }
 
-// 이력 탭 렌더 — 스냅샷별 USD 자산을 CPI/M2 기준선과 비교해 실질 성과를 표와 상단 KPI로 표시.
-// 첫 스냅샷이 모든 누적 비교의 기준점. CPI 지수가 없으면 연율 가정치로 근사.
+// 이력 탭 렌더 — state.history의 스냅샷별 USD 자산을 CPI/M2 기준선과 비교해 실질 성과를 표와 상단 KPI로 표시.
+// 스냅샷 생성은 data-io.js의 snapshot()(main.js가 window.snapshot으로 노출), 여기는 표시만 담당.
+// 첫 스냅샷이 모든 누적 비교의 기준점. CPI 지수가 없으면 state.usCpiAnnual 연율 가정치로 근사.
+// 이력이 없으면 빈 상태 안내와 함께 첫 스냅샷/더미 데이터 버튼(인라인 onclick → window 노출 함수)을 보여준다.
+// 행별 삭제·메모 버튼도 여기서 바인딩되며, 삭제 시 render()로 전체 갱신된다.
 function renderHistory() {
   const tbody = document.getElementById('historyTbody');
   tbody.innerHTML = '';
@@ -1182,6 +1282,7 @@ function renderHistory() {
     return;
   }
 
+  // 1단계 — 날짜순 정렬 후 첫 스냅샷을 기준점(base)으로 고정. 이후 모든 누적 비교의 분모가 된다.
   const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
   const first = sorted[0];
   const baseUSD = first.totalUSD || 0;
@@ -1191,7 +1292,8 @@ function renderHistory() {
   const baseM2Val = first.m2 || null;
   const baseFX = first.fxRate || null;
 
-  // ±10일 허용 범위로 30일 전에 가장 가까운 스냅샷 찾기
+  // 지정 일수(targetDays) 전에 가장 가까운 과거 스냅샷 찾기 (±toleranceDays 허용).
+  // 30일 변화율(기본)과 YoY(365일±60일) 계산에 재사용된다. 범위 내 스냅샷이 없으면 null.
   function findClosestSnapshot(currentDate, currentIdx, targetDays = 30, toleranceDays = 10) {
     const currentDt = new Date(currentDate);
     const targetDate = new Date(currentDt.getTime() - targetDays * 86400000);
@@ -1208,7 +1310,8 @@ function renderHistory() {
     return best;
   }
 
-  // 이력 표 안의 작은 증감률 표시용 — 색상 입힌 부호 % HTML 조각 생성.
+  // 이력 표 안의 작은 증감률 표시용 — 색상(양수 초록/음수 빨강) 입힌 부호 % HTML 조각 생성.
+  // 전역 fmtSignedPct와 달리 소수 2자리이며 '30일전' 같은 보조 라벨을 붙일 수 있다.
   function fmtSignedPctSmall(p, label) {
     if (p === null || !isFinite(p)) return '—';
     const sign = p >= 0 ? '+' : '';
@@ -1216,6 +1319,8 @@ function renderHistory() {
     return `<span style="color:${color}">${sign}${(p*100).toFixed(2)}%</span>${label ? `<span style="color:var(--text-muted)">(${label})</span>` : ''}`;
   }
 
+  // 2단계 — 스냅샷별 표 행 생성. 행마다 USD 자산(직전/30일경/누적 변화율),
+  // CPI·M2 기준선 대비 실질 갭, CPI/M2 지수(누적·YoY), 환율 변화를 계산해 채운다.
   sorted.forEach((s, i) => {
     const sUSD = s.totalUSD || 0;
     const prev = i > 0 ? sorted[i - 1] : null;
@@ -1231,7 +1336,8 @@ function renderHistory() {
     // 환율 변화량
     const fxPrevPct = (prev?.fxRate && s.fxRate) ? (s.fxRate - prev.fxRate) / prev.fxRate : null;
     const fxCumPct = (baseFX && s.fxRate) ? (s.fxRate - baseFX) / baseFX : null;
-    // CPI 기준선
+    // CPI 기준선 — 첫 스냅샷 USD 자산이 물가만큼 불었다면 지금 얼마여야 하는가(USD).
+    // 지수 데이터가 없으면 연율 가정치를 경과 연수만큼 복리 적용해 근사.
     let cpiBaseline;
     if (baseCPI && s.cpiIndex && baseUSD) {
       cpiBaseline = baseUSD * (s.cpiIndex / baseCPI);
@@ -1241,7 +1347,7 @@ function renderHistory() {
     } else {
       cpiBaseline = 0;
     }
-    // M2 기준선
+    // M2 기준선 — 같은 논리를 통화공급(M2) 증가율로 적용. 데이터 없으면 null로 '—' 표시.
     let m2Baseline = null;
     if (baseM2Val && s.m2 && baseUSD) {
       m2Baseline = baseUSD * (s.m2 / baseM2Val);
@@ -1304,7 +1410,8 @@ function renderHistory() {
     tbody.appendChild(tr);
   });
 
-  // 상단 KPI: 명목/CPI/M2/실질
+  // 3단계 — 상단 KPI 5칸(명목 수익률/CPI 인플레/M2 증가/실질 수익률 CPI·M2 기준) 갱신.
+  // 첫↔마지막 스냅샷 비교로 계산하며, 실질 = 명목 - 인플레(단순 차감) 방식의 %p.
   if (box) {
     const last = sorted[sorted.length - 1];
     const lastUSD = last.totalUSD || 0;
@@ -1335,6 +1442,8 @@ function renderHistory() {
     box.style.gridTemplateColumns = 'repeat(5, 1fr)';
   }
 
+  // 4단계 — 행별 삭제/메모 버튼 바인딩. 삭제는 즉시 state.history에서 제거 후 render().
+  // 메모는 state.js의 openMemoModal('snapshot', ...)로 편집 모달을 연다.
   tbody.querySelectorAll('[data-del-snap]').forEach(btn => {
     btn.addEventListener('click', e => {
       const id = e.target.getAttribute('data-del-snap');

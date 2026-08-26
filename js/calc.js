@@ -1,6 +1,17 @@
-// 금액 계산 — 합계·검산·View Scope·P&L·세금 추정
+// calc.js — 금액 계산 엔진. 보유 항목(state.holdings)의 KRW/USD 평가액 산출과
+// 축별(카테고리·자산타입·통화노출·유동성) 합계, 합계 교차 검산, View Scope(전체/유동만) 필터,
+// 평가손익(P&L) 계산, 한국 세법 기준 양도세 추정까지 모든 수치 계산을 담당한다.
+// 주요 함수 그룹 — 파싱/포맷(num·fmtNumInput·fmtUSD), 평가액(holdingValue·holdingValueUSD),
+// 축별 합계(categoryTotal·exposureTotal·assetTypeTotal·liquidityTotal·grandTotal),
+// 검산(verifyTotals·renderVerifyResult), View Scope(scoped 계열·setViewScope),
+// P&L(holdingPnL), 세금(TAX_RULES·computeTaxByCategory), debounce 헬퍼.
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 3번째.
+// constants.js(CATEGORY_MAP·CATEGORIES 등)와 state.js(state·saveState)에 의존하고,
+// render.js·charts.js·data-io.js·fetch.js가 이 파일의 집계 함수를 두루 호출한다.
 // ==================== 계산 함수 ====================
-// 콤마·공백 섞인 입력값을 숫자로 변환 (파싱 실패 시 0)
+// 콤마·공백 섞인 사용자 입력 문자열을 숫자로 변환한다.
+// 빈값·null·파싱 실패를 전부 0으로 수렴시켜 이후 합산 로직이 NaN 없이 돌게 하는 안전판.
+// 이 파일의 모든 집계 함수와 fetch.js의 시세 파싱이 공유하는 기본 파서.
 function num(v) {
   if (v === null || v === undefined || v === '') return 0;
   const cleaned = String(v).replace(/,/g, '').trim();
@@ -8,15 +19,17 @@ function num(v) {
   return isFinite(n) ? n : 0;
 }
 
-// 입력창 표시용 천단위 콤마 포맷 (소수점 입력 유지)
+// 입력창 표시용 천단위 콤마 포맷. num()의 역방향으로, 저장된 숫자 문자열을
+// 사람이 읽기 좋은 "1,234,567.89" 형태로 되돌려 input 요소에 표시할 때 쓴다.
+// 사용자가 타이핑 중인 소수점("1234.")도 그대로 보존해 입력 흐름을 끊지 않는다.
 function fmtNumInput(v) {
-  // Format number with commas for input display, preserving decimals
+  // 빈값이나 "-" 단독 입력은 아직 타이핑 중인 상태이므로 훼손하지 않고 그대로 돌려준다.
   if (v === '' || v === null || v === undefined) return '';
   const cleaned = String(v).replace(/,/g, '').trim();
   if (cleaned === '' || cleaned === '-') return cleaned;
   const n = Number(cleaned);
   if (!isFinite(n)) return String(v);
-  // Preserve decimal portion if user typed it
+  // 소수점이 있으면 정수부만 콤마 포맷하고 소수부는 입력한 그대로 이어붙인다.
   const dotIdx = cleaned.indexOf('.');
   if (dotIdx >= 0) {
     const intPart = cleaned.slice(0, dotIdx).replace(/^-/, '');
@@ -27,7 +40,10 @@ function fmtNumInput(v) {
   return n.toLocaleString('en-US');
 }
 
-// 보유 항목 1건의 KRW 평가액 — 금액직접입력(amountOnly)·해외주식(USD×환율) 규칙 반영
+// 보유 항목 1건의 KRW 평가액을 계산하는 단일 기준 함수. 모든 합계·차트·검산이 이 함수를 거친다.
+// amountOnly 카테고리(현금·부동산 등)는 price 필드를 금액 그 자체로 해석하고,
+// 통화노출이 '달러(노출)'면 그 금액을 USD로 보아 state.usdKrwRate를 곱해 KRW로 환산한다.
+// isUSD 카테고리(해외주식)는 priceUSD가 있으면 수량×USD단가×환율, 그 외에는 수량×KRW단가.
 function holdingValue(h) {
   const cat = CATEGORY_MAP[h.category];
   if (cat && cat.amountOnly) {
@@ -47,7 +63,8 @@ function holdingValue(h) {
   return num(h.quantity) * num(h.price);
 }
 
-// USD 기준 평가금액 (해외주식 표시용)
+// USD 기준 평가금액(수량×priceUSD). 해외주식 행·카테고리 헤더에 달러 금액을 병기할 때 쓴다.
+// isUSD 카테고리가 아니면 0을 반환해 USD 합산에 영향을 주지 않는다.
 function holdingValueUSD(h) {
   const cat = CATEGORY_MAP[h.category];
   if (cat && cat.isUSD) {
@@ -56,14 +73,16 @@ function holdingValueUSD(h) {
   return 0;
 }
 
-// 카테고리 USD 합계 (해외주식 같은 isUSD 카테고리용)
+// 특정 카테고리의 USD 평가액 합계. 해외주식처럼 isUSD인 카테고리의
+// 섹션 헤더에 달러 합계를 병기하기 위해 render.js에서 호출한다.
 function categoryTotalUSD(catKey) {
   return state.holdings
     .filter(h => h.category === catKey)
     .reduce((sum, h) => sum + holdingValueUSD(h), 0);
 }
 
-// USD 금액 표시 포맷 ($ + 천단위 콤마, 소수 2자리)
+// USD 금액 표시 포맷. "$1,234.56" 형태(천단위 콤마·소수 최대 2자리)로 만들고,
+// 음수는 "-$" 접두, 0이나 비정상값은 '$0'으로 통일해 표시 흔들림을 막는다.
 function fmtUSD(n) {
   if (!isFinite(n) || n === 0) return '$0';
   const sign = n < 0 ? '-' : '';
@@ -71,14 +90,16 @@ function fmtUSD(n) {
   return sign + '$' + abs.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-// 카테고리별 KRW 합계
+// 특정 카테고리(국내주식·현금 등)에 속한 보유분의 KRW 평가액 합계.
+// 카테고리 섹션 헤더·카테고리 도넛 등 카테고리 축 집계가 모두 이 함수를 쓴다.
 function categoryTotal(cat) {
   return state.holdings
     .filter(h => h.category === cat)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
-// 통화노출별 KRW 합계
+// 통화노출('원화'/'달러(노출)')별 KRW 평가액 합계. 환노출 리밸런싱 계산과
+// 스냅샷 기록(krw/usd 필드)의 원천 데이터가 된다.
 function exposureTotal(exp) {
   return state.holdings
     .filter(h => h.exposure === exp)
@@ -91,31 +112,36 @@ function assetTypeOf(h) {
   return h.assetType || CATEGORY_MAP[h.category]?.assetTypeFixed || '주식';
 }
 
-// 자산타입(주식/원자재) 기준 합계
+// 자산타입(주식·금·부동산 등) 기준 KRW 합계. 타입 판정을 assetTypeOf에 위임해
+// 도넛·리밸런싱·트리맵·검산이 전부 같은 분류 기준을 공유하게 한다.
 function assetTypeTotal(type) {
   return state.holdings
     .filter(h => assetTypeOf(h) === type)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
-// 전체 보유 자산 KRW 총합
+// 전체 보유 자산의 KRW 총합. KPI 카드·스냅샷의 total 필드·검산 기준값으로 쓰이는 최상위 합계.
 function grandTotal() {
   return state.holdings.reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
-// 유동성 기준 합계
+// 유동성('liquid' 즉시 현금화 가능 / 'locked' 연금·청약 등 묶임) 기준 KRW 합계.
+// 항목에 유동성 미지정 시 카테고리 기본값(DEFAULT_LIQUIDITY_BY_CAT)으로 판정한다.
 function liquidityTotal(kind /* 'liquid' | 'locked' */) {
   return state.holdings
     .filter(h => (h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid') === kind)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
-// 항목의 유동성 값 (미지정 시 카테고리 기본값)
+// 항목 1건의 유동성 값을 확정한다. 사용자 지정 → 카테고리 기본값 → 'liquid' 순 폴백.
 function holdingLiquidity(h) {
   return h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid';
 }
 
 // ==================== 합계 검산 (중복·누락 체크) ====================
-// 자산타입 합계·통화노출 합계·유동성 합계가 총자산과 일치하는지, 어디에도 안 잡히는 orphan이 있는지 확인
+// 세 축(자산타입·통화노출·유동성)의 부분합이 각각 총자산과 일치하는지 교차 검산한다.
+// 반환 객체에는 축별 breakdown과 합계, 미등록 값 때문에 어느 축에도 안 잡히는 orphan 목록,
+// 1원(부동소수점 오차 허용치) 초과 차이를 담은 warnings, 최종 판정 ok가 담긴다.
+// 순수 계산 함수이며 화면 표시는 renderVerifyResult()가 담당한다.
 function verifyTotals() {
   const total = grandTotal();
   const r = {
@@ -156,7 +182,10 @@ function verifyTotals() {
   r.ok = r.orphans.length === 0 && r.warnings.length === 0;
   return r;
 }
-// 검산 결과를 설정 탭에 표로 렌더링 (자산타입/통화노출/유동성 + orphan·경고)
+// verifyTotals() 결과를 설정 탭의 #verifyResult 영역에 HTML 표로 렌더링한다.
+// 축별 breakdown 표 3개(자산타입·통화노출·유동성)를 그리고, orphan·경고가 있으면
+// 빨간 경고 박스, 전부 정상이면 초록 "일치" 박스를 붙인다.
+// DOM 갱신만 하는 순수 표시 함수로 state는 변경하지 않는다.
 function renderVerifyResult() {
   const box = document.getElementById('verifyResult');
   if (!box) return;
@@ -164,7 +193,7 @@ function renderVerifyResult() {
   const rows = [];
   rows.push(`<div style="font-weight:600;margin-bottom:6px;">총 자산: ${fmtKRW(r.total)}</div>`);
 
-  // 자산타입 breakdown
+  // 자산타입 breakdown 표 — 금액 0인 타입은 행 생략, 합계 행은 총자산과의 차이를 색으로 표시.
   const atRows = ASSET_TYPES.map(t => {
     const v = r.assetType[t];
     if (v === 0) return null;
@@ -181,7 +210,7 @@ function renderVerifyResult() {
     </table>
   `);
 
-  // 통화노출 breakdown
+  // 통화노출 breakdown 표 — 구조는 자산타입 표와 동일.
   const expRows = EXPOSURES.map(e => {
     const v = r.exposure[e];
     if (v === 0) return null;
@@ -198,7 +227,7 @@ function renderVerifyResult() {
     </table>
   `);
 
-  // 유동성 breakdown
+  // 유동성 breakdown 표 — 유동/묶임 두 행 고정.
   const liqDiff = r.total - r.liquiditySum;
   const liqSumCls = Math.abs(liqDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
@@ -212,7 +241,7 @@ function renderVerifyResult() {
     </table>
   `);
 
-  // orphans / warnings
+  // orphan 홀딩·합계 차이 경고 박스, 이상 없으면 초록 확인 박스.
   if (r.orphans.length > 0) {
     const orphanRows = r.orphans.map(o => `<tr>
       <td>${escapeHtml(o.name)}</td>
@@ -244,35 +273,37 @@ function renderVerifyResult() {
 }
 
 // ==================== View Scope (전체 vs 유동만) ====================
-// state.viewScope에 따라 계산 대상 holdings 필터링
+// state.viewScope가 'liquid'면 유동 자산만, 그 외('all')는 전체 holdings를 반환한다.
+// 아래 scoped 계열 합계 함수들이 전부 이 필터를 공유해, 스코프 전환 시 대시보드가 일괄 전환된다.
 function scopedHoldings() {
   if ((state.viewScope || 'all') === 'liquid') {
     return state.holdings.filter(h => holdingLiquidity(h) === 'liquid');
   }
   return state.holdings;
 }
-// View Scope 적용 총자산
+// View Scope를 적용한 총자산(KRW). 스코프 전환 시 대시보드 KPI가 이 값을 쓴다.
 function scopedTotal() {
   return scopedHoldings().reduce((sum, h) => sum + holdingValue(h), 0);
 }
-// View Scope 적용 통화노출 합계
+// View Scope를 적용한 통화노출별 KRW 합계. 환노출 리밸런싱 표에서 사용한다.
 function scopedExposureTotal(exp) {
   return scopedHoldings().filter(h => h.exposure === exp).reduce((sum, h) => sum + holdingValue(h), 0);
 }
-// View Scope 적용 자산타입 합계
+// View Scope를 적용한 자산타입별 KRW 합계. 도넛 차트·자산타입 리밸런싱 계산에서 사용한다.
 function scopedAssetTypeTotal(type) {
   return scopedHoldings().filter(h => assetTypeOf(h) === type).reduce((sum, h) => sum + holdingValue(h), 0);
 }
-// View Scope 적용 카테고리 합계
+// View Scope를 적용한 카테고리별 KRW 합계. 스코프를 반영해야 하는 차트·표에서 사용한다.
 function scopedCategoryTotal(cat) {
   return scopedHoldings().filter(h => h.category === cat).reduce((sum, h) => sum + holdingValue(h), 0);
 }
-// 현재 뷰가 '유동만' 모드인지 여부
+// 현재 뷰가 '유동만' 모드인지 여부. 렌더 쪽에서 안내 문구·목표 비중 해석을 분기할 때 쓴다.
 function isLiquidScope() {
   return (state.viewScope || 'all') === 'liquid';
 }
 
-// 토글 핸들러 — 대시보드/분석 탭 두 군데 버튼 모두 동기화
+// 스코프 토글 버튼 클릭 핸들러. 잘못된 값은 'all'로 정규화한 뒤
+// state 저장(localStorage) → 대시보드·분석 두 탭의 토글 UI 동기화 → 전체 재렌더 순으로 반영한다.
 function setViewScope(scope) {
   if (scope !== 'all' && scope !== 'liquid') scope = 'all';
   state.viewScope = scope;
@@ -280,7 +311,8 @@ function setViewScope(scope) {
   syncScopeToggleUI();
   render();
 }
-// 스코프 토글 버튼 활성 상태·힌트 문구를 현재 scope에 맞춰 동기화
+// 두 탭에 중복 배치된 스코프 토글 버튼의 활성(primary) 클래스와 힌트 문구를
+// 현재 state.viewScope에 맞춰 동기화한다. DOM만 갱신하며 저장·재계산은 하지 않는다.
 function syncScopeToggleUI() {
   const scope = state.viewScope || 'all';
   ['scopeAllBtn', 'scopeAllBtn2'].forEach(id => {
@@ -302,7 +334,9 @@ function syncScopeToggleUI() {
 
 // ==================== Debounce 헬퍼 ====================
 // 무거운 작업(차트 destroy/recreate 등)을 키스트로크마다 실행하지 않고
-// 입력 끝난 뒤 한번만 실행되도록.
+// 마지막 호출 후 wait ms가 지나야 한 번만 실행되도록 감싸는 범용 debounce.
+// 반환 함수에 flush(대기 중 작업 즉시 실행)·cancel(대기 취소)을 붙여
+// 탭 전환처럼 즉시 반영이 필요한 순간에도 대응할 수 있게 했다.
 function debounce(fn, wait = 200) {
   let t = null;
   const debounced = (...args) => {
@@ -314,7 +348,8 @@ function debounce(fn, wait = 200) {
   return debounced;
 }
 
-// 입력 중에는 무거운 차트 재생성을 200ms debounce
+// 수량·단가 입력 중 무거운 렌더 4종(차트·리밸런싱 2종·세금 분석)의 재생성을 200ms로 묶는다.
+// render.js의 입력 핸들러가 키스트로크마다 호출해도 실제 재생성은 입력이 멈춘 뒤 1회만 일어난다.
 const _debouncedChartRefresh = debounce(() => {
   renderCharts();
   renderRebalancing();
@@ -323,7 +358,10 @@ const _debouncedChartRefresh = debounce(() => {
 }, 200);
 
 // ==================== P&L (평가손익) 계산 ====================
-// 평단가가 입력된 종목만 손익 계산. 계산 불가 시 null 반환.
+// 항목 1건의 평가손익. 평단가(avgPrice/avgPriceUSD)가 입력된 종목만 계산하고,
+// amountOnly(현금·부동산)이거나 수량·단가가 없으면 null을 반환해 표시 대상에서 제외한다.
+// 해외주식은 USD 단가끼리 비교한 뒤 환율(미갱신 시 1380 가정)로 KRW 환산한다.
+// 반환값 { pnl: 손익 KRW, pct: 원가 대비 수익률(소수 비율), costKRW: 원가, curKRW: 평가액 }.
 function holdingPnL(h) {
   const cat = CATEGORY_MAP[h.category];
   if (!cat) return null;
@@ -375,8 +413,11 @@ const TAX_RULES = {
   '부동산':       null,
 };
 
-// 카테고리별 평가금액·평가손익을 합산해 세금 계산
-// 손익통산: 같은 카테고리 내 종목들의 손익을 모두 더한 뒤 기본공제 적용
+// 카테고리별 평가금액·평가손익을 합산해 전량 매도를 가정한 예상 세금을 추정한다.
+// 손익통산 방식 — 같은 카테고리 내 종목들의 손익을 전부 더한 뒤 기본공제를 빼서 과표를 만든다.
+// TAX_RULES가 null인 현금·부동산은 건너뛰고, 평가액도 손익도 없는 카테고리는 결과에서 제외.
+// 반환 배열의 각 원소는 { value, pnl, cost, deduction, taxableBase, tax, afterTax, rule … } 구조로
+// 세금 분석 화면(renderTaxAnalysis)이 표를 그릴 때 그대로 사용한다.
 function computeTaxByCategory() {
   const result = [];
   CATEGORIES.forEach(cat => {

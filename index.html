@@ -1,9 +1,16 @@
 <!DOCTYPE html>
+<!-- 자산 포트폴리오 웹앱의 단일 페이지 뼈대 HTML — 정적 마크업만 담고 모든 동적 내용은 js 가 채운다. -->
+<!-- 화면은 탭 5개(대시보드 · 자산 입력 · 분석 · 이력 · 설정)로 구성되며 탭 전환은 render.js initTabs 가 처리한다. -->
+<!-- 스타일은 css/app.css 1개, 로직은 body 하단의 자체 js 9개 파일이 전담한다. -->
+<!-- 외부 의존성은 CDN 의 Chart.js 4.4.1 과 treemap 차트 플러그인 두 개뿐이다. -->
+<!-- 비어 있는 동적 영역(#holdingsContainer, 각 canvas, 각 tbody 등)은 render.js·charts.js 가 렌더링 시점에 채운다. -->
+<!-- 경고 — body 하단 script 태그의 나열 순서가 곧 의존성 순서다. 순서를 바꾸면 정의 전 참조로 앱이 깨진다. -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>자산 포트폴리오</title>
+<!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
   <link rel="stylesheet" href="css/app.css" />
@@ -11,7 +18,7 @@
 <body>
 
 <div class="app">
-  <!-- file:// 로 직접 열었을 때 표시되는 경고 배너 (로컬 서버 안내) -->
+  <!-- file:// 로 직접 열었을 때 표시되는 경고 배너 (로컬 서버 안내). 평소엔 숨김이며 main.js 가 프로토콜을 검사해 표시를 결정한다. -->
   <div id="fileWarn" class="file-warn" style="display:none;">
     ⚠️ <b>file:// 으로 열림 — 주식 시세/검색이 차단됩니다</b><br />
     브라우저 보안 정책상 파일을 직접 열면 외부 API 호출이 막힙니다. 같은 폴더의
@@ -19,7 +26,9 @@
     (암호화폐, 환율, 금 카테고리는 그대로 작동합니다)
   </div>
 
-  <!-- 상단 헤더: 타이틀 · 환율 배지 · 전역 액션 버튼 -->
+  <!-- 상단 헤더 — 타이틀 · 환율 배지 · 전역 액션 버튼 묶음. -->
+  <!-- #fxBadge(환율 표시)는 fetch.js updateFxBadge 가 갱신하고 클릭 시 fetchExchangeRate 를 부른다. -->
+  <!-- 버튼들의 인라인 onclick 대상 — refreshAllPrices(fetch.js), exportJSON·importJSON·snapshot·generateDummyHistory·resetAll(data-io.js). -->
   <header class="top">
     <h1><span class="dot"></span> 자산 포트폴리오</h1>
     <div class="actions">
@@ -39,6 +48,7 @@
   </header>
 
   <!-- ==================== 탭 네비게이션 ==================== -->
+  <!-- 탭 버튼 5개. data-tab 값이 아래 .tab-panel 의 data-panel 과 1:1 대응하며, 클릭 처리는 render.js initTabs 가 바인딩한다. -->
   <nav class="tab-nav" id="tabNav">
     <button class="tab-btn active" data-tab="dashboard">📊 대시보드</button>
     <button class="tab-btn" data-tab="holdings">📝 자산 입력</button>
@@ -48,8 +58,9 @@
   </nav>
 
   <!-- ==================== 탭: 대시보드 ==================== -->
+  <!-- 총자산 KPI 카드 · 자산타입/통화노출 도넛 차트 · 리밸런싱 제안 카드를 모아 보여주는 기본 탭. -->
   <div class="tab-panel active" data-panel="dashboard">
-    <!-- View Scope Toggle -->
+    <!-- View Scope Toggle — "전체 자산 ↔ 💧 유동만" 분석 기준 전환. calc.js setViewScope 가 처리하며 분석 탭의 토글과 상태를 공유한다. -->
     <div class="scope-toggle-row">
       <span class="scope-label">분석 기준:</span>
       <div class="scope-toggle">
@@ -59,7 +70,7 @@
       <span class="scope-hint" id="scopeHint">전체 자산 기준 — 부동산·연금·청약 등 묶인 자산 모두 포함</span>
     </div>
 
-    <!-- KPI Cards -->
+    <!-- KPI Cards — 총자산·유동자산·원화/달러/헤지 비중·인플레 대비 6장. 값은 render.js renderKPIs·renderInflationKPI 가 채운다. -->
     <section class="kpi-grid">
       <div class="kpi-card">
         <div class="label">총 자산</div>
@@ -98,7 +109,7 @@
       </div>
     </section>
 
-    <!-- Charts Row: 자산타입 + 통화노출 -->
+    <!-- Charts Row: 자산타입 + 통화노출 도넛 차트 2개. charts.js renderCharts 가 두 canvas 에 그린다. -->
     <div class="grid-2">
       <div class="section">
         <div class="section-header">
@@ -114,7 +125,7 @@
       </div>
     </div>
 
-    <!-- 리밸런싱 제안: 자산타입 -->
+    <!-- 리밸런싱 제안: 자산타입 단위 — 요약 칩(#rebal-summary)과 제안 카드(#rebal-grid)는 render.js renderRebalancing 이 채운다. -->
     <div class="section">
       <div class="section-header">
         <h2>⚖️ 리밸런싱 제안 (자산타입 단위)</h2>
@@ -124,7 +135,7 @@
       <div class="rebal-grid" id="rebal-grid"></div>
     </div>
 
-    <!-- 리밸런싱 제안: 통화노출 -->
+    <!-- 리밸런싱 제안: 통화노출 단위 — 원화/달러노출/달러헤지 비교. render.js renderRebalancingExposure 가 채운다. -->
     <div class="section">
       <div class="section-header">
         <h2>💱 리밸런싱 제안 (통화노출 단위)</h2>
@@ -136,6 +147,7 @@
   </div>
 
   <!-- ==================== 탭: 자산 입력 ==================== -->
+  <!-- 카테고리별 보유 자산을 행 단위로 입력·편집하는 탭. #holdingsContainer 내부 전체를 render.js renderHoldings 가 생성한다. -->
   <div class="tab-panel" data-panel="holdings">
     <div class="section">
       <div class="section-header">
@@ -147,6 +159,7 @@
   </div>
 
   <!-- ==================== 탭: 분석 ==================== -->
+  <!-- 현재 vs 목표 비교 막대 차트 · 종목 트리맵 · 세후 평가를 모은 분석 탭. -->
   <div class="tab-panel" data-panel="analysis">
     <!-- View Scope Toggle (대시보드와 공유) -->
     <div class="scope-toggle-row">
@@ -157,7 +170,7 @@
       </div>
       <span class="scope-hint" id="scopeHint2">전체 자산 기준</span>
     </div>
-    <!-- Comparison Bar Charts -->
+    <!-- Comparison Bar Charts — 자산타입·통화노출의 현재 vs 목표 막대 차트 2개. charts.js renderCharts 가 그린다. -->
     <div class="grid-2">
       <div class="section">
         <div class="section-header">
@@ -173,7 +186,8 @@
       </div>
     </div>
 
-    <!-- 종목별 트리맵 -->
+    <!-- 종목별 트리맵 — 캔버스·레전드·브레드크럼 모두 charts.js renderTreemap 이 채운다. -->
+    <!-- 헤더의 두 버튼(🌡 손익 색상 / ⊟ 전체 종목 펼치기)의 클릭 핸들러도 renderTreemap 안에서 바인딩된다. -->
     <div class="section">
       <div class="section-header" style="flex-wrap:wrap;gap:8px;">
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
@@ -190,7 +204,7 @@
       <div class="treemap-wrap"><canvas id="treemapChart"></canvas></div>
     </div>
 
-    <!-- 세후 수익 상세 -->
+    <!-- 세후 수익 상세 — 요약 카드(#tax-summary)와 분류별 테이블(#taxTable tbody)을 render.js renderTaxAnalysis 가 채운다. -->
     <div class="section">
       <div class="section-header">
         <h2>💰 세후 평가 (양도세/공제/손익통산 반영)</h2>
@@ -215,13 +229,14 @@
   </div>
 
   <!-- ==================== 탭: 이력 ==================== -->
+  <!-- 스냅샷 이력 라인 차트와 CPI·M2 기준선 비교 테이블 탭. 테이블(#historyTbody)은 render.js renderHistory, 차트는 charts.js renderCharts 가 채운다. -->
   <div class="tab-panel" data-panel="history">
     <div class="section">
       <div class="section-header">
         <h2>📈 자산 이력 (USD 구매력 기준)</h2>
         <div class="desc">"이력 저장" 시 미국 CPI도 함께 자동 수집 → 인플레이션 대비 실질 자산 변화 추적</div>
       </div>
-      <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시) -->
+      <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시). 값 채움과 표시 여부 모두 render.js renderHistory 가 결정한다. -->
       <div class="metrics-box" id="realReturnBox" style="display:none;">
         <div class="metric-cell">
           <div class="lbl">명목 USD 수익률<span class="help" title="첫 스냅샷 대비 현재 USD 자산 변화율. 인플레이션이나 통화확장 보정 안 함. 그냥 절대 USD 금액의 변화.">?</span></div>
@@ -244,6 +259,7 @@
           <div class="val" id="m-m2-real">—</div>
         </div>
       </div>
+      <!-- 이력 차트 표시 모드 전환 — 절대값(USD) / 정규화(%). charts.js setChartMode 가 처리한다. -->
       <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
         <span style="font-size:12px;color:var(--text-muted)">표시 모드:</span>
         <button class="btn" id="chartModeAbsBtn" onclick="setChartMode('absolute')" style="padding:4px 10px;font-size:12px;">절대값 (USD)</button>
@@ -272,8 +288,9 @@
   </div>
 
   <!-- ==================== 탭: 설정 ==================== -->
+  <!-- 목표 비중 편집 · 백업/서버 저장 · 환율/CPI 수동 설정 · 과거 이력 보정 · 합계 검산 · 초기화를 모은 탭. -->
   <div class="tab-panel" data-panel="settings">
-  <!-- Asset Category Targets -->
+  <!-- Asset Category Targets — 자산타입별 목표 비중 편집 테이블. tbody 는 render.js renderAssetTypeTargets 가 채운다. -->
   <div class="section">
     <div class="section-header">
       <h2>🎯 자산타입별 목표 비중</h2>
@@ -295,7 +312,7 @@
     </table>
   </div>
 
-  <!-- Currency Exposure Analysis -->
+  <!-- Currency Exposure Analysis — 통화노출 요약 지표(m-krw 등)는 render.js renderKPIs, 목표 비중 테이블 tbody 는 renderExpTargets 가 채운다. -->
   <div class="section">
     <div class="section-header">
       <h2>💱 통화노출 분석</h2>
@@ -331,14 +348,14 @@
     </table>
   </div>
 
-  <!-- 데이터 백업/복원 -->
+  <!-- 데이터 백업/복원 — 서버 저장(sync.js savePortfolio)과 JSON 내보내기/복원(data-io.js exportJSON/importJSON) 버튼을 모은 카드. -->
   <div class="section">
     <div class="section-header">
       <h2>💾 데이터 백업 / 저장</h2>
       <div class="desc">서버 저장으로 기기 간 동기화 · JSON 백업은 사고 대비 안전망</div>
     </div>
     <div class="backup-card">
-      <!-- ☁️ 서버 저장 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담) -->
+      <!-- ☁️ 서버 저장 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담). #syncStatus 문구는 sync.js refreshSyncUI 가 갱신한다. -->
       <div id="syncBox">
         <div class="backup-actions">
           <button class="btn primary" onclick="savePortfolio()" style="background:#2563eb;border-color:#2563eb;">☁️ 서버에 저장</button>
@@ -366,7 +383,7 @@
     </div>
   </div>
 
-  <!-- 환율 / CPI 설정 -->
+  <!-- 환율 / CPI 설정 — 입력값 초기 표시는 render.js renderSettings, "자동 갱신" 버튼은 fetch.js fetchExchangeRate 를 부른다. -->
   <div class="section">
     <div class="section-header">
       <h2>💱 환율 · 인플레 설정</h2>
@@ -387,7 +404,7 @@
     </div>
   </div>
 
-  <!-- 과거 이력 보정 -->
+  <!-- 과거 이력 보정 — 빼먹은 자산을 과거 스냅샷에 소급 반영. 버튼이 data-io.js openHistoricalAddModal 모달을 연다. -->
   <div class="section">
     <div class="section-header">
       <h2>📋 빠진 자산 과거 이력 보정</h2>
@@ -399,7 +416,7 @@
     </div>
   </div>
 
-  <!-- 합계 검산 -->
+  <!-- 합계 검산 — 버튼이 calc.js renderVerifyResult 를 호출해 #verifyResult 영역에 결과를 출력한다. -->
   <div class="section">
     <div class="section-header">
       <h2>🧮 합계 검산 (중복·누락 체크)</h2>
@@ -411,7 +428,7 @@
     </div>
   </div>
 
-  <!-- 위험 작업 -->
+  <!-- 위험 작업 — 전체 데이터 초기화. data-io.js resetAll 이 확인 후 이력·자산내역·목표비중을 모두 삭제한다. -->
   <div class="section">
     <div class="section-header">
       <h2>🗑️ 위험 작업</h2>
@@ -428,10 +445,13 @@
   </footer>
 </div>
 
-<!-- 우하단 토스트 알림 -->
+<!-- 우하단 토스트 알림 — data-io.js 의 toast() 가 문구를 넣고 잠시 표시한 뒤 자동으로 숨긴다. -->
 <div class="toast" id="toast"></div>
 
-<!-- 클래식 스크립트 분할 — 로드 순서 중요: 상수 → 상태 → 계산 → 렌더/차트 → IO/시세/동기화 → 초기화 -->
+<!-- 클래식 스크립트 분할(ES 모듈 아님, 전역 스코프 공유) — 나열 순서가 곧 의존성 순서이므로 절대 바꾸면 안 된다. -->
+<!-- constants.js 카테고리·자산타입 등 상수 정의 → state.js 상태 로드/저장·메모 모달 → calc.js 합계·손익·검산 계산. -->
+<!-- → render.js 탭·KPI·테이블 렌더 → charts.js Chart.js 차트·트리맵 → data-io.js JSON 입출력·스냅샷·더미·토스트. -->
+<!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → main.js 부트스트랩(반드시 마지막에 실행). -->
 <script src="js/constants.js"></script>
 <script src="js/state.js"></script>
 <script src="js/calc.js"></script>

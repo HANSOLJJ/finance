@@ -1,7 +1,17 @@
-// 외부 시세 수집 — 프록시 경유 야후/네이버/코인/환율/FRED/BLS + 검색 자동완성
+// fetch.js — 외부 시세·지표 수집 계층. 야후 파이낸스(주식/ETF 시세·환율·금 선물),
+// 네이버 금융(한국주식 자동완성), 빗썸/업비트/코인게코(코인 KRW 시세),
+// Frankfurter(ECB 환율 폴백), FRED(미국 M2)·BLS(미국 CPI)까지 앱의 네트워크 호출 전부를 담당한다.
+// CORS를 차단하는 API는 같은 origin의 /api/proxy(서버 프록시)를 거치고, 실패 시 공개 프록시로 폴백.
+// 주요 함수 그룹 — 프록시(CORS_PROXIES·fetchViaProxy), 환율(fetchExchangeRate·updateFxBadge),
+// 시세 수집(fetchStockPrice·fetchCryptoPrice·fetchAndApplyGoldPrice·refreshHolding·refreshAllPrices),
+// 검색 자동완성(searchQuotes·searchNaverFinance·onSearch 계열), 거시지표(fetchM2·fetchUSCPI).
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 7번째.
+// calc.js(num)·state.js(state·saveState)·render.js(render 계열)·data-io.js(toast)에 의존하고,
+// data-io.js의 snapshot()이 이 파일의 fetchUSCPI/fetchM2를 호출한다.
 // ==================== 외부 시세/환율 API ====================
-// 여러 프록시를 순차 시도. allorigins는 /get (CORS 지원), 응답이 contents 필드에 wrap 되어 있어 별도 파싱
-// JSON이 아닌 HTML 에러 페이지 거부 (Access Denied 등)
+// 프록시 응답이 진짜 JSON인지 검증한 뒤 파싱한다. 일부 공개 프록시는 실패 시에도
+// HTTP 200으로 HTML 에러 페이지(Access Denied 등)를 돌려주므로,
+// '<'로 시작하거나 에러 문구가 보이면 즉시 throw 해 fetchViaProxy가 다음 프록시로 넘어가게 한다.
 function _validateJSON(text) {
   const trimmed = text.trimStart();
   if (trimmed.startsWith('<') || /access denied|forbidden|<html/i.test(trimmed.substring(0, 200))) {
@@ -10,6 +20,12 @@ function _validateJSON(text) {
   return JSON.parse(text);
 }
 
+// CORS 우회 프록시 목록(배열 순서 = 시도 우선순위). 야후·FRED 등 대다수 금융 API는
+// 브라우저 직접 호출을 CORS로 차단하므로 서버가 대신 받아 전달해 줘야 한다.
+// 1순위 '/api/proxy?url='은 같은 origin의 자체 서버 프록시 — 배포 환경에서는
+// Cloudflare Pages Functions, 로컬 개발에서는 proxy_server.py가 이 경로를 처리한다.
+// 나머지 셋(corsproxy.io·allorigins·codetabs)은 자체 프록시가 없는 환경용 공개 프록시 폴백.
+// allorigins만 응답을 { contents: "..." }로 감싸므로 parse에서 한 겹 벗겨서 파싱한다.
 const CORS_PROXIES = [
   {
     // 같은 origin의 /api/proxy — 배포(Cloudflare Pages Functions)와 로컬(proxy_server.py) 모두 이 경로
@@ -38,7 +54,9 @@ const CORS_PROXIES = [
   },
 ];
 
-// CORS 우회 공통 함수: CORS_PROXIES를 순서대로 시도해 첫 성공 JSON 반환, 전부 실패하면 마지막 에러 throw
+// CORS 우회 공통 진입점. CORS_PROXIES를 순서대로 시도해 첫 성공 JSON을 반환하고,
+// HTTP 에러·HTML 응답·파싱 실패는 다음 프록시로 넘어가며 전부 실패하면 마지막 에러를 throw 한다.
+// 야후·FRED 등 CORS 차단 API 호출이 전부 이 함수를 거친다(직접 호출 가능한 API는 예외).
 async function fetchViaProxy(url) {
   let lastErr;
   for (const p of CORS_PROXIES) {
@@ -54,10 +72,12 @@ async function fetchViaProxy(url) {
   throw lastErr || new Error('모든 프록시 실패');
 }
 
-// 한글 포함 여부 검사
+// 문자열에 한글(음절·자모)이 있는지 검사. 검색어가 한글이면 네이버 우선 경로로 분기하는 데 쓴다.
 function hasKorean(s) { return /[가-힯ᄀ-ᇿ㄰-㆏]/.test(s); }
 
-// 네이버 모바일 금융 자동완성 (한국주식 검색용 - 한글 지원 우수)
+// 네이버 자동완성 응답을 앱 공통 검색 결과 형식으로 변환한다.
+// KOSPI/KOSDAQ 국내주식만 남기고 최대 10건으로 자른 뒤,
+// 6자리 종목코드에 .KS/.KQ 접미사를 붙여 야후 시세 조회용 ticker를 미리 만들어 둔다.
 function parseNaverResults(data) {
   const items = data?.result?.items || data?.items || [];
   return items
@@ -82,7 +102,9 @@ function parseNaverResults(data) {
     });
 }
 
-// 네이버 자동완성 API로 한국주식 검색. 직접 호출 먼저 시도하고 CORS 차단 시 프록시로 폴백
+// 네이버 모바일 금융 자동완성 API(m.stock.naver.com/front-api/search/autoComplete)로
+// 한국주식을 검색한다. 한글 종목명 매칭이 야후보다 좋아 한글 쿼리의 1순위 소스.
+// 직접 fetch를 먼저 시도하고(네이버가 CORS를 허용하는 경우가 있음), 막히면 프록시로 폴백한다.
 async function searchNaverFinance(query) {
   const url = `https://m.stock.naver.com/front-api/search/autoComplete?query=${encodeURIComponent(query)}&target=stock,index,marketindicator`;
   // 1) 직접 호출 시도 (네이버가 CORS 허용해 줄 수도)
@@ -101,8 +123,11 @@ async function searchNaverFinance(query) {
   return parseNaverResults(data);
 }
 
-// USD/KRW 환율 갱신: 1순위 야후 KRW=X(실시간, 프록시 경유) → 실패 시 Frankfurter(ECB 공식, 전일자) 폴백
-// 성공 시 state에 저장하고 환율에 의존하는 UI(KPI/목표/차트/보유목록)를 다시 렌더
+// USD/KRW 환율 갱신. 1순위 야후 KRW=X 차트 API(실시간, 프록시 경유) →
+// 실패 시 Frankfurter(ECB 공식 고시, 전일자, CORS 허용이라 직접 호출) 폴백.
+// 성공하면 state.usdKrwRate·rateUpdatedAt·rateSource를 저장(localStorage)하고
+// 환율에 의존하는 UI(환율 배지·KPI·목표·차트·보유목록)를 다시 렌더한다.
+// showToast=true면 결과를 토스트로 알린다(수동 갱신 버튼 경로에서 사용).
 async function fetchExchangeRate(showToast = false) {
   const badge = document.getElementById('fxBadge');
   badge.classList.add('loading');
@@ -151,7 +176,8 @@ async function fetchExchangeRate(showToast = false) {
   badge.classList.remove('loading');
 }
 
-// 상단 환율 배지에 현재 환율과 마지막 갱신 시각 표시
+// 상단 환율 배지(#fxRate/#fxMeta)에 현재 환율(소수 2자리)과 마지막 갱신 시각(HH:MM)을 표시한다.
+// 갱신 이력이 없으면 '미갱신'으로 표시. DOM만 갱신하는 순수 표시 함수.
 function updateFxBadge() {
   document.getElementById('fxRate').textContent = num(state.usdKrwRate).toFixed(2);
   if (state.rateUpdatedAt) {
@@ -164,8 +190,12 @@ function updateFxBadge() {
   }
 }
 
-// 코인 KRW 시세 수집: 설정된 거래소(빗썸/업비트/코인게코) API를 프록시 없이 직접 호출
-// 빗썸/업비트는 symbol(BTC 등), 코인게코는 ticker(coingecko id) 필요 — 검색으로 선택해야 채워짐
+// 코인 KRW 시세 수집. state.cryptoExchange 설정(기본 빗썸)에 따라
+// 빗썸(public/ticker)·업비트(v1/ticker)·코인게코(simple/price) 중 한 API를 호출한다.
+// 세 거래소 API 모두 CORS를 허용하므로 프록시 없이 직접 호출한다.
+// 빗썸/업비트는 h.symbol(BTC 같은 티커), 코인게코는 h.ticker(coingecko id)가 필요한데
+// 이 값들은 검색 자동완성으로 종목을 선택해야 채워진다(직접 타이핑만 하면 비어 있음).
+// 성공 시 h.price(KRW)와 lastFetched를 갱신·저장하고 { ok, price }를 반환, 실패 시 토스트 알림.
 async function fetchCryptoPrice(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -211,7 +241,10 @@ async function fetchCryptoPrice(holdingId) {
 // ==================== 검색 (자동완성) ====================
 let _searchTimer = null;
 
-// 종목 검색 통합 진입점: 코인은 코인게코, 주식은 한글 쿼리면 네이버 우선 → 실패 시 야후(프록시) 폴백
+// 종목 검색 통합 진입점. 코인이면 코인게코 검색 API(CORS 허용, 직접 호출),
+// 주식이면 한글 쿼리는 네이버 우선 → 실패·결과 없음 시 야후 검색 API(프록시 경유) 폴백.
+// 야후 결과는 주식/ETF/펀드(EQUITY·ETF·MUTUALFUND)만 남기고 최대 10건으로 자른다.
+// 반환 형식은 소스와 무관하게 { name, ticker, symbol, exchange } 공통 구조로 통일한다.
 async function searchQuotes(query, isCrypto) {
   query = String(query || '').trim();
   if (query.length < 1) return [];
@@ -250,7 +283,9 @@ async function searchQuotes(query, isCrypto) {
   }
 }
 
-// 종목명 입력 핸들러: 입력값을 name에 즉시 저장하고 300ms 디바운스로 자동완성 드롭다운 갱신
+// 종목명 입력 핸들러. 입력값을 h.name에 즉시 저장해 직접 타이핑한 이름도 유지하고,
+// 300ms 디바운스 뒤 searchQuotes()로 자동완성 드롭다운을 갱신한다.
+// 결과 클릭은 blur보다 먼저 잡히도록 mousedown에 바인딩한다(선택 시 시세 갱신으로 이어짐).
 function onSearchInput(e) {
   const id = e.target.getAttribute('data-search');
   const h = state.holdings.find(x => x.id === id);
@@ -306,7 +341,7 @@ function onSearchInput(e) {
   }, 300);
 }
 
-// 검색칸 재포커스 시 이전 검색 결과 드롭다운 복원
+// 검색칸 재포커스 시 직전 검색 결과 드롭다운을 다시 연다. 재검색 없이 DOM에 남은 내용만 복원.
 function onSearchFocus(e) {
   // 포커스 시 기존 드롭다운 표시 (있으면)
   const id = e.target.getAttribute('data-search');
@@ -316,7 +351,8 @@ function onSearchFocus(e) {
   }
 }
 
-// 검색칸 블러 시 드롭다운 닫기 — 결과 클릭(mousedown)이 먼저 처리되도록 200ms 지연
+// 검색칸 블러 시 드롭다운을 닫는다. 결과 항목의 mousedown 핸들러가 먼저 실행될 시간을
+// 확보하려고 200ms 지연 후 닫는다(즉시 닫으면 클릭 선택이 무시됨).
 function onSearchBlur(e) {
   // mousedown 으로 처리되도록 약간 지연
   const id = e.target.getAttribute('data-search');
@@ -326,7 +362,8 @@ function onSearchBlur(e) {
   }, 200);
 }
 
-// 자동완성 결과 선택: 이름/티커/심볼 반영 후 곧바로 해당 종목 시세 갱신
+// 자동완성 결과 선택 처리. 선택한 종목의 이름·ticker·symbol을 holdings에 반영·저장하고
+// 전체 재렌더한 뒤 refreshHolding()으로 곧바로 해당 종목 시세까지 받아온다.
 async function selectSearchResult(holdingId, result) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -339,8 +376,11 @@ async function selectSearchResult(holdingId, result) {
   await refreshHolding(holdingId);
 }
 
-// 주식/ETF 시세 수집 (야후 차트 API, 프록시 경유). 6자리 숫자 티커는 코스피(.KS)로 간주
-// 해외주식(isUSD 카테고리)은 priceUSD에, 나머지는 price(KRW)에 저장
+// 주식/ETF 시세 수집. 야후 차트 API(v8/finance/chart/{ticker})를 프록시 경유로 호출해
+// meta.regularMarketPrice(현재가)를 읽는다. 야후는 CORS 차단이라 항상 프록시를 거친다.
+// 6자리 숫자 티커는 코스피(.KS)를 자동으로 붙인다(코스닥 종목은 사용자가 .KQ로 고쳐야 함).
+// 해외주식(isUSD 카테고리)은 h.priceUSD(USD)에, 나머지는 h.price(KRW)에 저장하고
+// lastFetched 기록 후 { ok, price, currency }를 반환한다. 실패 시 토스트로 알린다.
 async function fetchStockPrice(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -372,7 +412,9 @@ async function fetchStockPrice(holdingId) {
   }
 }
 
-// 단일 종목 시세 갱신: 카테고리에 따라 코인/주식 fetch로 분기, 진행 중 버튼 스피너 표시
+// 단일 종목 시세 갱신 진입점. 카테고리의 isCrypto/hasTicker 플래그에 따라
+// fetchCryptoPrice/fetchStockPrice로 분기하고, 진행 중엔 해당 행 갱신 버튼에 스피너를 돌린다.
+// 완료 후 전체 재렌더로 평가액·차트까지 반영한다.
 async function refreshHolding(holdingId) {
   const h = state.holdings.find(x => x.id === holdingId);
   if (!h) return;
@@ -390,14 +432,17 @@ async function refreshHolding(holdingId) {
   return result;
 }
 
-// FRED API 키 (St. Louis Fed)
-// 공개 배포용: 하드코딩 제거. 로컬에서만 아래 한 줄을 콘솔에 붙여넣어 설정:
+// FRED API 키 (St. Louis Fed). 공개 배포본에는 키를 하드코딩하지 않는다.
+// 로컬에서 M2 수집을 쓰려면 브라우저 콘솔에 아래 한 줄을 붙여넣어 설정한다.
 //   localStorage.setItem('FRED_API_KEY', '여기에_본인_키')
+// 키가 비어 있으면 fetchM2()가 실패하고 snapshot()은 마지막 캐시값으로 대체한다.
 const FRED_API_KEY = localStorage.getItem('FRED_API_KEY') || '';
 
-// 미국 M2 통화공급 (FRED Series: M2SL, Billions $, SA)
-// FRED는 브라우저 직접 호출 시 CORS 차단되므로 바로 프록시 사용
-// limit=13으로 12개월 전 값까지 받아서 YoY 같이 계산
+// 미국 M2 통화공급량 조회. FRED observations API(series_id=M2SL, 단위 Billions $, 계절조정)를 쓴다.
+// FRED는 브라우저 직접 호출을 CORS로 차단하므로 처음부터 프록시를 거친다.
+// sort_order=desc&limit=13으로 최신 13개월치를 받아 최신값과 12개월 전 값으로 YoY를 함께 계산한다.
+// 반환 { value: 십억 달러, date, label: "YYYY-MM", yoyPct: 전년 동월 대비 증가율(소수 비율) }.
+// data-io.js의 snapshot()이 호출해 자산 이력에 M2를 같이 기록한다(실질가치 비교용).
 async function fetchM2() {
   const url = `https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=13`;
   const data = await fetchViaProxy(url);
@@ -421,8 +466,11 @@ async function fetchM2() {
   };
 }
 
-// 미국 CPI Index (BLS Public API). 키 없이 25 req/day 무료
-// 시리즈: CUUR0000SA0 = CPI-U All Items, NSA, 1982-84=100
+// 미국 CPI 지수 조회. BLS Public API v1(키 없이 일 25회 무료)로
+// 시리즈 CUUR0000SA0(CPI-U 전 품목, 비계절조정, 1982-84=100)을 작년~올해 범위로 받는다.
+// BLS는 CORS를 허용하는 경우가 있어 직접 호출을 먼저 시도하고 실패 시 프록시로 폴백한다.
+// 최신 월 지수와 전년 동월 값으로 YoY(뉴스의 "미국 CPI n% 상승"과 동일 지표)를 계산해
+// { index, year, period, periodName, label, yoyPct }를 반환한다. snapshot()이 이력 기록에 사용.
 async function fetchUSCPI() {
   const year = new Date().getFullYear();
   const url = `https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0?startyear=${year - 1}&endyear=${year}`;
@@ -465,8 +513,11 @@ async function fetchUSCPI() {
   };
 }
 
-// 금 시세 갱신: COMEX 금 선물(GC=F, USD/oz)을 환율로 KRW/g 환산해 '금' 카테고리 전체 행에 적용
-// 국제 시세 환산값이라 KRX 국내 금시세와 괴리가 있을 수 있음 — 의도된 동작
+// 금 시세 갱신. 야후에서 COMEX 금 선물(GC=F, USD/트로이온스)을 프록시 경유로 받아
+// 환율을 곱하고 31.1034768g(1 트로이온스)으로 나눠 KRW/g 단가로 환산한 뒤,
+// '금' 카테고리 모든 행의 price에 일괄 적용·저장하고 전체 재렌더한다.
+// 환율이 없거나 1시간 이상 묵었으면 fetchExchangeRate를 먼저 호출해 최신화한다.
+// 국제 시세 환산값이라 KRX 국내 금시세와 약간의 괴리가 있을 수 있음 — 의도된 동작.
 async function fetchAndApplyGoldPrice(btn) {
   const original = btn?.textContent;
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 갱신 중...'; }
@@ -505,7 +556,10 @@ async function fetchAndApplyGoldPrice(btn) {
   }
 }
 
-// 전체 시세 일괄 갱신: 환율 → 주식/코인 순차 갱신(요청 간 250ms 간격은 API rate limit 회피용) → 금 보유 시 금 시세도 갱신
+// 전체 시세 일괄 갱신 버튼 핸들러. 환율을 먼저 갱신해 평가액 환산 기준을 확보한 뒤,
+// 티커가 있는 주식/코인 행을 순차로 갱신한다. 요청 간 250ms 간격은
+// 야후·거래소 API의 rate limit 회피용(병렬로 쏘면 429가 잦음).
+// 금 보유분이 있으면 금 시세도 이어서 갱신하고, 성공/실패 건수를 토스트로 요약 후 전체 재렌더.
 async function refreshAllPrices() {
   const btn = document.getElementById('refreshAllBtn');
   btn.disabled = true;

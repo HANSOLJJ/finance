@@ -1,7 +1,20 @@
-// 데이터 입출력 — JSON 백업/복원·스냅샷·과거 이력 보정·더미 데이터·리셋
+// data-io.js — 데이터 입출력 계층. state 전체의 JSON 백업/복원, 일별 자산 스냅샷 기록,
+// 과거 이력 소급 보정, 데모용 더미 데이터 생성, 전체 초기화, 토스트 알림을 담당한다.
+// 스냅샷은 state.history 배열에 쌓이며 각 원소는 { id, date(YYYY-MM-DD), total, totalUSD,
+// fxRate, krw/usd(통화노출별 KRW), liquid/locked(유동성별)와 각 USD 환산값,
+// byAssetType, byCategory, cpiIndex·cpiLabel·cpiYoYPct, m2·m2Label·m2YoYPct } 구조로,
+// 이력 차트(charts.js)와 실질가치 분석의 원천 데이터가 된다.
+// 복원 시 구버전 백업은 state.js의 migrateState()가 현재 스키마로 끌어올린다.
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 6번째.
+// calc.js의 합계 함수와 state.js(saveState·defaultState·uid)에 의존하고,
+// snapshot()은 fetch.js의 fetchUSCPI/fetchM2를 호출한다(실행 시점엔 이미 로드되어 있음).
 // ==================== 액션 ====================
 // ==================== 과거 이력 보정 (빠진 자산 소급 추가) ====================
-// 모든 과거 스냅샷 + 현재 holdings에 동일 금액 적용
+// '빠진 자산 소급 추가' 모달을 띄운다. 원래부터 있었는데 기록에서 누락된 자산(청약 등)을
+// 모든 과거 스냅샷과 현재 holdings에 같은 금액으로 한꺼번에 반영하기 위한 UI.
+// 모달 DOM을 동적으로 생성해 body에 붙이고, 카테고리 변경 시 통화노출·유동성 기본값을 동기화하며,
+// 금액 입력 시 첫/마지막 스냅샷의 적용 전후 미리보기를 보여준다.
+// 실제 데이터 변경은 확인(confirm)을 거쳐 applyHistoricalAsset()에 위임한다. 롤백 불가 작업.
 function openHistoricalAddModal() {
   const existing = document.getElementById('histAddBackdrop');
   if (existing) existing.remove();
@@ -93,7 +106,7 @@ function openHistoricalAddModal() {
   // 사용자가 가장 많이 빠뜨릴 카테고리부터 기본 선택 (현금)
   catEl.value = '현금'; syncDefaults();
 
-  // 금액 입력 시 미리보기
+  // 금액 입력 시 첫/마지막 스냅샷 기준의 적용 전후 미리보기 갱신.
   const updatePreview = () => {
     const amt = num(amtEl.value);
     if (!amt || amt <= 0) {
@@ -137,7 +150,10 @@ function openHistoricalAddModal() {
   setTimeout(() => nameEl.focus(), 30);
 }
 
-// 실제 데이터 변경: holdings에 추가 + 모든 스냅샷에 동일 금액 가산
+// 소급 추가의 실제 데이터 변경부. 현재 holdings에 새 자산 1건을 추가하고
+// state.history의 모든 스냅샷에 동일 금액을 가산한 뒤 저장·재렌더한다.
+// 스냅샷은 total뿐 아니라 파생 필드(totalUSD·krw/usd·byCategory·byAssetType·
+// liquid/locked와 각 USD 환산값)까지 함께 보정해 이력 차트의 정합성을 유지한다.
 function applyHistoricalAsset(data) {
   const cat = CATEGORY_MAP[data.category];
   const assetType = (cat && cat.assetTypeFixed) || '주식';
@@ -195,7 +211,10 @@ function applyHistoricalAsset(data) {
   render();
 }
 
-// 현재 state 전체를 JSON 파일로 다운로드 (백업). 성공 시 lastBackupAt 기록
+// 현재 state 전체(보유·이력·설정 포함)를 portfolio_날짜.json 파일로 다운로드한다(백업).
+// Blob URL + 임시 <a> 클릭 방식이라 서버 왕복 없이 브라우저에서 바로 저장된다.
+// 성공 시 state.lastBackupAt을 기록·저장해 설정 탭의 마지막 백업 표시를 갱신한다.
+// 콘솔의 [Export] 로그는 다운로드가 조용히 실패하는 환경을 디버깅하기 위해 남겨둔 것.
 function exportJSON() {
   console.log('[Export] 시작');
   try {
@@ -237,7 +256,9 @@ function exportJSON() {
   }
 }
 
-// 파일 선택 input에서 백업 JSON을 읽어 복원 시작. input value 초기화는 같은 파일 재선택 허용용
+// 파일 선택 input의 change 이벤트에서 백업 JSON 파일을 FileReader로 읽어 복원을 시작한다.
+// 실제 검증·적용은 applyImportedJSON()에 위임한다. 마지막의 input value 초기화는
+// 같은 파일을 연달아 다시 선택해도 change 이벤트가 재발생하게 하기 위한 처리.
 function importJSON(e) {
   console.log('[Import] 호출됨, event:', e);
   const file = e && e.target && e.target.files && e.target.files[0];
@@ -256,7 +277,11 @@ function importJSON(e) {
   if (e.target) e.target.value = '';
 }
 
-// 백업 JSON 텍스트 검증(holdings·목표비중 필수) 후 state 교체. 구버전 형식은 migrateState로 흡수
+// 백업 JSON 텍스트를 검증한 뒤 state를 통째로 교체한다. holdings 배열과
+// 목표 비중(assetTypeTargets 또는 레거시 catTargets) 존재가 최소 형식 요건.
+// defaultState()에 백업 내용을 덮어씌워 누락 필드를 기본값으로 채우고,
+// 구버전 스키마는 migrateState()가 현재 구조로 끌어올린다.
+// 성공 시 저장·재렌더·환율 배지 갱신까지 수행하고, 실패 시 state를 건드리지 않고 alert만 띄운다.
 function applyImportedJSON(text, fileName) {
   try {
     if (!text) throw new Error('파일이 비어있습니다');
@@ -275,8 +300,12 @@ function applyImportedJSON(text, fileName) {
   }
 }
 
-// 현재 자산 총계를 오늘 날짜 스냅샷으로 저장 (같은 날짜는 덮어씀)
-// CPI·M2는 자동 수집하되, 실패해도 마지막 캐시값으로 대체하고 스냅샷 자체는 계속 진행
+// 현재 자산 총계를 오늘 날짜의 스냅샷으로 state.history에 저장한다(같은 날짜는 덮어씀).
+// 총액과 함께 통화노출(krw/usd)·유동성(liquid/locked)·자산타입별·카테고리별 내역과
+// 당시 환율을 같이 기록해, 이후 구성이 바뀌어도 과거 시점 분석이 가능하게 한다.
+// 미국 CPI·M2는 fetch.js(fetchUSCPI/fetchM2)로 자동 수집하되, 실패하면
+// state.lastCPI/lastM2 캐시값으로 대체하고 스냅샷 자체는 계속 진행한다(네트워크 불통 대비).
+// YoY는 API 응답에서 함께 계산해 저장하므로 사용자의 이력이 짧아도 표시할 수 있다.
 async function snapshot() {
   const date = localDateStr();
   const total = grandTotal();
@@ -339,8 +368,10 @@ async function snapshot() {
   toast(`📸 ${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
 }
 
-// 데모용 더미 자산 holdings (한국인 개인투자자 기준 현실적 포트폴리오)
-// 부동산 + 주식 + 코인 + 금 + 현금 골고루
+// 데모용 더미 자산 holdings 생성(한국인 개인투자자 기준의 현실적인 포트폴리오).
+// 현금·국내/해외주식·코인·연금·ISA·금·부동산을 골고루 채우고 평단가도 넣어 P&L이 보이게 한다.
+// 기존 holdings를 통째로 교체하고 자산타입·통화노출 목표 비중도 데모값으로 덮어쓴다.
+// generateDummyHistory()의 1단계로 호출되며 저장(saveState)은 호출부가 담당한다.
 function generateDummyHoldings() {
   const dummyHoldings = [
     // === 현금 (총 약 8천만 KRW + USD $5,000) ===
@@ -449,7 +480,10 @@ function generateDummyHoldings() {
   state.expTargets = { '원화': 0.65, '달러(노출)': 0.35 };
 }
 
-// 테스트용 더미 12개월 이력 생성 (자산 holdings도 함께 채움)
+// 데모용 더미 이력 생성 버튼 핸들러. 기존 데이터가 있으면 확인 후 전부 교체한다.
+// 더미 holdings를 먼저 채우고 14개월치 스냅샷을 합성한다(마지막 2~3개월은 YoY 비교 가능).
+// 시나리오 — 자산 월 +0.8% 성장에 노이즈, CPI 월 +0.28%, M2 월 +0.4%, 환율 1300~1500 사인파.
+// 각 스냅샷에 isDummy 표시를 남겨 실데이터와 구분하고, 완료 후 저장·재렌더·토스트.
 function generateDummyHistory() {
   const hasData = state.history.length > 0
     || state.holdings.some(h => num(h.price) > 0 || num(h.priceUSD) > 0);
@@ -530,7 +564,8 @@ function generateDummyHistory() {
   toast(`🧪 데모 데이터 생성됨 · 자산 ${state.holdings.length}종목 + ${numMonths}개월 이력 (자산 +${((Math.pow(1.008, numMonths-1)-1)*100).toFixed(1)}% / CPI +${((Math.pow(1.0028, numMonths-1)-1)*100).toFixed(1)}%)`);
 }
 
-// 확인 후 모든 데이터(자산·이력·설정)를 기본값으로 초기화
+// 확인(confirm) 후 모든 데이터(자산·이력·설정)를 defaultState()로 초기화하고 저장·재렌더한다.
+// saveState()가 localStorage의 기존 내용도 덮어쓰므로 백업 없이는 되돌릴 수 없다.
 function resetAll() {
   if (!confirm('정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라집니다.')) return;
   state = defaultState();
@@ -539,7 +574,8 @@ function resetAll() {
   toast('🔄 초기화 완료');
 }
 
-// 하단 토스트 메시지를 2.2초간 표시
+// 화면 하단 토스트(#toast)에 메시지를 2.2초간 표시한다.
+// 파일 전반의 작업 완료·실패 알림이 공유하는 공통 출구로, fetch.js에서도 사용한다.
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;

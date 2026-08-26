@@ -1,9 +1,22 @@
-// Chart.js 차트와 트리맵 렌더링
+// Chart.js 차트와 종목별 트리맵 렌더링 담당 모듈.
+// - 대시보드: 자산타입/통화노출 도넛 2종 (viewScope 유동/전체 반영, 값 단위 KRW).
+// - 분석 탭: 현재 vs 목표 가로 막대 2종(% 단위), 종목별 트리맵(drill-down·flat·손익 히트맵).
+// - 이력 탭: 총자산 라인 차트 (명목/실질 USD·CPI·M2 기준선·환율, 절대값/정규화 2모드).
+// 로드 순서: constants → state → calc → render → [charts] → data-io → fetch → sync → main.
+//   클래식 스크립트라 모듈 시스템 없이 전역 스코프를 공유한다.
+// 의존: CDN 전역 Chart(Chart.js 4)와 chartjs-chart-treemap 플러그인(type:'treemap' 등록).
+//   state.js 의 state 전역·saveState()·getHoldingMemo(), calc.js 의 합계·환산 함수(grandTotal 등),
+//   render.js 의 포맷터(fmtKRWshort·fmtSignedPct·escapeHtml 등)를 그대로 호출한다.
+// 호출부: render.js 의 렌더 함수들과 calc.js·fetch.js 가 renderCharts() 를 불러 전체 차트를 다시 그린다.
 // ==================== 차트 ====================
+// 생성된 Chart 인스턴스를 이름별로 보관하는 전역 맵 (assetType/exp/assetTypeBar/expBar/treemap/hist).
+// Chart.js 는 같은 canvas 에 인스턴스를 중복 생성하면 에러가 나므로, 재렌더 전 반드시 여기서 destroy 한다.
 let charts = {};
 
-// 모든 차트를 destroy 후 재생성하는 메인 렌더 진입점 (도넛·막대·트리맵·이력 라인)
-// 이력 차트의 legend 가시성만은 renderCharts._histPrevVis 에 라벨 기준으로 저장해 재생성 후 복원 (모드 토글 시 유지 목적)
+// 모든 차트를 destroy 후 재생성하는 메인 렌더 진입점 (도넛 2종·막대 2종·트리맵·이력 라인).
+// 부분 업데이트 없이 항상 전체를 다시 만드는 단순 전략 — state 가 바뀔 때마다 render.js/calc.js/fetch.js 에서 호출된다.
+// 이력 차트의 legend 가시성만은 renderCharts._histPrevVis 에 라벨 기준으로 저장해 재생성 후 복원 (모드 토글 시 유지 목적).
+// 도넛/막대는 대시보드의 viewScope(유동만/전체)에 따라 calc.js 의 scoped* 계열 합계 함수로 전환된다.
 function renderCharts() {
   // 이력 차트의 legend 보이기/숨기기 상태를 라벨 기준으로 저장 (모드 토글 시 보존)
   const histPrevVis = {};
@@ -14,6 +27,7 @@ function renderCharts() {
       histPrevVis[key] = charts.hist.isDatasetVisible(i);
     });
   }
+  // 기존 인스턴스를 모두 파기해 canvas 를 비운다 (중복 생성 시 Chart.js 가 예외를 던짐).
   Object.values(charts).forEach(c => c?.destroy?.());
   charts = {};
   // 다음 차트 빌드에서 참조할 수 있게 클로저 스코프 변수로 노출
@@ -21,7 +35,7 @@ function renderCharts() {
 
   const total = grandTotal();
   const scoped = isLiquidScope();
-  // 도넛 차트는 viewScope 반영 (대시보드에 있어서)
+  // 도넛 차트는 viewScope 반영 (대시보드에 있어서). 유동 모드면 묶인 자산(🔒) 제외 합계 함수로 교체.
   const at_total_fn = scoped ? scopedAssetTypeTotal : assetTypeTotal;
   const exp_total_fn = scoped ? scopedExposureTotal : exposureTotal;
 
@@ -118,7 +132,7 @@ function renderCharts() {
   // 종목별 트리맵 (분석 탭)
   renderTreemap();
 
-  // History line chart
+  // ==== 이력 라인 차트 (이력 탭) — state.history 스냅샷 배열 기반, 값 단위는 USD (환율 라인만 KRW/USD) ====
   const ctx6 = document.getElementById('historyChart');
   // 차트 모드 버튼 상태 동기화 (state 기준)
   {
@@ -131,7 +145,8 @@ function renderCharts() {
     }
   }
   const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
-  // 기준선 계산: 첫 스냅샷 totalUSD에 CPI 또는 M2 증가율 적용
+  // 기준선 계산: 첫 스냅샷 totalUSD 에 CPI 또는 M2 증가율 적용.
+  // cpiIndex/m2 는 fetch.js 가 스냅샷 저장 시 함께 기록한 지표. 없으면 연 CPI 추정치(state.usCpiAnnual, 기본 3.5%)로 대체.
   const first = sorted[0];
   const baseCPI = first?.cpiIndex || null;
   const baseM2 = first?.m2 || null;
@@ -139,7 +154,9 @@ function renderCharts() {
   const baseUSD = first?.totalUSD || 0;
   const fallbackRate = num(state.usCpiAnnual) || 0.035;
 
-  // 원본 절대값 라인 데이터 ---
+  // 원본 절대값 라인 데이터 (전부 USD) ---
+  // totalLine=명목 총자산, inflationLine=첫 스냅샷 금액을 CPI 만큼 불린 기준선(이걸 못 이기면 실질 손실),
+  // m2Line=M2 통화량 증가 기준선, realUSDLine=명목 총자산을 CPI 로 디플레이트한 실질 구매력.
   const totalLine = sorted.map(s => s.totalUSD || null);
   const inflationLine = sorted.map(s => {
     if (baseCPI && s.cpiIndex && baseUSD) {
@@ -169,6 +186,7 @@ function renderCharts() {
   const fxLineAbs = sorted.map(s => s.fxRate || null);
 
   // 정규화 도우미: 첫 유효값 = 0% 기준으로 % 변화율 배열로 변환 ---
+  // 단위가 다른 라인(USD vs KRW/USD 환율)을 한 축에서 성과 비교할 수 있게 하는 장치.
   const mode = state.historyChartMode || 'absolute';
   const toPct = (arr) => {
     const firstVal = arr.find(v => v !== null && v !== undefined && v > 0);
@@ -185,6 +203,7 @@ function renderCharts() {
   const dataFX        = isNorm ? toPct(fxLineAbs)      : fxLineAbs;  // 환율은 정규화 모드에서만 노출
 
   // 원본 절대값을 툴팁에서 보여주기 위해 보관 ---
+  // 정규화 모드에서도 툴팁에 실제 금액(USD)/환율을 병기하려고 라벨 → {abs 배열, 단위} 맵을 옵션 빌더에 넘긴다.
   // _memos: 스냅샷별 메모 배열 (차트 툴팁 footer에서 사용)
   const snapMemos = sorted.map(s => s.memo || '');
   const rawMap = {
@@ -255,6 +274,7 @@ function renderCharts() {
     },
   ];
 
+  // 이력 차트 생성. 옵션은 모드에 따라 정규화(%축)/절대값($축) 빌더를 선택한다.
   charts.hist = new Chart(ctx6, {
     type: 'line',
     data: { labels: sorted.map(s => s.date), datasets },
@@ -262,7 +282,9 @@ function renderCharts() {
   });
 }
 
-// 차트 모드 토글
+// 이력 차트 모드 토글 ('absolute'=절대값 USD / 'normalized'=첫 스냅샷 대비 % 변화).
+// index.html 의 모드 버튼 onclick 에서 호출된다. state 에 저장(saveState → 저장소 반영) 후
+// 버튼 강조 클래스를 바꾸고 renderCharts() 로 전체 차트를 재생성한다 (이력 차트만 갱신하는 API 없음).
 function setChartMode(mode) {
   state.historyChartMode = mode;
   saveState();
@@ -276,7 +298,9 @@ function setChartMode(mode) {
   renderCharts();
 }
 
-// USD 기준 라인 차트 옵션 (Y축 $ 표시)
+// 절대값 모드 이력 라인 차트 옵션 (Y축 $ 축약 표시, 1000 이상은 k 단위).
+// rawMap: 라벨 → {abs 배열, unit} 맵. 툴팁 label 에서 단위 분기(fx=KRW/USD, 그 외 USD)에,
+// footer 에서 스냅샷 메모(_memos) 표시에 쓰인다. renderCharts 에서만 호출.
 function usdLineOpts(rawMap) {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -324,7 +348,9 @@ function usdLineOpts(rawMap) {
   };
 }
 
-// 정규화 (%) 라인 차트 옵션 (Y축 % 표시 + 0% 기준선 강조)
+// 정규화 모드 이력 라인 차트 옵션 (Y축 ± % 표시, 0% 그리드라인만 진하게 강조).
+// 데이터는 이미 % 변화율로 변환돼 있으므로 툴팁에서 rawMap 의 abs 배열을 찾아
+// 실제 금액(USD) 또는 환율(KRW/USD)을 괄호로 병기한다. footer 는 스냅샷 메모 표시. renderCharts 에서만 호출.
 function normLineOpts(rawMap) {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -382,8 +408,10 @@ function normLineOpts(rawMap) {
   };
 }
 
-// 도넛 차트 공통 옵션 빌더. useTooltip=false 는 '데이터 없음' placeholder 렌더 시 툴팁 차단용,
-// percentage=true 면 데이터 값을 비율(0~1)로 간주해 %만 표시 (합산 비중 계산 생략)
+// 도넛 차트 공통 옵션 빌더 (자산타입/통화노출 도넛이 공유).
+// useTooltip=false 는 '데이터 없음' placeholder(회색 1조각) 렌더 시 툴팁 차단용,
+// percentage=true 면 데이터 값을 비율(0~1)로 간주해 %만 표시 (합산 비중 계산 생략).
+// 기본 툴팁은 KRW 축약 금액(fmtKRWshort) + 전체 대비 비중 % 를 함께 보여준다.
 function doughnutOpts(useTooltip = true, percentage = false) {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -406,7 +434,8 @@ function doughnutOpts(useTooltip = true, percentage = false) {
   };
 }
 
-// 현재 vs 목표 비중 비교용 가로 막대 차트 공통 옵션 (indexAxis:'y', X축 % 단위)
+// 현재 vs 목표 비중 비교용 가로 막대 차트 공통 옵션 (indexAxis:'y' 로 눕힘, X축 % 단위).
+// 분석 탭의 자산타입/통화노출 막대 차트 2개가 공유. 데이터가 이미 % 값이라 툴팁도 % 로만 표기.
 function barOpts() {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -431,7 +460,8 @@ function barOpts() {
   };
 }
 
-// KRW 기준 일반 라인 차트 공통 옵션 (Y축 원화 축약 표시) — USD/정규화 이력 차트는 별도 옵션 사용
+// KRW 기준 일반 라인 차트 공통 옵션 (Y축 원화 축약 표시) — USD/정규화 이력 차트는 별도 옵션 사용.
+// 현재 호출처 없음 (이력 차트가 KRW 기준이던 시절의 잔재). 새 KRW 라인 차트 추가 시 재사용 가능해 유지.
 function lineOpts() {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -467,8 +497,10 @@ let _treemapHidden = new Set();
 // 같은 종목이 여러 계좌(카테고리)에 흩어져 있으면 _mergedPnL(Σ손익/Σ원금)의 통합 수익률 사용.
 let _treemapHeat = false;
 
-// 같은 종목(같은 ticker, 같은 자산타입)을 하나로 합치기
-// ticker가 없으면 (현금/금/부동산 등) name + assetType 으로 매칭
+// 같은 종목(같은 ticker, 같은 자산타입)을 하나로 합치기 — 여러 계좌(연금/ISA/일반 등)에
+// 흩어진 동일 종목을 트리맵에서 한 타일로 보여주기 위한 전처리.
+// ticker 가 없으면 (현금/금/부동산 등) name + assetType 으로 매칭.
+// 합치면서 통합 손익(_mergedPnL = Σ손익/Σ원금, KRW)과 표시용 이름들(_displayName/_shortName/_displayTicker)을 계산해 붙인다.
 function mergeHoldingItems(rawItems) {
   const groups = new Map();
   for (const it of rawItems) {
@@ -493,7 +525,8 @@ function mergeHoldingItems(rawItems) {
       cost: pnl ? pnl.costKRW : null,
     });
   }
-  // 합쳐진 P&L 계산 (각 구성요소 손익 합산, 평단가 없는 건 제외)
+  // 합쳐진 P&L 계산 (각 구성요소 손익 합산, 평단가 없는 건 제외).
+  // 전부 평단가가 없으면 _mergedPnL=null → 히트맵에서 '평단가 없음' 회색으로 처리된다.
   for (const g of groups.values()) {
     let mergedPnL = 0, mergedCost = 0, hasAnyPnL = false;
     for (const f of g._mergedFrom) {
@@ -548,7 +581,8 @@ function stripBrokerPrefix(name) {
   return stripped.length > 0 ? stripped : name;
 }
 
-// HSL → hex 변환
+// HSL → hex 변환 (h: 0~360도, s/l: 0~100%).
+// drill 팔레트 생성 전용 내부 유틸 — hue 회전 계산은 HSL 공간에서 하고 Chart.js 에는 hex 로 넘기기 위함.
 function _hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -560,7 +594,8 @@ function _hslToHex(h, s, l) {
   return '#' + f(0) + f(8) + f(4);
 }
 
-// hex → HSL
+// hex → HSL 역변환 ([h(0~360), s(0~100), l(0~100)] 배열 반환, 파싱 실패 시 중립 회색값).
+// generateDrillPalette 가 자산타입 base 색상을 HSL 로 풀어 변주할 때 사용.
 function _hexToHsl(hex) {
   const m = hex.replace('#', '').match(/.{2}/g);
   if (!m) return [0, 0, 50];
@@ -578,8 +613,9 @@ function _hexToHsl(hex) {
   return [h, s * 100, l * 100];
 }
 
-// 자산타입 base 색상 주위로 다채로운 팔레트 생성 (count개)
-// hue를 ±70도 회전, saturation/lightness 변동
+// 자산타입 base 색상 주위로 다채로운 팔레트 생성 (count개 hex 배열 반환).
+// hue 를 ±70도 회전, saturation/lightness 변동 — drill/단일 섹터 flat 뷰에서 같은 자산타입의
+// 종목들이 단색으로 뭉개지지 않으면서도 그 자산타입 계열 색으로 읽히게 하려는 목적.
 function generateDrillPalette(baseHex, count) {
   const [h0, s0, l0] = _hexToHsl(baseHex);
   if (count <= 1) return [baseHex];
@@ -621,7 +657,9 @@ function heatColor(pct) {
 
 // 종목별 트리맵 렌더 (Finviz 스타일). 모듈 상태(_treemapDrill/_treemapFlat/_treemapHidden/_treemapHeat)에 따라
 // 테마별·flat·drill 3가지 뷰 + 손익 히트맵을 매번 destroy 후 재생성.
-// 현금은 음수 계좌(마이너스 통장)를 area로 못 그리므로 통화별 net 2타일로만 표시 (총액을 리밸런싱/목표표와 일치시키기 위함)
+// 현금은 음수 계좌(마이너스 통장)를 area로 못 그리므로 통화별 net 2타일로만 표시 (총액을 리밸런싱/목표표와 일치시키기 위함).
+// 부수효과: 차트 외에 breadcrumb/legend/제목/설명 DOM 을 innerHTML 로 다시 쓰고 클릭 핸들러를 재바인딩한다.
+// renderCharts() 에서 호출되며, 뷰 상태 토글(클릭·버튼) 시에는 자기 자신만 다시 호출한다 (다른 차트는 그대로).
 function renderTreemap() {
   const canvas = document.getElementById('treemapChart');
   if (!canvas) return;
@@ -868,6 +906,7 @@ function renderTreemap() {
   // default에서도 2레벨을 쓰는 이유: 현금 그룹 안에 원화/달러 두 leaf를 인접 배치하기 위함
   const groupsConfig = _treemapDrill ? undefined : ['_atype', '_uid'];
 
+  // 타일 위에서 커서를 pointer 로 (drill 가능함을 알리는 CSS 훅).
   wrapEl.classList.add('clickable');
 
   // drill 모드: 비중 순 정렬 + 종목별 다채로운 팔레트 색상 부여
@@ -918,6 +957,8 @@ function renderTreemap() {
   const _leafColorByUid = {};
   sortedItems.forEach(it => { if (it._leafColor && it._uid) _leafColorByUid[it._uid] = it._leafColor; });
 
+  // 트리맵 생성. tree 배열을 _value(KRW) 면적 기준으로 타일링하고, groups 유무로 2레벨/무그룹 구조를 결정.
+  // 콜백(backgroundColor/labels/tooltip/onClick)들은 위에서 만든 sortedItems·baseTotal 클로저를 참조한다.
   charts.treemap = new Chart(canvas, {
     type: 'treemap',
     data: {
