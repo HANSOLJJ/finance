@@ -5,7 +5,7 @@
 /* 공통 규칙 — 색상은 :root 의 CSS 변수 참조가 원칙이다(기본 팔레트, 카테고리 --c-*, 통화 --c-krw·--c-usd 등). */
 /* 카드형 요소는 background: var(--card) + 1px 테두리 + border-radius 10~12px + var(--shadow) 조합을 공유한다. */
 /* 숫자 셀은 font-variant-numeric: tabular-nums 로 자릿수를 맞추고, 호버 등 전환 효과는 transition 0.15s 가 기본이다. */
-/* 반응형 분기는 max-width 1200px(KPI 그리드 축소)와 1024px(전체 레이아웃 축소) 두 지점뿐이다. */
+/* 반응형 분기는 max-width 1200px(KPI 그리드 축소)·1024px(태블릿 축소)·768px(모바일 — 파일 끝 블록) 세 지점이다. */
   /* 전역 CSS 변수 — 기본 팔레트·그림자·카테고리/통화 색상 */
   /* --c-* 는 자산 카테고리별 대표색으로 아래 .badge 배경과 차트 계열색에서 재사용된다. */
   /* --c-krw·--c-usd·--c-commodity 는 통화노출(원화/달러/원자재) 구분색이다. */
@@ -213,6 +213,11 @@
 
   /* Tables */
   /* 목표 비중·이력·세후 수익 등 앱 공용 테이블 스타일. th/td 의 .right/.center 클래스로 정렬을 지정한다. */
+  /* .table-scroll — 넓은 테이블(이력 최대 11열 등)의 가로 스크롤 래퍼. .section 의 overflow:hidden 은 */
+  /* 카드 radius 용으로 유지하고, 좁은 화면에서 잘리는 대신 이 래퍼 안에서 좌우 스와이프로 전 컬럼 접근. */
+  /* 테이블은 min-content 아래로 줄어들지 않으므로 별도 min-width 없이 자연 오버플로 → 래퍼가 스크롤을 받는다. */
+  /* (min-width:max-content 를 주면 기준일 컬럼의 width:1% 트릭과 상호작용해 테이블이 수천 px로 부풀어오른다.) */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -482,7 +487,7 @@
   .dual-price .usd input {
     background: transparent; border: 1px solid transparent;
     border-radius: 4px; padding: 1px 4px;
-    width: 100px; text-align: right;
+    width: 100%; max-width: 110px; text-align: right;
     font-weight: 600; color: var(--c-usd);
     font-variant-numeric: tabular-nums; font-family: inherit; font-size: 13px;
   }
@@ -1211,13 +1216,11 @@
 
   /* Responsive */
   /* 화면 폭 1024px 이하(태블릿 이하) 공통 축소 — KPI 2열·grid-2/3 1열·리밸런싱 2열·세후 그리드 1열·지표 박스 2열. */
-  /* 자산 입력 행(.row)은 컬럼 수를 줄인 간이 그리드로 바뀌고 계좌/노출/메모 컬럼은 숨긴다. 탭 버튼도 폭·글자를 축소한다. */
+  /* 자산 입력 행(.row)은 기본 12트랙 fr 그리드가 자연 압축된다 (입력들이 width:100%). 탭 버튼도 폭·글자를 축소. */
+  /* 모바일(768px 이하) 전용 규칙은 파일 끝의 768px 블록에 모여 있다. */
   @media (max-width: 1024px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    .row { grid-template-columns: 2fr 1fr 1fr 1fr 32px; }
-    .row.pnl { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 32px; }
-    .row .col-account, .row .col-exposure, .row .col-memo { display: none; }
     .metrics-box { grid-template-columns: repeat(2, 1fr); }
     .rebal-grid { grid-template-columns: repeat(2, 1fr); }
     .tax-grid { grid-template-columns: 1fr; }

@@ -214,6 +214,7 @@
         <div class="desc">국내주식 비과세 · 해외주식 22% (250만 기본공제) · 암호화폐 22% (250만) · 금(KRX 금현물) 비과세 · ISA·연금 비과세</div>
       </div>
       <div class="tax-grid" id="tax-summary"></div>
+      <div class="table-scroll">
       <table class="tax-table" id="taxTable">
         <thead>
           <tr>
@@ -228,6 +229,7 @@
         </thead>
         <tbody></tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -288,6 +290,7 @@
       </div>
       <div class="chart-wrap tall"><canvas id="historyChart"></canvas></div>
       <!-- 스냅샷 이력 테이블 (CPI·M2 기준선 비교) -->
+      <div class="table-scroll">
       <table class="history-table">
         <thead>
           <tr>
@@ -308,6 +311,7 @@
         </thead>
         <tbody id="historyTbody"></tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -320,6 +324,7 @@
       <h2>🎯 자산타입별 목표 비중</h2>
       <div class="desc">자산타입 단위 목표 비중 · <span style="color:#b45309">🔗 "금" 값은 통화노출 "달러헤지"와 자동 연동됨</span></div>
     </div>
+    <div class="table-scroll">
     <table id="assetTypeTargetsTable">
       <thead>
         <tr>
@@ -334,6 +339,7 @@
       </thead>
       <tbody></tbody>
     </table>
+    </div>
   </div>
 
   <!-- Currency Exposure Analysis — 통화노출 요약 지표(m-krw 등)는 render.js renderKPIs, 목표 비중 테이블 tbody 는 renderExpTargets 가 채운다. -->
@@ -356,6 +362,7 @@
         <div class="val" id="m-hedge">0.0%</div>
       </div>
     </div>
+    <div class="table-scroll">
     <table id="expTargetsTable">
       <thead>
         <tr>
@@ -370,6 +377,7 @@
       </thead>
       <tbody></tbody>
     </table>
+    </div>
   </div>
 
   <!-- 데이터 백업/복원 — 자동 저장 상태(sync.js)와 JSON 백업/복원(data-io.js exportJSON/importJSON)을 모은 카드. -->
