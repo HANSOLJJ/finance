@@ -351,6 +351,44 @@ function syncScopeToggleUI() {
   });
 }
 
+// ==================== 입출금(현금흐름) · TWR ====================
+// state.cashflows: [{id, date:'YYYY-MM-DD', amount(KRW, 입금 +/출금 -), memo}] — data-io.js 모달이 기록.
+// TWR(실투자 수익률)은 "총액 변화에서 내가 넣고 뺀 돈의 효과를 제거한 진짜 투자 성과"다.
+// 스냅샷 구간마다 Modified Dietz 수익률을 구해 복리로 잇는다 (KRW·자산(total) 기준).
+
+// (start, end] 구간의 순입금 합계 (KRW). 날짜 문자열 비교라 YYYY-MM-DD 형식 전제.
+function netFlowBetween(startExclusive, endInclusive) {
+  return (state.cashflows || []).reduce((sum, f) => {
+    if (!f || !f.date) return sum;
+    if (startExclusive && f.date <= startExclusive) return sum;
+    if (f.date > endInclusive) return sum;
+    return sum + num(f.amount);
+  }, 0);
+}
+
+// 스냅샷 이력 기반 TWR 시계열 — [{date, flow, r, cum}] 배열 반환.
+// flow: 직전 스냅샷 이후 순입금, r: 구간 수익률, cum: 첫 스냅샷 대비 누적 수익률(소수 비율).
+// 구간 수익률 r = (V1 - V0 - F) / (V0 + F/2) — Modified Dietz, 입출금은 구간 중간 발생 가정.
+// 분모가 0 이하인 구간(총액 0 등)은 성과 판단이 불가능하므로 r=0 으로 건너뛴다.
+// 첫 스냅샷 당일 이전의 입출금은 기준 시점 밖이라 무시된다. 입출금 기록이 없으면
+// KRW 명목 수익률과 같아진다 (기록할수록 정확해지는 구조).
+function computeTWRSeries() {
+  const snaps = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+  if (snaps.length === 0) return [];
+  const out = [{ date: snaps[0].date, flow: 0, r: 0, cum: 0 }];
+  let acc = 1;
+  for (let i = 1; i < snaps.length; i++) {
+    const v0 = snaps[i - 1].total || 0;
+    const v1 = snaps[i].total || 0;
+    const flow = netFlowBetween(snaps[i - 1].date, snaps[i].date);
+    const denom = v0 + flow / 2;
+    const r = denom > 0 ? (v1 - v0 - flow) / denom : 0;
+    acc *= 1 + r;
+    out.push({ date: snaps[i].date, flow, r, cum: acc - 1 });
+  }
+  return out;
+}
+
 // ==================== Debounce 헬퍼 ====================
 // 무거운 작업(차트 destroy/recreate 등)을 키스트로크마다 실행하지 않고
 // 마지막 호출 후 wait ms가 지나야 한 번만 실행되도록 감싸는 범용 debounce.

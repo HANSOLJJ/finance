@@ -202,6 +202,13 @@ function renderCharts() {
   const dataM2        = isNorm ? toPct(m2Line)         : m2Line;
   const dataFX        = isNorm ? toPct(fxLineAbs)      : fxLineAbs;  // 환율은 정규화 모드에서만 노출
 
+  // TWR 라인 (정규화 모드 전용) — 입출금을 제거한 실투자 수익률 (calc.js computeTWRSeries).
+  // 이미 "첫 스냅샷 대비 %" 시계열이라 toPct 변환 없이 그대로 쓴다. KRW·자산 기준이라
+  // USD 기준인 다른 라인들과 통화 기준이 다름 — 라벨에 명시한다.
+  const twrSeries = computeTWRSeries();
+  const twrPctByDate = Object.fromEntries(twrSeries.map(t => [t.date, t.cum * 100]));
+  const twrLine = sorted.map(s => (twrPctByDate[s.date] !== undefined ? twrPctByDate[s.date] : null));
+
   // 원본 절대값을 툴팁에서 보여주기 위해 보관 ---
   // 정규화 모드에서도 툴팁에 실제 금액(USD)/환율을 병기하려고 라벨 → {abs 배열, 단위} 맵을 옵션 빌더에 넘긴다.
   // _memos: 스냅샷별 메모 배열 (차트 툴팁 footer에서 사용)
@@ -273,6 +280,21 @@ function renderCharts() {
       hidden: !isNorm ? true : visFor('USD/KRW 환율', false),
     },
   ];
+
+  // TWR 라인은 입출금 기록이 1건 이상일 때만 추가한다 (기록 없으면 명목 수익률과 같아
+  // 정보가 없고, 이력 차트가 기능 추가 전과 동일하게 보이도록 범례에서도 제외).
+  if ((state.cashflows || []).length > 0) {
+    datasets.push({
+      label: '실투자 수익률 (TWR·KRW)',
+      data: isNorm ? twrLine : [],
+      borderColor: '#16a34a', backgroundColor: 'transparent',
+      tension: 0.25, borderWidth: 2, borderDash: [8, 3], pointRadius: 3,
+      pointBackgroundColor: '#16a34a',
+      spanGaps: true,
+      // % 시계열이라 절대값(USD) 모드에선 숨김. 정규화 모드는 이전 상태 보존, 기본 visible
+      hidden: !isNorm ? true : visFor('실투자 수익률 (TWR·KRW)', false),
+    });
+  }
 
   // 이력 차트 생성. 옵션은 모드에 따라 정규화(%축)/절대값($축) 빌더를 선택한다.
   charts.hist = new Chart(ctx6, {

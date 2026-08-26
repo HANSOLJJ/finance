@@ -1249,9 +1249,17 @@ function renderHistory() {
   tbody.innerHTML = '';
   const box = document.getElementById('realReturnBox');
 
+  // 입출금 기록이 1건 이상일 때만 순입금 컬럼·TWR 지표를 노출한다.
+  // 기록이 없으면 이력 탭은 기능 추가 전과 완전히 동일하게 보인다 (💰 버튼만 존재).
+  const hasFlows = (state.cashflows || []).length > 0;
+  const flowTh = document.getElementById('thNetFlow');
+  if (flowTh) flowTh.style.display = hasFlows ? '' : 'none';
+  const twrCell = document.getElementById('m-twr-cell');
+  if (twrCell) twrCell.style.display = hasFlows ? '' : 'none';
+
   if (state.history.length === 0) {
     tbody.innerHTML = `
-      <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px;">
+      <tr><td colspan="${hasFlows ? 11 : 10}" style="text-align:center;color:var(--text-muted);padding:24px;">
         아직 저장된 이력이 없습니다. 🔄 전체 시세 갱신을 하면 자동으로 기록됩니다.<br />
         <button class="btn" style="margin-top:10px;" onclick="snapshot()">📸 지금 첫 스냅샷 찍기</button>
       </td></tr>`;
@@ -1297,6 +1305,11 @@ function renderHistory() {
   }
 
   // 2단계 — 스냅샷별 표 행 생성. 행마다 USD 자산(직전/30일경/누적 변화율),
+  // TWR(실투자 수익률) 시계열 — 입출금(state.cashflows)을 제거한 구간별 성과 (calc.js).
+  // 날짜로 바로 찾을 수 있게 맵으로 변환해 행 렌더에서 사용한다.
+  const twrSeries = computeTWRSeries();
+  const twrByDate = Object.fromEntries(twrSeries.map(t => [t.date, t]));
+
   // CPI·M2 기준선 대비 실질 갭, CPI/M2 지수(누적·YoY), 환율 변화를 계산해 채운다.
   sorted.forEach((s, i) => {
     const sUSD = s.totalUSD || 0;
@@ -1372,9 +1385,17 @@ function renderHistory() {
       ? `class="memo-dot has-memo" data-memo="${escapeHtml(snapMemo)}" title="메모 보기/편집"`
       : `class="memo-dot" data-memo="" title="메모 추가"`;
     const memoDotHtml = `<button ${memoDotAttr} data-snap-memo="${s.id}" data-snap-date="${s.date}" style="position:relative">${snapMemo ? '📝' : '+'}</button>`;
+    // 순입금 셀 — 직전 스냅샷 이후 기록된 입출금 합계와 그 구간의 TWR(입출금 제거 수익률).
+    const twr = twrByDate[s.date];
+    const flowCellContent = i === 0
+      ? '<span style="font-size:10px;color:var(--text-muted)">기준</span>'
+      : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? '#16a34a' : '#dc2626'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:#9ca3af">—</span>'}
+         ${twr ? `<div style="font-size:10px;color:var(--text-muted)" title="이 구간의 실투자 수익률 (입출금 효과 제거, KRW 기준)">TWR ${fmtSignedPctSmall(twr.r)}</div>` : ''}`;
+
     tr.innerHTML = `
       <td style="white-space:nowrap">${s.date}${memoDotHtml}</td>
       <td class="right">${usdCellContent}</td>
+      ${hasFlows ? `<td class="right">${flowCellContent}</td>` : ''}
       <td class="right" style="color:#dc2626">${fmtUSD(cpiBaseline)}</td>
       <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}</td>
       <td class="right ${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}">${cpiBaseline > 0 ? fmtSignedPct(realDiffCPI) : '—'}</td>
@@ -1415,8 +1436,15 @@ function renderHistory() {
     document.getElementById('m-real-return').style.color = realRet >= 0 ? 'var(--success)' : 'var(--danger)';
     document.getElementById('m-m2-real').textContent = m2Real !== null ? fmtSignedPct(m2Real) : '—';
     document.getElementById('m-m2-real').style.color = m2Real !== null ? (m2Real >= 0 ? 'var(--success)' : 'var(--danger)') : '#9ca3af';
+    // 누적 TWR — 입출금을 제거한 실투자 수익률 (KRW 기준). 스냅샷 2개부터 의미가 있다.
+    const twrEl = document.getElementById('m-twr');
+    if (twrEl && hasFlows) {
+      const twrLast = twrSeries.length >= 2 ? twrSeries[twrSeries.length - 1].cum : null;
+      twrEl.textContent = twrLast !== null ? fmtSignedPct(twrLast) : '—';
+      twrEl.style.color = twrLast !== null ? (twrLast >= 0 ? 'var(--success)' : 'var(--danger)') : '#9ca3af';
+    }
     box.style.display = 'grid';
-    box.style.gridTemplateColumns = 'repeat(5, 1fr)';
+    box.style.gridTemplateColumns = `repeat(${hasFlows ? 6 : 5}, 1fr)`;
   }
 
   // 4단계 — 행별 삭제/메모 버튼 바인딩. 삭제는 즉시 state.history에서 제거 후 render().

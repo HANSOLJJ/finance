@@ -241,6 +241,8 @@
         <div class="desc">🔄 전체 시세 갱신 시 오늘 스냅샷이 자동 기록됨 · 미국 CPI/M2도 함께 수집 → 인플레이션 대비 실질 자산 변화 추적</div>
         <!-- 수동 스냅샷 버튼 — 시세 갱신 없이 지금 상태를 그대로 기록하고 싶을 때 (data-io.js snapshot). -->
         <button class="btn" onclick="snapshot()" style="flex-shrink:0;">📸 지금 스냅샷 저장</button>
+        <!-- 입출금 원장 모달 — 월급·이체 기록으로 TWR(실투자 수익률)을 계산 (data-io.js openCashflowModal). -->
+        <button class="btn" onclick="openCashflowModal()" style="flex-shrink:0;">💰 입출금 기록</button>
       </div>
       <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시). 값 채움과 표시 여부 모두 render.js renderHistory 가 결정한다. -->
       <div class="metrics-box" id="realReturnBox" style="display:none;">
@@ -264,6 +266,11 @@
           <div class="lbl">M2 대비<span class="help" title="명목 수익률 - M2 누적 = 통화공급 대비 상대적 부 변화. 양수면 시중 유동성 증가보다 빨리 늘어남 = 자산가격 인플레 헤지 성공. 음수면 사회적으로 부 비중이 줄어듦.">?</span></div>
           <div class="val" id="m-m2-real">—</div>
         </div>
+        <!-- TWR 지표 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
+        <div class="metric-cell" id="m-twr-cell" style="display:none;">
+          <div class="lbl">실투자 수익률 (TWR)<span class="help" title="입출금(월급·이체)의 효과를 제거한 순수 투자 성과. 💰 입출금 기록 기반, KRW 자산 기준. 스냅샷 구간별 수익률(Modified Dietz)을 복리로 연결.">?</span></div>
+          <div class="val" id="m-twr">—</div>
+        </div>
       </div>
       <!-- 이력 차트 표시 모드 전환 — 절대값(USD) / 정규화(%). charts.js setChartMode 가 처리한다. -->
       <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
@@ -278,6 +285,8 @@
           <tr>
             <th>기준일</th>
             <th class="right">USD 자산<span class="help" title="위: 그 시점 환율로 환산한 USD 절대값 (KRW 총액 ÷ USD/KRW). 아래: 직전 스냅샷 대비, 약 30일 전 대비, 첫 스냅샷 대비 누적 % 변화. 30일 전 데이터가 ±10일 범위 내 없으면 '—' 표시.">?</span></th>
+            <!-- 순입금 컬럼 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
+            <th class="right" id="thNetFlow" style="display:none;">순입금<span class="help" title="직전 스냅샷 이후 기록된 입출금 합계 (KRW, 💰 입출금 기록 기반). 아래 작은 숫자는 그 구간의 실투자 수익률(TWR) — 입출금 효과를 제거한 순수 성과.">?</span></th>
             <th class="right" style="color:#dc2626">CPI 기준선<span class="help" title="첫 스냅샷 USD 자산 × (현재 CPI Index / 첫 스냅샷 CPI Index). 구매력을 그대로 유지하려면 지금 있어야 할 USD 금액. 자산이 이 위에 있으면 인플레이션을 이긴 것.">?</span></th>
             <th class="right" style="color:#9333ea">M2 기준선<span class="help" title="첫 스냅샷 USD 자산 × (현재 M2 / 첫 스냅샷 M2). 통화공급 증가율만큼 따라가려면 있어야 할 USD. 자산이 이 위에 있으면 통화확장 속도를 이긴 것 (자산가격 인플레 헤지).">?</span></th>
             <th class="right">vs CPI<span class="help" title="USD 자산이 CPI 기준선 대비 +/- %. 양수: 실질 자산 증가 (구매력 ↑) / 음수: 실질 자산 감소 (구매력 ↓)">?</span></th>

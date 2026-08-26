@@ -300,6 +300,116 @@ function applyImportedJSON(text, fileName) {
   }
 }
 
+// ==================== 입출금 기록 (현금흐름 원장) ====================
+// 이력 탭의 💰 버튼이 여는 모달. 날짜·금액(출금은 음수)·메모를 기록하고 목록에서 삭제한다.
+// 기록은 state.cashflows 에 쌓여 TWR(실투자 수익률) 계산의 원천이 된다 (calc.js computeTWRSeries).
+// 추가/삭제 즉시 saveState()로 자동 저장이 예약되고, 모달을 닫을 때 render()로 이력 탭이 갱신된다.
+function openCashflowModal() {
+  const existing = document.getElementById('cashflowBackdrop');
+  if (existing) existing.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'cashflowBackdrop';
+  backdrop.className = 'memo-modal-backdrop';
+
+  // 목록 HTML 생성 — 최신 날짜가 위로 오게 정렬해 최근 기록부터 보인다.
+  const listHtml = () => {
+    const flows = [...(state.cashflows || [])].sort((a, b) => b.date.localeCompare(a.date));
+    if (flows.length === 0) {
+      return '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">아직 기록이 없습니다 — 월급 이체·큰 입출금이 있을 때 적어두면 실투자 수익률(TWR)이 정확해집니다.</div>';
+    }
+    return `<table style="width:100%;font-size:12px;">
+      <thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;">날짜</th><th class="right" style="padding:4px 8px;">금액</th><th style="text-align:left;padding:4px 8px;">메모</th><th></th></tr></thead>
+      <tbody>${flows.map(f => `<tr>
+        <td style="padding:3px 8px;white-space:nowrap;">${f.date}</td>
+        <td class="right" style="padding:3px 8px;color:${num(f.amount) >= 0 ? '#16a34a' : '#dc2626'};font-variant-numeric:tabular-nums;">${num(f.amount) >= 0 ? '+' : ''}${fmtKRW(num(f.amount))}</td>
+        <td style="padding:3px 8px;">${escapeHtml(f.memo || '')}</td>
+        <td style="padding:3px 4px;"><button class="icon-btn" data-del-flow="${f.id}" title="삭제">×</button></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  };
+
+  backdrop.innerHTML = `
+    <div class="memo-modal" style="width:min(560px,94vw);">
+      <div class="memo-modal-head">
+        <div>
+          <div class="memo-modal-title">💰 입출금 기록</div>
+          <div class="memo-modal-sub">외부에서 넣거나 뺀 돈만 기록 (자산 간 이동은 기록 안 함)</div>
+        </div>
+        <button class="memo-modal-x" id="cfCloseBtn" title="닫기">×</button>
+      </div>
+      <div class="memo-modal-hint">
+        입금(월급·이체)은 양수, 출금(생활비 인출 등)은 음수로. 이 기록으로 "투자를 잘해서 늘었는지, 돈을 넣어서 늘었는지"를 분리해 TWR을 계산합니다.
+      </div>
+      <div style="display:grid;grid-template-columns:130px 1fr 1fr auto;gap:8px;align-items:end;">
+        <label style="font-size:12px;">
+          <div style="color:var(--text-muted);margin-bottom:4px;">날짜</div>
+          <input id="cfDate" type="date" class="inp" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
+        </label>
+        <label style="font-size:12px;">
+          <div style="color:var(--text-muted);margin-bottom:4px;">금액 (KRW, 출금은 −)</div>
+          <input id="cfAmount" class="inp right" placeholder="예: 3000000 / -500000" inputmode="numeric" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
+        </label>
+        <label style="font-size:12px;">
+          <div style="color:var(--text-muted);margin-bottom:4px;">메모 (선택)</div>
+          <input id="cfMemo" class="inp" placeholder="예: 8월 월급" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
+        </label>
+        <button class="btn primary" id="cfAddBtn" style="height:32px;">추가</button>
+      </div>
+      <div id="cfList" style="margin-top:12px;max-height:280px;overflow-y:auto;">${listHtml()}</div>
+      <div class="memo-modal-foot">
+        <span class="memo-modal-help">기록은 자동 저장됨 · 첫 스냅샷 이전 날짜는 TWR 계산에서 제외</span>
+        <button class="btn" id="cfDoneBtn">닫기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const dateEl = document.getElementById('cfDate');
+  const amtEl = document.getElementById('cfAmount');
+  const memoEl = document.getElementById('cfMemo');
+  dateEl.value = localDateStr();
+
+  // 삭제 버튼 바인딩 — 목록을 다시 그릴 때마다 재바인딩해야 한다.
+  const bindDeletes = () => {
+    backdrop.querySelectorAll('[data-del-flow]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-del-flow');
+        state.cashflows = state.cashflows.filter(f => f.id !== id);
+        saveState();
+        refreshList();
+      };
+    });
+  };
+  const refreshList = () => {
+    document.getElementById('cfList').innerHTML = listHtml();
+    bindDeletes();
+  };
+  bindDeletes();
+
+  // 추가 — 날짜·금액 검증 후 원장에 기록. 금액 0은 의미가 없으므로 거부한다.
+  const add = () => {
+    const date = dateEl.value;
+    const amount = num(amtEl.value);
+    if (!date) { alert('날짜를 선택하세요.'); dateEl.focus(); return; }
+    if (!amount) { alert('금액을 입력하세요 (출금은 음수).'); amtEl.focus(); return; }
+    state.cashflows.push({ id: uid(), date, amount, memo: (memoEl.value || '').trim() });
+    saveState();
+    amtEl.value = ''; memoEl.value = '';
+    refreshList();
+    amtEl.focus();
+  };
+  document.getElementById('cfAddBtn').onclick = add;
+  amtEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  memoEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+  // 닫기 — 이력 테이블·차트에 TWR 반영을 위해 닫을 때 한 번만 전체 재렌더한다.
+  const close = () => { backdrop.remove(); render(); };
+  document.getElementById('cfCloseBtn').onclick = close;
+  document.getElementById('cfDoneBtn').onclick = close;
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+}
+
 // 현재 자산 총계를 오늘 날짜의 스냅샷으로 state.history에 저장한다(같은 날짜는 덮어씀).
 // auto=true 는 시세 갱신(refreshAllPrices) 완료 시의 자동 호출 — 토스트 문구만 다르고
 // 동작은 수동 버튼과 동일하다. 기록 후 saveState()로 자동 저장까지 예약된다.

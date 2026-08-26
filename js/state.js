@@ -30,6 +30,7 @@ function defaultState() {
     assetTypeTargets: { ...DEFAULT_ASSET_TYPE_TARGETS },
     expTargets: { ...DEFAULT_EXP_TARGETS },
     history: [],
+    cashflows: [],  // 입출금 원장 [{id, date, amount(KRW, 입금 +/출금 -), memo}] — TWR 계산의 원천
     collapsed: {},
     usdKrwRate: 1380, // 임시 기본값. 첫 로드시 자동 갱신
     rateUpdatedAt: '',
@@ -126,6 +127,7 @@ function migrateState(s) {
   if (s.activeTab === undefined) s.activeTab = 'dashboard';
   if (s.historyChartMode === undefined) s.historyChartMode = 'normalized';
   if (s.holdingMemos === undefined || s.holdingMemos === null) s.holdingMemos = {};
+  if (!Array.isArray(s.cashflows)) s.cashflows = [];
   if (s.viewScope === undefined) s.viewScope = 'all';
   // 과거 스냅샷에 totalUSD 누락 보정
   if (s.history && s.usdKrwRate) {

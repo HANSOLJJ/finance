@@ -14,6 +14,7 @@
 window.exportJSON = exportJSON;
 window.importJSON = importJSON;
 window.snapshot = snapshot;
+window.openCashflowModal = openCashflowModal;
 window.resetAll = resetAll;
 window.fetchExchangeRate = fetchExchangeRate;
 window.refreshAllPrices = refreshAllPrices;
