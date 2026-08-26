@@ -38,6 +38,8 @@ if (location.protocol === 'file:') {
 // (갱신 성공 → saveState → 자동 저장까지 자연히 이어진다).
 function boot() {
   initTabs();
+  initHelpTapTooltips(); // ? 툴팁 터치(탭) 토글 — 모바일 대응
+
   render();
   updateFxBadge();
   updateSyncIndicator(); // ☁️ 헤더·설정 탭 동기화 상태 초기 표시

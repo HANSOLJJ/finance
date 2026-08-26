@@ -54,6 +54,24 @@ function initTabs() {
   });
 }
 
+// ? 도움말 툴팁의 터치(탭) 토글 — hover가 없는 모바일에서 탭으로 열고 닫는다.
+// document 캡처 단계 위임 1개라 재렌더로 생기는 동적 .help도 자동 커버되고,
+// ? 아이콘이 버튼 안에 있는 경우(차트 모드 버튼 등) 버튼 클릭 오발동도 차단한다.
+// main.js boot()에서 1회만 호출. 표시 규칙은 CSS의 .help.tip-open이 hover와 공유.
+function initHelpTapTooltips() {
+  document.addEventListener('click', (e) => {
+    const help = e.target.closest('.help');
+    document.querySelectorAll('.help.tip-open').forEach(el => {
+      if (el !== help) el.classList.remove('tip-open');
+    });
+    if (help) {
+      e.preventDefault();
+      e.stopPropagation();
+      help.classList.toggle('tip-open');
+    }
+  }, true);
+}
+
 // ==================== 포맷팅 ====================
 // 아래 포맷터 4종은 render.js뿐 아니라 charts.js(툴팁·축 라벨)에서도 두루 쓰인다.
 // USD 포맷(fmtUSD)과 인풋용 콤마 포맷(fmtNumInput)은 calc.js에 있음에 유의.
