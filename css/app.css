@@ -825,6 +825,7 @@
     width: min(560px, 92vw);
     padding: 20px 22px;
     max-height: 90vh;
+    overflow-y: auto;  /* 내용이 90vh를 넘으면(소급 추가·편집 모달 등) 모달 안에서 스크롤 */
     display: flex; flex-direction: column;
     gap: 12px;
   }
@@ -869,6 +870,22 @@
     gap: 8px;
   }
   .memo-modal-help { font-size: 11px; color: var(--text-muted); }
+
+  /* 보유 항목 편집 모달(모바일 행 탭) — render.js openHoldingEditModal. 껍데기는 .memo-modal 재사용, */
+  /* 폼은 2열 그리드(.full = 한 줄 통째). 라벨 위·입력 아래의 세로 필드 구성이다. */
+  .hold-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hold-edit-grid .full { grid-column: 1 / -1; }
+  .hold-edit-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .hold-edit-field > span { font-size: 11px; color: var(--text-muted); }
+  .hold-edit-field .inp { width: 100%; padding: 8px 10px; font-size: 14px; }
+  .hold-edit-ro { font-size: 14px; font-weight: 600; padding: 6px 0; }
+  .hold-edit-ro .sym { color: var(--accent); font-size: 12px; font-weight: 500; }
+  .hold-edit-note { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+  .hold-edit-live {
+    font-size: 13px; font-weight: 600; text-align: right;
+    padding-top: 8px; border-top: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Footer */
   /* 페이지 최하단 안내 문구 영역. */

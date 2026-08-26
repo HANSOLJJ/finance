@@ -996,6 +996,171 @@ function renderHoldings() {
     input.addEventListener('focus', onSearchFocus);
     input.addEventListener('blur', onSearchBlur);
   });
+  // 모바일 컴팩트 행 탭 → 편집 모달. matchMedia를 클릭 시점에 검사하므로 데스크톱(769px+)은 무반응.
+  // 인풋/셀렉트/버튼/드롭다운/메모 미리보기 등 자체 상호작용 요소를 탭한 경우는 제외한다.
+  container.querySelectorAll('.row:not(.head)').forEach(rowEl => {
+    rowEl.addEventListener('click', (e) => {
+      if (!window.matchMedia('(max-width: 768px)').matches) return;
+      if (e.target.closest('input, select, button, .search-dropdown, .memo-preview')) return;
+      if (rowEl.dataset.holdingId) openHoldingEditModal(rowEl.dataset.holdingId);
+    });
+  });
+}
+
+// 모바일 보유 항목 편집 모달 — 컴팩트 행(768px 이하)에서 행을 탭하면 열린다.
+// 폼 인풋은 목록 행과 같은 data-field/data-id 규약으로 onFieldChange에 바인딩되므로
+// 저장 경로(state 갱신→saveState→partialUpdate/render)가 행 인라인 편집과 완전히 동일하고,
+// 입력 중에는 partialUpdate가 뒤의 컴팩트 행 평가금액/손익을 그대로 라이브 갱신한다.
+// 종목 변경(검색)은 드롭다운 조회([data-dropdown])가 문서 전역이라 모달에 복제하면 충돌 →
+// 모달에선 읽기 전용으로 두고 목록의 종목명 칸에서 기존 검색을 쓰게 안내한다. 닫으면 render() 1회.
+function openHoldingEditModal(holdingId) {
+  const h = state.holdings.find(x => x.id === holdingId);
+  if (!h) return;
+  const c = CATEGORY_MAP[h.category];
+  if (!c) return;
+
+  const existing = document.getElementById('holdEditBackdrop');
+  if (existing) existing.remove();
+
+  // 필드 템플릿 헬퍼 — 숫자(콤마 포맷)/텍스트/그대로(수량 등 콤마 없는) 3종
+  const numInput = (label, field, value, full) => `
+    <label class="hold-edit-field${full ? ' full' : ''}">
+      <span>${label}</span>
+      <input class="inp right" value="${fmtNumInput(value)}" data-field="${field}" data-id="${h.id}" data-numeric="1" placeholder="0" />
+    </label>`;
+  const rawInput = (label, field, value) => `
+    <label class="hold-edit-field">
+      <span>${label}</span>
+      <input class="inp right" value="${escapeHtml(value ?? '')}" data-field="${field}" data-id="${h.id}" placeholder="0" />
+    </label>`;
+  const textInput = (label, field, value, full, ph) => `
+    <label class="hold-edit-field${full ? ' full' : ''}">
+      <span>${label}</span>
+      <input class="inp" value="${escapeHtml(value ?? '')}" data-field="${field}" data-id="${h.id}" placeholder="${ph || '—'}" />
+    </label>`;
+
+  // 카테고리 유형별 본문 필드 (renderHoldings의 행 구성과 같은 분기)
+  let fieldsHTML = '';
+  if (c.hasTicker) {
+    fieldsHTML += `
+      <div class="hold-edit-field full">
+        <span>종목</span>
+        <div class="hold-edit-ro">${escapeHtml(h.name || '(이름 없음)')}${h.ticker ? ` <span class="sym">${escapeHtml(h.ticker)}</span>` : ''}</div>
+        <div class="hold-edit-note">종목 변경·검색은 목록의 종목명 칸에서</div>
+      </div>`;
+    fieldsHTML += rawInput('수량', 'quantity', h.quantity);
+    fieldsHTML += c.isUSD
+      ? numInput('평단가 ($)', 'avgPriceUSD', h.avgPriceUSD)
+      : numInput('평단가 (원)', 'avgPrice', h.avgPrice);
+    fieldsHTML += c.isUSD
+      ? numInput('현재가 ($)', 'priceUSD', h.priceUSD)
+      : numInput('현재가 (원)', 'price', h.price);
+  } else if (c.amountOnly) {
+    fieldsHTML += textInput(c.key === '부동산' ? '단지/명칭' : '이름', 'name', h.name, true);
+    if (!c.skipAccount) fieldsHTML += textInput(c.key === '현금' ? '은행' : '기관', 'account', h.account, false);
+    fieldsHTML += numInput(h.exposure === '달러(노출)' ? '평가금액 ($)' : '평가금액 (원)', 'price', h.price, false);
+  } else {
+    // 금 — 명칭·보관처·그램·평단가·시세
+    fieldsHTML += textInput('명칭', 'name', h.name, true);
+    fieldsHTML += textInput('보관처', 'account', h.account, false);
+    fieldsHTML += rawInput('그램(g)', 'quantity', h.quantity);
+    fieldsHTML += numInput('평단가 (원/g)', 'avgPrice', h.avgPrice, false);
+    fieldsHTML += numInput('시세 (원/g)', 'price', h.price, false);
+  }
+
+  // 공통 필드 — 통화노출/자산타입(고정이면 표시만)/유동성/짧은 메모
+  const at = assetTypeOf(h);
+  const SELECTABLE_ATYPES = ['주식', '채권', '현금', '금', '원자재'];
+  const exposureField = `<label class="hold-edit-field"><span>통화노출</span>
+      <select class="inp" data-field="exposure" data-id="${h.id}">
+        ${EXPOSURES.map(x => `<option value="${x}" ${x === h.exposure ? 'selected' : ''}>${x}</option>`).join('')}
+      </select></label>`;
+  const assetTypeField = c.assetTypeFixed
+    ? `<div class="hold-edit-field"><span>자산타입</span><div class="hold-edit-ro">${c.assetTypeFixed} <span class="hold-edit-note">(자동 분류)</span></div></div>`
+    : `<label class="hold-edit-field"><span>자산타입</span>
+        <select class="inp" data-field="assetType" data-id="${h.id}">
+          ${SELECTABLE_ATYPES.map(t => `<option value="${t}" ${t === at ? 'selected' : ''}>${t}</option>`).join('')}
+        </select></label>`;
+  const liq = holdingLiquidity(h);
+  const liquidityField = `<label class="hold-edit-field"><span>유동성</span>
+      <select class="inp" data-field="liquidity" data-id="${h.id}">
+        <option value="liquid" ${liq === 'liquid' ? 'selected' : ''}>💧 유동</option>
+        <option value="locked" ${liq === 'locked' ? 'selected' : ''}>🔒 묶임</option>
+      </select></label>`;
+  const memoField = textInput('메모 (짧은 라벨)', 'memo', h.memo, true);
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'holdEditBackdrop';
+  backdrop.className = 'memo-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="memo-modal" role="dialog" aria-modal="true">
+      <div class="memo-modal-head">
+        <div>
+          <div class="memo-modal-title">✏️ ${escapeHtml(h.name || c.key + ' 항목')}</div>
+          <div class="memo-modal-sub">${c.key}${h.account ? ' · ' + escapeHtml(h.account) : ''}</div>
+        </div>
+        <button class="memo-modal-x" id="holdEditCloseX" title="닫기">×</button>
+      </div>
+      <div class="hold-edit-grid">${fieldsHTML}${exposureField}${assetTypeField}${liquidityField}${memoField}</div>
+      <div class="hold-edit-live" id="holdEditLive"></div>
+      <div class="memo-modal-foot">
+        <div style="display:flex;gap:8px;">
+          ${h.name ? '<button class="btn" id="holdEditMemoBtn">📝 종목 메모</button>' : ''}
+          ${c.hasTicker ? '<button class="btn" id="holdEditRefreshBtn">🔄 시세</button>' : ''}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="holdEditDeleteBtn" style="color:#dc2626">삭제</button>
+          <button class="btn primary" id="holdEditCloseBtn">닫기</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const modal = backdrop.querySelector('.memo-modal');
+  // 평가금액·손익 라이브 표시 — 행의 computed/pnl 셀은 partialUpdate가 갱신하지만
+  // 모달 안에도 즉시 피드백이 있어야 입력 결과를 확인할 수 있다.
+  const updateLive = () => {
+    const el = document.getElementById('holdEditLive');
+    if (!el) return;
+    const p = holdingPnL(h);
+    el.textContent = `평가금액 ${fmtKRW(holdingValue(h))}`
+      + (p ? ` · 손익 ${p.pnl > 0 ? '+' : ''}${fmtKRWshort(p.pnl)} (${p.pnl > 0 ? '+' : ''}${(p.pct * 100).toFixed(2)}%)` : '');
+  };
+  modal.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+    el.addEventListener('input', onFieldChange);
+    el.addEventListener('change', onFieldChange);
+    if (el.getAttribute('data-numeric')) {
+      el.addEventListener('blur', onNumericBlur);
+      el.addEventListener('focus', onNumericFocus);
+    }
+    el.addEventListener('input', updateLive);
+    el.addEventListener('change', updateLive);
+  });
+  updateLive();
+
+  const close = () => { backdrop.remove(); render(); };
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  document.getElementById('holdEditCloseX').addEventListener('click', close);
+  document.getElementById('holdEditCloseBtn').addEventListener('click', close);
+  document.getElementById('holdEditDeleteBtn').addEventListener('click', () => {
+    if (!confirm(`'${h.name || '(이름 없음)'}' 항목을 삭제할까요?`)) return;
+    state.holdings = state.holdings.filter(x => x.id !== h.id);
+    backdrop.remove();
+    render();  // 저장은 render 내부 saveState가 수행 (행 삭제 버튼과 동일 경로)
+  });
+  const memoBtn = document.getElementById('holdEditMemoBtn');
+  if (memoBtn) memoBtn.addEventListener('click', () => openMemoModal('holding', h.name, h.name));
+  const refreshBtn = document.getElementById('holdEditRefreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    await refreshHolding(h.id);  // 시세 반영 + render()까지 수행 (모달은 body 직속이라 유지됨)
+    refreshBtn.disabled = false;
+    const priceField = c.isUSD ? 'priceUSD' : 'price';
+    const inp = modal.querySelector(`input[data-field="${priceField}"]`);
+    if (inp) inp.value = fmtNumInput(h[priceField]);
+    updateLive();
+  });
 }
 
 // 숫자 인풋 포커스 핸들러 — 콤마를 제거한 raw 값으로 바꿔 편집을 편하게 함.
@@ -1069,13 +1234,14 @@ function partialUpdate(h) {
   const pnlEl = row?.querySelector('.pnl-cell');
   if (pnlEl) {
     const p = holdingPnL(h);
+    // m-keep(모바일 컴팩트 모드 표시 마킹)은 className 교체 시에도 유지해야 한다
     if (!p) {
-      pnlEl.className = 'pnl-cell zero';
+      pnlEl.className = 'pnl-cell zero m-keep';
       pnlEl.innerHTML = '—';
     } else {
       const cls = p.pnl > 0 ? 'pos' : (p.pnl < 0 ? 'neg' : 'zero');
       const sign = p.pnl > 0 ? '+' : '';
-      pnlEl.className = 'pnl-cell ' + cls;
+      pnlEl.className = 'pnl-cell ' + cls + ' m-keep';
       pnlEl.innerHTML = `<div class="amt">${sign}${fmtKRWshort(p.pnl)}</div><div class="pct">${sign}${(p.pct*100).toFixed(2)}%</div>`;
     }
   }
