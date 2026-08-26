@@ -887,6 +887,11 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 입출금 기록/소급 추가 모달의 입력 폼 그리드 (data-io.js). 인라인 style이면 미디어쿼리가 */
+  /* 못 이기므로 클래스로 분리 — 모바일(768px 블록)에서 열 수를 줄여 오버플로를 막는다. */
+  .cf-form-grid { display: grid; grid-template-columns: 130px 1fr 1fr auto; gap: 8px; align-items: end; }
+  .hist-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
   /* Footer */
   /* 페이지 최하단 안내 문구 영역. */
   footer {
@@ -1292,4 +1297,7 @@
     .row .computed { font-size: 12px; }
     .row:not(.head) { cursor: pointer; min-height: 40px; }
     .search-dropdown { min-width: 0; width: max(100%, 250px); max-width: calc(100vw - 48px); }
+    /* 모달 폼 그리드 축소 — 입출금은 날짜+금액 / 메모+추가버튼 2줄, 소급 추가는 1열 */
+    .cf-form-grid { grid-template-columns: 1fr 1fr; }
+    .hist-form-grid { grid-template-columns: 1fr; }
   }

@@ -40,7 +40,7 @@ function openHistoricalAddModal() {
       <div class="memo-modal-hint" style="border-left-color:#dc2626;background:#fef2f2;">
         ⚠️ 이 작업은 과거 스냅샷을 수정합니다. 적용 전에 설정 탭에서 "백업 다운로드"로 JSON 백업을 받아두세요. 롤백 안 됩니다.
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="hist-form-grid">
         <label style="font-size:12px;">
           <div style="color:var(--text-muted);margin-bottom:4px;">카테고리</div>
           <select id="histAddCategory" class="inp" style="width:100%;border:1px solid var(--border);padding:6px 8px;">
@@ -341,7 +341,7 @@ function openCashflowModal() {
       <div class="memo-modal-hint">
         입금(월급·이체)은 양수, 출금(생활비 인출 등)은 음수로. 이 기록으로 "투자를 잘해서 늘었는지, 돈을 넣어서 늘었는지"를 분리해 TWR을 계산합니다.
       </div>
-      <div style="display:grid;grid-template-columns:130px 1fr 1fr auto;gap:8px;align-items:end;">
+      <div class="cf-form-grid">
         <label style="font-size:12px;">
           <div style="color:var(--text-muted);margin-bottom:4px;">날짜</div>
           <input id="cfDate" type="date" class="inp" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
