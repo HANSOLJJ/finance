@@ -438,6 +438,63 @@ async function refreshHolding(holdingId) {
 // 키가 비어 있으면 fetchM2()가 실패하고 snapshot()은 마지막 캐시값으로 대체한다.
 const FRED_API_KEY = localStorage.getItem('FRED_API_KEY') || '';
 
+// ==================== 벤치마크 지수 (S&P500 · 나스닥) ====================
+// 이력 차트에 시장 대비 성과 비교선을 그리기 위한 지수 종가 수집.
+// 값은 CPI/M2 와 같은 방식으로 스냅샷(s.spx/s.ndx)에 저장되어 오프라인 렌더가 가능하다.
+
+// 야후 v8 chart API 로 지수 일별 종가 시계열을 받는다 (fromDate ~ 오늘, CORS라 프록시 경유).
+// 반환 { spx: {YYYY-MM-DD: 종가}, ndx: {...} } — ^GSPC=S&P500, ^IXIC=나스닥 종합.
+// 주말·휴장일 보정을 위해 fromDate 앞 7일 여유를 두고 받는다.
+async function fetchBenchmarkSeries(fromDate) {
+  const p1 = Math.floor(new Date(fromDate + 'T00:00:00').getTime() / 1000) - 7 * 86400;
+  const p2 = Math.floor(Date.now() / 1000) + 86400;
+  const symbols = { spx: '^GSPC', ndx: '^IXIC' };
+  const out = {};
+  for (const [key, sym] of Object.entries(symbols)) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=${p1}&period2=${p2}&interval=1d`;
+    const data = await fetchViaProxy(url);
+    const res = data?.chart?.result?.[0];
+    const ts = res?.timestamp || [];
+    const closes = res?.indicators?.quote?.[0]?.close || [];
+    const map = {};
+    ts.forEach((t, i) => {
+      const c = closes[i];
+      if (c !== null && c !== undefined && isFinite(c)) map[localDateStr(new Date(t * 1000))] = c;
+    });
+    out[key] = map;
+  }
+  return out;
+}
+
+// 날짜→종가 맵에서 date 이하의 가장 가까운 종가를 찾는다 (주말·휴장일이면 직전 영업일 값).
+// 범위 내 값이 없으면 null — "데이터 없음"으로 확정 저장되어 재조회 대상에서 빠진다.
+function _closeOnOrBefore(map, date) {
+  if (map[date] !== undefined) return map[date];
+  const keys = Object.keys(map).filter(d => d <= date).sort();
+  return keys.length ? map[keys[keys.length - 1]] : null;
+}
+
+// 스냅샷 이력에 벤치마크 종가(spx/ndx)를 채워 넣는다 — 값이 빠진(undefined) 스냅샷이
+// 있을 때만 네트워크를 탄다. refreshAllPrices 완료 시 호출되어 새 스냅샷 기록과
+// 과거 스냅샷 소급 보정(backfill)을 동시에 처리한다. 실패는 조용히 넘기고 다음
+// 시세 갱신 때 자연히 재시도된다 (undefined 로 남아 있으므로).
+async function applyBenchmarksToHistory() {
+  const snaps = state.history || [];
+  const missing = snaps.filter(s => s.spx === undefined || s.ndx === undefined);
+  if (missing.length === 0) return;
+  const firstDate = [...snaps].sort((a, b) => a.date.localeCompare(b.date))[0].date;
+  try {
+    const series = await fetchBenchmarkSeries(firstDate);
+    snaps.forEach(s => {
+      if (s.spx === undefined) s.spx = _closeOnOrBefore(series.spx, s.date);
+      if (s.ndx === undefined) s.ndx = _closeOnOrBefore(series.ndx, s.date);
+    });
+    saveState();
+  } catch (e) {
+    console.warn('벤치마크 지수 수집 실패 (다음 시세 갱신 때 재시도):', e.message);
+  }
+}
+
 // 미국 M2 통화공급량 조회. FRED observations API(series_id=M2SL, 단위 Billions $, 계절조정)를 쓴다.
 // FRED는 브라우저 직접 호출을 CORS로 차단하므로 처음부터 프록시를 거친다.
 // sort_order=desc&limit=13으로 최신 13개월치를 받아 최신값과 12개월 전 값으로 YoY를 함께 계산한다.
@@ -594,6 +651,9 @@ async function refreshAllPrices() {
   // 디바운스 없이 즉시 서버에 저장한다 — 스냅샷은 시세가 갱신됐을 때만 의미가 있으므로
   // 이 완료 지점이 자동 이력 기록의 트리거다 (계획: 3차 개편).
   await snapshot(true);
+  // 새 스냅샷 + 과거 스냅샷의 벤치마크 지수(S&P500/나스닥)를 채운 뒤 서버 반영.
+  await applyBenchmarksToHistory();
+  render();
   flushServerSave();
 }
 

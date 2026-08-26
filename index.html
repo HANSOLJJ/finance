@@ -271,6 +271,15 @@
           <div class="lbl">실투자 수익률 (TWR)<span class="help" title="입출금(월급·이체)의 효과를 제거한 순수 투자 성과. 💰 입출금 기록 기반, KRW 자산 기준. 스냅샷 구간별 수익률(Modified Dietz)을 복리로 연결.">?</span></div>
           <div class="val" id="m-twr">—</div>
         </div>
+        <!-- 리스크 지표 2종 — calc.js computeRiskStats 로 계산, render.js renderHistory 가 채운다. -->
+        <div class="metric-cell">
+          <div class="lbl">MDD (최대 낙폭)<span class="help" title="이력상 이전 고점 대비 가장 깊었던 하락률 (USD 자산 기준). 최악의 시기에 고점에서 몇 %까지 내려갔었는지 — 포트폴리오 리스크의 체감 크기.">?</span></div>
+          <div class="val" id="m-mdd">—</div>
+        </div>
+        <div class="metric-cell">
+          <div class="lbl">변동성 (연환산)<span class="help" title="스냅샷 간 수익률의 출렁임을 연 단위로 환산한 값 (USD 자산 기준). 낮을수록 완만, 높을수록 등락이 큼. 스냅샷 주기가 불규칙하면 근사치.">?</span></div>
+          <div class="val" id="m-vol">—</div>
+        </div>
       </div>
       <!-- 이력 차트 표시 모드 전환 — 절대값(USD) / 정규화(%). charts.js setChartMode 가 처리한다. -->
       <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">

@@ -202,6 +202,11 @@ function renderCharts() {
   const dataM2        = isNorm ? toPct(m2Line)         : m2Line;
   const dataFX        = isNorm ? toPct(fxLineAbs)      : fxLineAbs;  // 환율은 정규화 모드에서만 노출
 
+  // 벤치마크 라인 (정규화 모드 전용) — 스냅샷에 기록된 S&P500/나스닥 종가(fetch.js가
+  // 시세 갱신 시 수집·백필)를 첫 유효값 기준 %로 정규화해 시장 대비 성과를 비교한다.
+  const spxLine = sorted.map(s => (s.spx !== undefined && s.spx !== null ? s.spx : null));
+  const ndxLine = sorted.map(s => (s.ndx !== undefined && s.ndx !== null ? s.ndx : null));
+
   // TWR 라인 (정규화 모드 전용) — 입출금을 제거한 실투자 수익률 (calc.js computeTWRSeries).
   // 이미 "첫 스냅샷 대비 %" 시계열이라 toPct 변환 없이 그대로 쓴다. KRW·자산 기준이라
   // USD 기준인 다른 라인들과 통화 기준이 다름 — 라벨에 명시한다.
@@ -280,6 +285,32 @@ function renderCharts() {
       hidden: !isNorm ? true : visFor('USD/KRW 환율', false),
     },
   ];
+
+  // 벤치마크 라인은 지수 데이터가 있는 스냅샷이 하나라도 있을 때만 추가한다
+  // (첫 시세 갱신 전에는 범례에도 안 나타나 기존 화면과 동일).
+  if (spxLine.some(v => v !== null)) {
+    datasets.push({
+      label: 'S&P500',
+      data: isNorm ? toPct(spxLine) : [],
+      borderColor: '#64748b', backgroundColor: 'transparent',
+      tension: 0.25, borderWidth: 2, borderDash: [4, 4], pointRadius: 2,
+      pointBackgroundColor: '#64748b',
+      spanGaps: true,
+      // 지수 포인트 단위라 절대값(USD) 모드에선 숨김. 정규화 모드는 이전 상태 보존
+      hidden: !isNorm ? true : visFor('S&P500', false),
+    });
+  }
+  if (ndxLine.some(v => v !== null)) {
+    datasets.push({
+      label: '나스닥',
+      data: isNorm ? toPct(ndxLine) : [],
+      borderColor: '#0ea5e9', backgroundColor: 'transparent',
+      tension: 0.25, borderWidth: 2, borderDash: [4, 4], pointRadius: 2,
+      pointBackgroundColor: '#0ea5e9',
+      spanGaps: true,
+      hidden: !isNorm ? true : visFor('나스닥', false),
+    });
+  }
 
   // TWR 라인은 입출금 기록이 1건 이상일 때만 추가한다 (기록 없으면 명목 수익률과 같아
   // 정보가 없고, 이력 차트가 기능 추가 전과 동일하게 보이도록 범례에서도 제외).

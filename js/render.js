@@ -1443,8 +1443,21 @@ function renderHistory() {
       twrEl.textContent = twrLast !== null ? fmtSignedPct(twrLast) : '—';
       twrEl.style.color = twrLast !== null ? (twrLast >= 0 ? 'var(--success)' : 'var(--danger)') : '#9ca3af';
     }
+    // MDD·변동성 — 스냅샷 이력만으로 계산되는 참고용 리스크 지표 (calc.js computeRiskStats).
+    const risk = computeRiskStats();
+    const mddEl = document.getElementById('m-mdd');
+    if (mddEl) {
+      mddEl.textContent = risk ? '-' + (risk.mdd * 100).toFixed(1) + '%' : '—';
+      mddEl.style.color = risk && risk.mdd > 0 ? 'var(--danger)' : '#9ca3af';
+    }
+    const volEl = document.getElementById('m-vol');
+    if (volEl) {
+      volEl.textContent = risk && risk.vol !== null ? (risk.vol * 100).toFixed(1) + '%' : '—';
+      volEl.style.color = risk && risk.vol !== null ? '#64748b' : '#9ca3af';
+    }
     box.style.display = 'grid';
-    box.style.gridTemplateColumns = `repeat(${hasFlows ? 6 : 5}, 1fr)`;
+    // 셀 수가 상황에 따라 달라(TWR 숨김 등) 고정 컬럼 수 대신 auto-fit 으로 자연 배치한다.
+    box.style.gridTemplateColumns = 'repeat(auto-fit, minmax(130px, 1fr))';
   }
 
   // 4단계 — 행별 삭제/메모 버튼 바인딩. 삭제는 즉시 state.history에서 제거 후 render().
