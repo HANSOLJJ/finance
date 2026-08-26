@@ -1,0 +1,156 @@
+# 인프라 설정 가이드 — Cloudflare · Google
+
+이 앱을 돌리는 데 쓰인 모든 외부 서비스 설정을, **왜 필요한지(개념)** 와 **정확한 메뉴·옵션명(2026-08 새 UI 기준)** 으로 정리한 문서다. 코드는 repo에 있지만 이 설정들은 대시보드에만 존재하므로, 계정을 옮기거나 처음부터 다시 만들 때는 이 문서가 유일한 지도다.
+
+- Cloudflare 쪽 명칭은 **새 Cloudflare One 대시보드**(구 Zero Trust) 기준.
+- Google 쪽 명칭은 **Google 인증 플랫폼**(console.cloud.google.com, 한국어 UI) 기준.
+- UI는 계속 개편되므로 메뉴 위치가 다르면 대시보드 상단 **Quick search(Ctrl+K)** 에 항목명을 검색하면 찾아진다.
+
+---
+
+## 0. 전체 그림 — 접속 한 번이 지나가는 길
+
+```
+브라우저에서 fin.hansoljj.com 입력
+  │
+  ▼
+① DNS ─ "fin.hansoljj.com이 어느 서버냐" 를 Cloudflare가 답해줌
+  │
+  ▼
+② Access (경비실) ─ 로그인 안 했으면 구글 로그인으로 보내고, 했으면 통행증(JWT)을 붙여 통과
+  │
+  ▼
+③ Pages (호스팅) ─ index.html·css·js 파일을 그대로 내려줌 = 앱 화면
+  │
+  ▼
+④ Functions (/api/*) ─ 저장·조회·시세 프록시만 서버에서 실행
+  │
+  ▼
+⑤ KV (창고) ─ user:<이메일>: 키로 사용자별 데이터 보관
+```
+
+이 앱에는 흔히 생각하는 "백엔드 서버"가 없다. 화면은 미리 만들어둔 파일을 그대로 내려주는 **정적 사이트**고, 서버가 꼭 필요한 부분(데이터 저장, 시세 중계)만 ④의 서버리스 함수가 맡는다. 로그인 기능조차 코드에 없다 — ②의 Access가 사이트 앞단에서 대신 해주기 때문이다.
+
+---
+
+## 1. 도메인 — hansoljj.com
+
+**개념.** 도메인은 인터넷 주소의 이름이고, DNS는 그 이름을 실제 서버 위치로 바꿔주는 전화번호부다. Registrar는 도메인을 파는 등록 대행사다.
+
+**우리 설정.** hansoljj.com을 Cloudflare Registrar에서 구입했고 DNS도 Cloudflare가 관리한다. `fin.` `arena.` 같은 서브도메인 레코드는 직접 만든 게 아니라, Pages 프로젝트에 커스텀 도메인을 연결할 때 **자동 생성**된 것이다.
+
+- 위치 — Cloudflare 대시보드 → 계정 홈 → **hansoljj.com** → **DNS** → Records.
+- 주의 — Pages가 자동으로 만든 CNAME 레코드는 손대지 말 것. 지우면 해당 서브도메인이 죽는다.
+
+## 2. Cloudflare Pages — 웹사이트 호스팅
+
+**개념.** 호스팅은 "내 파일을 인터넷에서 접속 가능한 곳에 올려두는 것"이다. Pages는 GitHub repo를 연결해두면 **push할 때마다 자동으로 새 버전을 배포**한다 (이 repo는 빌드 과정이 없어서 파일이 그대로 올라간다). repo 안의 `functions/` 폴더는 특별 취급되어, `functions/api/portfolio.js` 파일이 곧 `/api/portfolio` 라는 서버 API가 된다 — 서버를 빌리거나 관리할 필요 없이 요청이 올 때만 실행되는 **서버리스** 방식이다.
+
+**우리 설정.** 위치 — Cloudflare 대시보드 → **Workers & Pages**.
+
+| 프로젝트 | 연결 repo | 커스텀 도메인 | Access 보호 |
+|---|---|---|---|
+| finance | HANSOLJJ/finance | fin.hansoljj.com | O (로그인 필요) |
+| lol-arena | HANSOLJJ/lol_arena | arena.hansoljj.com | X (공개) |
+
+finance 프로젝트 → **Settings** 에서 세 가지가 설정돼 있다.
+
+1. **Bindings** — KV namespace 바인딩. Variable name `KV` → namespace `finance-data`, **Production 환경에만**. 바인딩은 "서버 함수 코드에서 `env.KV`라는 이름으로 이 창고를 쓸 수 있게 연결해주는 것"이다. Production에만 있으므로 프리뷰 배포(브랜치 배포)에서는 데이터 접근이 안 된다 — 의도된 것.
+2. **Variables and Secrets** — `FRED_API_KEY` (Secret 타입). FRED 시세 API의 열쇠인데, 코드에 적으면 공개 repo에 노출되므로 서버 설정에 숨겨두고 `/api/proxy`가 요청 시 몰래 끼워 넣는다.
+3. **주의 — Retry deployment.** 바인딩이나 Secret은 **배포가 만들어지는 순간에 굳는다.** 나중에 바꾸면 기존 배포에는 적용되지 않으므로, **Deployments** 탭에서 최신 배포의 ⋯ 메뉴 → **Retry deployment** 로 새 배포를 떠야 반영된다.
+
+## 3. KV — 데이터 창고
+
+**개념.** 브라우저의 localStorage는 그 기기 안에만 있어서 PC와 폰이 데이터를 공유하지 못한다. 그래서 서버 쪽 저장소가 필요한데, 이 앱은 "state 통째로 저장, 통째로 불러오기"만 하므로 표 형태의 데이터베이스(DB)까지 갈 필요 없이 **키-값 창고(KV)** 로 충분하다. 열쇠 이름(키)을 대면 봉투(값) 하나를 주고받는 구조다.
+
+**우리 설정.** 위치 — Cloudflare 대시보드 → **Storage & Databases** → **KV** → `finance-data`.
+
+키 구조는 다음과 같고, 키에 이메일이 박혀 있어서 사용자끼리 데이터가 섞일 수 없다.
+
+```
+user:<이메일>:portfolio:latest        ← 최신본 (앱이 항상 읽는 것)
+user:<이메일>:portfolio:v:2026-08-26  ← 그날의 백업본 (90일 뒤 자동 삭제, 롤백용)
+```
+
+- 롤백 — 데이터를 망친 채 저장했으면 `fin.hansoljj.com/api/portfolio?version=2026-08-24` 처럼 과거 날짜 버전을 받아 복구할 수 있다.
+- 운영자(계정 소유자)는 이 화면에서 모든 사용자의 데이터를 열람할 수 있다 — 친구에게 고지해둘 것.
+
+## 4. Cloudflare One (Access) — 로그인 관문
+
+**개념.** Access는 사이트 **앞**에 세우는 경비실이다. 요청이 Pages에 닿기 전에 Cloudflare 데이터센터(엣지)에서 로그인 여부를 검사하고, 통과한 요청에만 서명된 통행증(JWT, 6절 참고)을 붙여 들여보낸다. 덕분에 앱 코드에는 로그인 코드가 한 줄도 없다.
+
+진입 — Cloudflare 대시보드에서 Zero Trust(Cloudflare One)로 이동. 팀 정보는 **Settings** → **Team name and domain** 에 있다.
+
+- Team name `tight-star-46f3`, Team domain `tight-star-46f3.cloudflareaccess.com` — 로그인 페이지가 뜨는 주소이자 구글 리디렉션 URI의 기반이다. **바꾸면 Google 클라이언트의 리디렉션 URI와 `functions/_lib/access.js`의 `TEAM_DOMAIN` 상수도 함께 바꿔야 한다.**
+
+### 4-1. 애플리케이션 (무엇을 지킬 것인가)
+
+위치 — **Access controls** → **Applications** → `finance` (Self-hosted 타입, 대상 호스트네임 fin.hansoljj.com).
+
+"fin.hansoljj.com으로 오는 모든 요청은 경비실을 거쳐라"라는 선언이다. 앱마다 고유 식별자(**AUD 태그**)가 발급되는데, **앱을 지웠다 다시 만들면 AUD가 바뀌므로 `functions/_lib/access.js`의 `APP_AUD` 상수를 새 값으로 갱신해야 한다** (안 하면 저장/조회가 전부 401).
+
+### 4-2. 정책 (누구를 들여보낼 것인가)
+
+위치 — **Access controls** → **Policies** → `everyone`.
+
+- **Action: Allow** + Include: **Everyone** — "아무나 들어올 수 있다, 단 **로그인은 반드시 해야 한다**"는 뜻이다. 로그인만 하면 되므로 친구 초대는 주소 공유로 끝난다 (데이터는 어차피 계정별 분리).
+- **절대 Bypass로 바꾸지 말 것.** Bypass는 "로그인 자체 생략"이라 통행증이 안 붙고, 서버가 사용자를 식별 못 해 저장이 401로 죽는다.
+- 특정인 차단 — 정책 **Configure** → **Exclude** 에 Emails로 해당 주소 추가.
+
+### 4-3. 로그인 방법 (어떻게 신원을 확인할 것인가)
+
+위치 — Applications → `finance` 편집 → 로그인 방법(Login methods) 섹션.
+
+- **Accept all available identity providers** 체크 해제 → **Google만 선택**.
+- **Instant Auth** 켜기 — 로그인 방법이 하나뿐일 때만 나타나는 옵션으로, "Cloudflare Access" 선택 화면을 건너뛰고 바로 구글 계정 선택으로 직행시킨다.
+- 트레이드오프 — 이메일 코드(One-time PIN) 폴백이 사라지므로 구글 로그인 장애 시 아무도 못 들어온다. 그때는 이 화면에서 잠시 PIN을 다시 켜면 된다.
+
+### 4-4. 자리(Seat) 관리
+
+**개념.** 한 번이라도 로그인한 사용자는 요금제의 "자리" 하나를 차지한다. 현재 **Zero Trust Free 플랜, 50석** (Settings → Cloudflare One plan에서 확인). Everyone 정책이라 지나가던 사람도 자리를 먹을 수 있어 자동 회수를 켜뒀다.
+
+- 자동 회수 — **Settings** → **Admin controls** → **Remove inactive users from seats** → Inactivity time **1 month**. 한 달간 로그인 없는 사용자를 자동으로 자리에서 내린다 (다시 로그인하면 다시 들어옴).
+- 수동 회수 — **Team & Resources** → **Users** → 사용자 체크 → **Action** → **Remove users**.
+- 로그인 기록 — **Insights & Logs** 에서 누가 언제 인증했는지 볼 수 있다.
+
+## 5. Google 인증 플랫폼 — 구글 로그인 연동 (IdP)
+
+**개념.** Access가 경비실이라면, 신원 확인은 구글에 외주를 준다. 이런 신원 확인 대행자를 **IdP**(Identity Provider)라 하고, 그 표준 절차가 **OAuth**다. 흐름은 "Cloudflare가 사용자를 구글로 보냄 → 사용자가 구글에 로그인 → 구글이 '이 사람은 noblein12@gmail.com이다'라는 확인서를 Cloudflare에 돌려줌"이다. 구글 입장에서는 아무한테나 확인서를 써줄 수 없으니, **누가(Client) 어디로(리디렉션 URI) 확인을 요청하는지**를 미리 등록해야 한다 — 그래서 구글 콘솔 설정이 필요하다.
+
+**우리 설정.** console.cloud.google.com → 프로젝트 `finance-login` → **Google 인증 플랫폼** 메뉴.
+
+1. **브랜딩** — 구글 로그인 동의 화면에 표시될 앱 이름·지원 이메일. 꾸미기 용도라 아무 값이어도 동작에 영향 없다.
+2. **대상** — 사용자 유형 **외부**(External). 내부는 Google Workspace 조직 전용이라 개인 지메일이 못 들어온다. **게시 상태는 반드시 "프로덕션"** — 테스트 상태면 등록해둔 테스트 사용자만 로그인되어 Everyone 정책과 어긋난다. (권한 범위를 기본값 — 이메일·프로필 — 에서 안 늘렸기 때문에 프로덕션 게시에 구글 심사가 필요 없다.)
+3. **클라이언트** — OAuth 클라이언트. 반드시 **"웹 애플리케이션"** 유형이어야 한다 (데스크톱 유형에는 리디렉션 URI 입력란 자체가 없다).
+   - **승인된 리디렉션 URI** — `https://tight-star-46f3.cloudflareaccess.com/cdn-cgi/access/callback` 한 줄. 구글이 확인서를 **이 주소로만** 돌려주겠다는 화이트리스트다. 다른 주소로는 절대 안 보내므로 확인서 탈취가 차단된다.
+   - **승인된 JavaScript 원본** — 비워둠. 웹페이지 안에서 자바스크립트로 직접 구글 팝업을 띄우는 방식일 때만 쓰는 칸인데, 우리는 Cloudflare 서버가 뒤에서 통신하므로 해당 없다.
+4. **Client ID / Client Secret** — 이 클라이언트의 아이디와 비밀번호 같은 쌍이다. 클라이언트 상세 화면에서 재확인/재발급할 수 있다. **Secret은 절대 repo에 커밋 금지** (.gitignore의 `*.json` 규칙이 다운로드 JSON을 막아준다).
+
+**Cloudflare 쪽 등록 위치** — Cloudflare One → **Integrations** → **Identity providers** → **Add new identity provider** → **Google** → **App ID** 칸에 Client ID, **Client Secret** 칸에 Secret → Save. Secret을 구글에서 재발급하면 여기도 같이 갱신해야 한다.
+
+## 6. 서버가 사용자를 알아보는 방법 — JWT 검증
+
+**개념.** Access를 통과한 요청에는 `Cf-Access-Jwt-Assertion` 헤더로 **JWT**(서명된 통행증)가 붙는다. 안에 "이 요청의 주인은 noblein12@gmail.com" 같은 내용이 적혀 있고, Cloudflare의 비밀키로 **서명**되어 있어 내용을 위조하면 서명이 깨진다. 서버는 공개키로 서명을 확인한 뒤에만 그 이메일을 믿는다.
+
+**왜 이 방식인가.** 원래는 Access가 붙여주는 이메일 평문 헤더(`Cf-Access-Authenticated-User-Email`)를 쓸 계획이었지만, **새 Cloudflare One UI로 만든 앱은 이 헤더를 붙여주지 않는 것**을 확인했다(2026-08-26, 로그인 후에도 저장이 401로 실패하던 원인). 그래서 JWT를 직접 검증하는 방식으로 교체했고, 결과적으로 보안도 더 강해졌다 (서명 검증이라 어떤 경로로 와도 사칭 불가).
+
+**코드와 설정의 연결 고리** — [functions/_lib/access.js](functions/_lib/access.js) 상단 상수 두 개.
+
+| 상수 | 현재 값 | 언제 바꾸나 |
+|---|---|---|
+| `TEAM_DOMAIN` | https://tight-star-46f3.cloudflareaccess.com | 팀 이름을 바꿨을 때 |
+| `APP_AUD` | 9c1dd224…08bfd | Access 앱을 지웠다 다시 만들었을 때 |
+
+**진단 도구** — 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` 를 열면 서버가 이 요청을 누구로 인식하는지 보여준다. `verifiedEmail`에 이메일이 나오면 인증 체인 전체가 정상이다.
+
+## 7. 자주 하는 작업 모음
+
+| 하고 싶은 것 | 방법 |
+|---|---|
+| 친구 초대 | 주소만 공유 (fin.hansoljj.com). 계정별 데이터 분리라 서로 안 보임. "운영자는 열람 가능" 고지 권장 |
+| 특정인 차단 | Access controls → Policies → everyone → Configure → Exclude에 Emails 추가 |
+| 자리 수동 회수 | Team & Resources → Users → 체크 → Action → Remove users |
+| 데이터 롤백 | `/api/portfolio?version=YYYY-MM-DD` 로 과거 버전 확인 → 복원. 또는 KV 화면에서 직접 |
+| 저장이 401일 때 | ① `/api/whoami`의 verifiedEmail 확인 → null이면 ② 정책이 Allow인지(Bypass 아님), ③ 앱 AUD와 코드 `APP_AUD` 일치 여부 순서로 점검 |
+| 구글 로그인 장애 시 | Applications → finance → Login methods에서 One-time PIN 임시로 다시 켜기 |
+| 바인딩/Secret 변경 후 | Workers & Pages → finance → Deployments → 최신 배포 ⋯ → Retry deployment |

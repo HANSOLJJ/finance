@@ -58,6 +58,8 @@ Zero Trust → Access → 애플리케이션 `finance` 정책의 Include → Ema
 
 ## Cloudflare 설정 (대시보드)
 
+> 개념 설명과 정확한 메뉴·옵션명까지 포함한 전체 인프라 가이드는 **[SETUP.md](SETUP.md)** 참고. 아래는 요약.
+
 - Pages 프로젝트 `finance` — repo 연결, 빌드 없음, 커스텀 도메인 fin.hansoljj.com
 - Bindings: KV `finance-data` → 변수명 `KV` (**Production만** — 프리뷰 배포는 데이터 접근 불가)
 - Secrets: `FRED_API_KEY`
