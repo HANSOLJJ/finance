@@ -408,6 +408,9 @@
   .history-table input { background: var(--card); }
   .mom-pos { color: var(--success); font-weight: 500; }
   .mom-neg { color: var(--danger); font-weight: 500; }
+  /* 기준일 컬럼은 내용 크기로 축소 (width:1% + td의 nowrap 조합) — 남는 폭을 숫자 컬럼들에 양보. */
+  .history-table th:first-child,
+  .history-table td:first-child { width: 1%; }
 
   /* File protocol warning banner */
   /* index.html 의 #fileWarn — file:// 로 직접 열었을 때만 main.js 가 표시하는 노란 경고 배너. */
@@ -771,6 +774,7 @@
     background: #fde68a; color: #92400e;
   }
   /* 호버 시 메모 내용 노출 (CSS-only tooltip) - data-memo 속성에 텍스트 */
+  /* 기본은 버튼 위·왼쪽 펼침 (자산 입력 탭 — 메모 컬럼이 오른쪽이라 왼쪽으로 펼쳐야 안 잘림). */
   .memo-dot[data-memo]:not([data-memo=""]):hover::after {
     content: attr(data-memo);
     position: absolute;
@@ -786,6 +790,13 @@
     pointer-events: none;
     font-weight: 400;
     text-align: left;
+  }
+  /* 이력 테이블에서는 버튼 오른쪽으로 펼침 — 기준일이 첫 컬럼이라 왼쪽 펼침은 테이블 밖으로 잘림. */
+  .history-table .memo-dot[data-memo]:not([data-memo=""]):hover::after {
+    bottom: auto; right: auto;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
   }
   /* 메모 편집 모달 (배경 + 본문) */
   .memo-modal-backdrop {
