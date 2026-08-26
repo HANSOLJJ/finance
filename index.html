@@ -75,9 +75,11 @@
     <!-- KPI Cards — 총자산·유동자산·원화/달러/헤지 비중·인플레 대비 6장. 값은 render.js renderKPIs·renderInflationKPI 가 채운다. -->
     <section class="kpi-grid">
       <div class="kpi-card">
-        <div class="label">총 자산</div>
+        <!-- 부채가 있으면 render.js renderKPIs 가 라벨을 "순 자산"으로 바꾸고 자산−부채 내역 줄을 노출한다. -->
+        <div class="label" id="kpi-total-label">총 자산</div>
         <div class="value" id="kpi-total">₩0</div>
         <div class="sub" id="kpi-total-usd" style="font-weight:600;color:var(--c-usd);font-size:14px;font-variant-numeric:tabular-nums;">$0</div>
+        <div class="sub" id="kpi-debt-line" style="display:none;font-size:11px;color:#dc2626;"></div>
         <div class="sub" id="kpi-updated" style="font-size:11px;">—</div>
       </div>
       <div class="kpi-card" id="kpi-liq-card" style="background:linear-gradient(135deg,#ecfeff 0%,#f0fdfa 100%);border-color:#67e8f9;">

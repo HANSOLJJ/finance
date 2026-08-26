@@ -277,6 +277,7 @@
   .badge.retirement { background: var(--c-retirement); }
   .badge.isa { background: var(--c-isa); }
   .badge.gold { background: var(--c-gold); }
+  .badge.debt { background: #dc2626; }
 
   .badge.krw { background: var(--c-krw); }
   .badge.usd { background: var(--c-usd); }
@@ -563,6 +564,7 @@
   .asset-chip.asset-commodity { background: #fef3c7; color: #78350f; border-color: #a16207; }
   .asset-chip.asset-realestate { background: #ede9fe; color: #5b21b6; border-color: #7c3aed; }
   .asset-chip.asset-crypto { background: #fce7f3; color: #9d174d; border-color: #ec4899; }
+  .asset-chip.asset-debt { background: #fee2e2; color: #991b1b; border-color: #dc2626; }
   .asset-chip.locked { cursor: default; opacity: 0.95; }
   .asset-chip.locked:hover { transform: none; }
   /* dropdown형 자산타입 (assetTypeFixed 없는 카테고리) */

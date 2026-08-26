@@ -23,6 +23,10 @@ const CATEGORIES = [
   { key: 'ISA',          cls: 'isa',          amountOnly: false, hasTicker: true,  isUSD: false, hasAssetTag: true, tickerHint: '069500 등 ETF' },
   { key: '금',           cls: 'gold',         amountOnly: false, hasTicker: false, isUSD: false, hasAssetTag: true, assetTypeFixed: '금' },
   { key: '부동산',       cls: 'realestate',   amountOnly: true,  hasTicker: false, isUSD: false, hasAssetTag: true, assetTypeFixed: '부동산', skipAccount: true },
+  // 부채(대출) — 잔액을 양수로 입력하면 순자산 계산에서 차감된다 (isDebt).
+  // 자산이 아니므로 calc.js 의 모든 자산 축 집계(총자산·비중·검산·차트)에서 제외되고,
+  // KPI 의 "순 자산 = 자산 − 부채" 표시에만 쓰인다.
+  { key: '부채',         cls: 'debt',         amountOnly: true,  hasTicker: false, isUSD: false, hasAssetTag: true, assetTypeFixed: '부채', skipAccount: false, isDebt: true },
 ];
 
 // key → 카테고리 정의 빠른 조회용 맵.
@@ -46,6 +50,10 @@ const ASSET_TYPE_CLS = {
 // 초록 계열, 명도만 다르게 구별. ASSET_TYPES 배열에는 없는 표시 전용 키라서
 // 집계·목표비중에는 등장하지 않고 charts.js 색상 조회에서만 쓰인다.
 ASSET_TYPE_COLORS['현금($)'] = '#2dd4bf';
+// '부채'도 표시 전용 의사 타입 — ASSET_TYPES(집계 축)에는 넣지 않는다.
+// 자산 입력 테이블의 부채 행 뱃지 색상 조회에만 쓰인다.
+ASSET_TYPE_COLORS['부채'] = '#dc2626';
+ASSET_TYPE_CLS['부채'] = 'asset-debt';
 
 // 카테고리별 차트 색상 팔레트.
 // 현재 다른 파일에서 참조하는 곳이 없는 예비 팔레트 — 차트는 자산타입/통화노출
@@ -79,7 +87,7 @@ const DEFAULT_EXP_TARGETS = { '원화': 0.55, '달러(노출)': 0.40, '달러헤
 const DEFAULT_EXPOSURE_BY_CAT = {
   '현금': '원화', '국내주식': '원화', '해외주식': '달러(노출)', '암호화폐': '달러(노출)',
   '연금저축펀드': '원화', '퇴직연금': '원화', 'ISA': '원화', '금': '달러헤지',
-  '부동산': '원화',
+  '부동산': '원화', '부채': '원화',
 };
 
 // 카테고리별 유동성 기본값.
@@ -91,6 +99,7 @@ const DEFAULT_EXPOSURE_BY_CAT = {
 const DEFAULT_LIQUIDITY_BY_CAT = {
   '현금': 'liquid', '국내주식': 'liquid', '해외주식': 'liquid', '암호화폐': 'liquid', '금': 'liquid',
   '연금저축펀드': 'locked', '퇴직연금': 'locked', 'ISA': 'locked', '부동산': 'locked',
+  '부채': 'locked',
 };
 
 // 구 체제의 localStorage 저장 키 — 서버 단일 소스 전환 후 데이터 저장에는 쓰지

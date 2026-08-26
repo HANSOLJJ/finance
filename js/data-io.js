@@ -44,7 +44,7 @@ function openHistoricalAddModal() {
         <label style="font-size:12px;">
           <div style="color:var(--text-muted);margin-bottom:4px;">카테고리</div>
           <select id="histAddCategory" class="inp" style="width:100%;border:1px solid var(--border);padding:6px 8px;">
-            ${CATEGORIES.map(c => `<option value="${c.key}">${c.key}</option>`).join('')}
+            ${CATEGORIES.filter(c => !c.isDebt).map(c => `<option value="${c.key}">${c.key}</option>`).join('')}
           </select>
         </label>
         <label style="font-size:12px;">
@@ -355,6 +355,7 @@ async function snapshot(auto = false) {
   const lockedKRW = liquidityTotal('locked');
   state.history.push({
     id: uid(), date, total, totalUSD, fxRate,
+    debt: debtTotal(), // 부채 총액 — total 은 자산 기준이므로 순자산은 total - debt
     cpiIndex, cpiLabel, cpiYoYPct,
     m2: m2Value, m2Label, m2YoYPct,
     krw, usd, usdTotal: usd,

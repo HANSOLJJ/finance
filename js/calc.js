@@ -90,8 +90,25 @@ function fmtUSD(n) {
   return sign + '$' + abs.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
+// ==================== 부채(대출) 구분 ====================
+// 부채는 자산이 아니므로 총자산·비중·검산 등 모든 자산 축 집계에서 제외하고,
+// "순 자산 = 자산 − 부채" 표시(KPI)에만 쓴다. 잔액은 양수로 입력·저장된다.
+// 부채 카테고리 항목인지 판정.
+function isDebt(h) {
+  return !!CATEGORY_MAP[h.category]?.isDebt;
+}
+// 부채를 제외한 자산 항목만 — 자산 축 집계(총자산·통화노출·자산타입·유동성·검산·트리맵)의 공통 모집단.
+function assetHoldings() {
+  return state.holdings.filter(h => !isDebt(h));
+}
+// 부채 총액 (양수 KRW). 순자산 계산과 KPI 부채 표시에 사용.
+function debtTotal() {
+  return state.holdings.filter(isDebt).reduce((sum, h) => sum + holdingValue(h), 0);
+}
+
 // 특정 카테고리(국내주식·현금 등)에 속한 보유분의 KRW 평가액 합계.
 // 카테고리 섹션 헤더·카테고리 도넛 등 카테고리 축 집계가 모두 이 함수를 쓴다.
+// 카테고리를 명시해 조회하므로 '부채'를 넘기면 부채 합계가 나온다 (자산 축 아님).
 function categoryTotal(cat) {
   return state.holdings
     .filter(h => h.category === cat)
@@ -101,7 +118,7 @@ function categoryTotal(cat) {
 // 통화노출('원화'/'달러(노출)')별 KRW 평가액 합계. 환노출 리밸런싱 계산과
 // 스냅샷 기록(krw/usd 필드)의 원천 데이터가 된다.
 function exposureTotal(exp) {
-  return state.holdings
+  return assetHoldings()
     .filter(h => h.exposure === exp)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
@@ -115,20 +132,20 @@ function assetTypeOf(h) {
 // 자산타입(주식·금·부동산 등) 기준 KRW 합계. 타입 판정을 assetTypeOf에 위임해
 // 도넛·리밸런싱·트리맵·검산이 전부 같은 분류 기준을 공유하게 한다.
 function assetTypeTotal(type) {
-  return state.holdings
+  return assetHoldings()
     .filter(h => assetTypeOf(h) === type)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
-// 전체 보유 자산의 KRW 총합. KPI 카드·스냅샷의 total 필드·검산 기준값으로 쓰이는 최상위 합계.
+// 전체 보유 자산의 KRW 총합 (부채 제외). KPI 카드·스냅샷의 total 필드·검산 기준값으로 쓰이는 최상위 합계.
 function grandTotal() {
-  return state.holdings.reduce((sum, h) => sum + holdingValue(h), 0);
+  return assetHoldings().reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
 // 유동성('liquid' 즉시 현금화 가능 / 'locked' 연금·청약 등 묶임) 기준 KRW 합계.
 // 항목에 유동성 미지정 시 카테고리 기본값(DEFAULT_LIQUIDITY_BY_CAT)으로 판정한다.
 function liquidityTotal(kind /* 'liquid' | 'locked' */) {
-  return state.holdings
+  return assetHoldings()
     .filter(h => (h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid') === kind)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
@@ -158,8 +175,8 @@ function verifyTotals() {
   EXPOSURES.forEach(e => { const v = exposureTotal(e); r.exposure[e] = v; r.exposureSum += v; });
   r.liquiditySum = r.liquid + r.locked;
 
-  // orphan 검사: 각 홀딩이 정의된 그룹에 실제로 매칭되는지
-  state.holdings.forEach(h => {
+  // orphan 검사: 각 홀딩이 정의된 그룹에 실제로 매칭되는지 (부채는 자산 축 밖이라 제외)
+  assetHoldings().forEach(h => {
     const v = holdingValue(h);
     if (v <= 0) return;
     const at = assetTypeOf(h);
@@ -191,7 +208,9 @@ function renderVerifyResult() {
   if (!box) return;
   const r = verifyTotals();
   const rows = [];
-  rows.push(`<div style="font-weight:600;margin-bottom:6px;">총 자산: ${fmtKRW(r.total)}</div>`);
+  // 부채가 있으면 순자산까지 같이 보여준다 (검산 축들은 전부 자산 기준).
+  const _debt = debtTotal();
+  rows.push(`<div style="font-weight:600;margin-bottom:6px;">총 자산: ${fmtKRW(r.total)}${_debt > 0 ? ` · 부채 ${fmtKRW(_debt)} · 순자산 ${fmtKRW(r.total - _debt)}` : ''}</div>`);
 
   // 자산타입 breakdown 표 — 금액 0인 타입은 행 생략, 합계 행은 총자산과의 차이를 색으로 표시.
   const atRows = ASSET_TYPES.map(t => {
@@ -277,9 +296,9 @@ function renderVerifyResult() {
 // 아래 scoped 계열 합계 함수들이 전부 이 필터를 공유해, 스코프 전환 시 대시보드가 일괄 전환된다.
 function scopedHoldings() {
   if ((state.viewScope || 'all') === 'liquid') {
-    return state.holdings.filter(h => holdingLiquidity(h) === 'liquid');
+    return assetHoldings().filter(h => holdingLiquidity(h) === 'liquid');
   }
-  return state.holdings;
+  return assetHoldings();
 }
 // View Scope를 적용한 총자산(KRW). 스코프 전환 시 대시보드 KPI가 이 값을 쓴다.
 function scopedTotal() {
@@ -411,6 +430,7 @@ const TAX_RULES = {
   '퇴직연금':     { rate: 0.00, deduction: 0,         label: '비과세 (인출 시 별도)' },
   '현금':         null,
   '부동산':       null,
+  '부채':         null,
 };
 
 // 카테고리별 평가금액·평가손익을 합산해 전량 매도를 가정한 예상 세금을 추정한다.

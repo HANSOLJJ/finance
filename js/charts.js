@@ -671,10 +671,10 @@ function renderTreemap() {
   const titleEl = document.getElementById('treemap-title');
   const descEl = document.getElementById('treemap-desc');
 
-  // 전체 종목 목록 (0원 제외, 유동 모드면 묶임 제외)
+  // 전체 종목 목록 (0원·부채 제외, 유동 모드면 묶임도 제외)
   const sourceHoldings = scoped
-    ? state.holdings.filter(h => holdingLiquidity(h) === 'liquid')
-    : state.holdings;
+    ? assetHoldings().filter(h => holdingLiquidity(h) === 'liquid')
+    : assetHoldings();
   // 현금 통화별 net (마이너스 통장 등 음수 포함) — 테마별(default) 뷰에서 통화별 순액 2타일로 표시하는 용도.
   // (리밸런싱/목표표와 총액 일치. area는 음수 표현 불가라 개별 계좌 대신 순액으로.)
   let _cashKRW = 0, _cashUSD = 0;

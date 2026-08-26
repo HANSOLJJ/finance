@@ -290,9 +290,9 @@ function _removed_renderHedgePerformance() {
     }
   }
 
-  // 자산타입별 P&L 집계 (holdingPnL 사용 - 평단가 기반)
+  // 자산타입별 P&L 집계 (holdingPnL 사용 - 평단가 기반, 부채 제외)
   const aggregate = {};  // { atype: { cost, current, count, withPnL } }
-  state.holdings.forEach(h => {
+  assetHoldings().forEach(h => {
     const atype = assetTypeOf(h);
     if (!aggregate[atype]) aggregate[atype] = { cost: 0, current: 0, count: 0, withPnL: 0 };
     aggregate[atype].count += 1;
@@ -510,11 +510,21 @@ function renderSettings() {
 // 마지막에 renderInflationKPI()를 호출해 인플레 카드까지 함께 갱신.
 function renderKPIs() {
   // 총자산 / 유동 / 묶임 카드는 항상 전체 기준 (사용자가 자기 총 자산을 항상 알아야 함)
+  // 부채가 있으면 카드의 큰 숫자를 순자산(자산−부채)으로 바꾸고 자산·부채 내역 줄을 노출한다.
   const total = grandTotal();
+  const debt = debtTotal();
+  const net = total - debt;
   const fxRate = num(state.usdKrwRate) || 1380;
-  document.getElementById('kpi-total').textContent = fmtKRW(total);
-  document.getElementById('kpi-total-usd').textContent = fmtUSD(total / fxRate);
-  const totalHoldings = state.holdings.filter(h => holdingValue(h) > 0).length;
+  const labelEl = document.getElementById('kpi-total-label');
+  if (labelEl) labelEl.textContent = debt > 0 ? '순 자산' : '총 자산';
+  document.getElementById('kpi-total').textContent = fmtKRW(net);
+  document.getElementById('kpi-total-usd').textContent = fmtUSD(net / fxRate);
+  const debtLine = document.getElementById('kpi-debt-line');
+  if (debtLine) {
+    debtLine.style.display = debt > 0 ? '' : 'none';
+    if (debt > 0) debtLine.textContent = `자산 ${fmtKRW(total)} − 부채 ${fmtKRW(debt)}`;
+  }
+  const totalHoldings = assetHoldings().filter(h => holdingValue(h) > 0).length;
   document.getElementById('kpi-updated').textContent = `총 ${totalHoldings}개 종목 · 마지막 업데이트 ${state.lastUpdated}`;
 
   // 원화/달러/달러헤지 비중은 viewScope 반영
