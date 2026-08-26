@@ -17,7 +17,6 @@ window.snapshot = snapshot;
 window.resetAll = resetAll;
 window.fetchExchangeRate = fetchExchangeRate;
 window.refreshAllPrices = refreshAllPrices;
-window.generateDummyHistory = generateDummyHistory;
 window.switchTab = switchTab;
 // 진단용 — 브라우저 콘솔에서 시세 API·현재 state 를 직접 확인하기 위한 노출.
 // 앱 코드에서는 호출하지 않으며 개발/디버깅 편의 목적이다.

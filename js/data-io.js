@@ -1,5 +1,5 @@
 // data-io.js — 데이터 입출력 계층. state 전체의 JSON 백업/복원, 일별 자산 스냅샷 기록,
-// 과거 이력 소급 보정, 데모용 더미 데이터 생성, 전체 초기화, 토스트 알림을 담당한다.
+// 과거 이력 소급 보정, 전체 초기화, 토스트 알림을 담당한다.
 // 스냅샷은 state.history 배열에 쌓이며 각 원소는 { id, date(YYYY-MM-DD), total, totalUSD,
 // fxRate, krw/usd(통화노출별 KRW), liquid/locked(유동성별)와 각 USD 환산값,
 // byAssetType, byCategory, cpiIndex·cpiLabel·cpiYoYPct, m2·m2Label·m2YoYPct } 구조로,
@@ -211,37 +211,34 @@ function applyHistoricalAsset(data) {
   render();
 }
 
-// 현재 state 전체(보유·이력·설정 포함)를 portfolio_날짜.json 파일로 다운로드한다(백업).
-// Blob URL + 임시 <a> 클릭 방식이라 서버 왕복 없이 브라우저에서 바로 저장된다.
-// 성공 시 state.lastBackupAt을 기록·저장해 설정 탭의 마지막 백업 표시를 갱신한다.
-// 콘솔의 [Export] 로그는 다운로드가 조용히 실패하는 환경을 디버깅하기 위해 남겨둔 것.
-function exportJSON() {
-  console.log('[Export] 시작');
+// 서버(KV)에 실제로 저장돼 있는 진본 JSON을 portfolio_날짜.json 파일로 다운로드한다(백업).
+// 자동 저장 체제에선 서버가 유일한 진실이므로 백업도 서버 응답을 그대로 받는 것이 정확하다.
+// 서버 실패 시에는 현재 화면의 state 직렬화로 폴백해, 동기화 장애 중에도 백업은 가능하다.
+// 성공 시 state.lastBackupAt을 기록·저장해 설정 탭의 마지막 백업 표시(14일 경고)를 갱신한다.
+async function exportJSON() {
   try {
-    state.lastUpdated = localDateStr();
-    const json = JSON.stringify(state, null, 2);
-    const filename = `portfolio_${state.lastUpdated}.json`;
-    console.log('[Export] JSON 크기:', json.length, 'bytes, 파일명:', filename);
+    // 서버 진본 우선 조회 — 실패(오프라인·미배포 환경 등)는 조용히 폴백으로 넘어간다.
+    let json = null;
+    try {
+      const res = await fetch('/api/portfolio', { cache: 'no-store' });
+      if (res.ok) json = await res.text();
+    } catch (_) {}
+    const fromServer = json !== null;
+    if (!fromServer) json = JSON.stringify(state, null, 2);
+    const filename = `portfolio_${localDateStr()}.json`;
 
+    // Blob URL + 임시 <a> 클릭 방식 — 브라우저 다운로드 폴더에 바로 저장된다.
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    console.log('[Export] Blob URL 생성:', url);
-
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     a.style.display = 'none';
-    a.textContent = '다운로드';
     document.body.appendChild(a);
-    console.log('[Export] <a> 추가 완료, 클릭 시도');
-
     a.click();
-    console.log('[Export] a.click() 호출 완료');
-
     setTimeout(() => {
       try { document.body.removeChild(a); } catch (_) {}
       URL.revokeObjectURL(url);
-      console.log('[Export] cleanup 완료');
     }, 1000);
 
     // 백업 시점 기록
@@ -249,7 +246,7 @@ function exportJSON() {
     saveState();
     renderSettings();
 
-    toast(`💾 ${filename} 다운로드 시작 (Downloads 폴더 확인)`);
+    toast(`💾 ${filename} 다운로드 시작${fromServer ? ' (서버 진본)' : ' (서버 응답 없음 — 현재 화면 기준)'}`);
   } catch (err) {
     console.error('[Export] 에러:', err);
     alert('내보내기 실패: ' + err.message);
@@ -279,9 +276,10 @@ function importJSON(e) {
 
 // 백업 JSON 텍스트를 검증한 뒤 state를 통째로 교체한다. holdings 배열과
 // 목표 비중(assetTypeTargets 또는 레거시 catTargets) 존재가 최소 형식 요건.
-// defaultState()에 백업 내용을 덮어씌워 누락 필드를 기본값으로 채우고,
-// 구버전 스키마는 migrateState()가 현재 구조로 끌어올린다.
-// 성공 시 저장·재렌더·환율 배지 갱신까지 수행하고, 실패 시 state를 건드리지 않고 alert만 띄운다.
+// 자동 저장 체제에선 복원이 곧 서버 덮어쓰기이므로 교체 전에 confirm 을 받고,
+// 확정 시 defaultState()에 백업을 덮어씌워 migrateState()로 보정한 뒤
+// 디바운스 없이 즉시 서버에 반영한다(사고 복구는 명시적 행동이라 바로 저장).
+// 실패 시 state를 건드리지 않고 alert만 띄운다. 잘못 복원해도 서버의 날짜별 버전(90일)으로 재복구 가능.
 function applyImportedJSON(text, fileName) {
   try {
     if (!text) throw new Error('파일이 비어있습니다');
@@ -289,8 +287,10 @@ function applyImportedJSON(text, fileName) {
     if (!data.holdings || !Array.isArray(data.holdings)) throw new Error('잘못된 형식: holdings 배열 없음');
     // assetTypeTargets 또는 (레거시) catTargets 중 하나는 있어야 함
     if (!data.assetTypeTargets && !data.catTargets) throw new Error('잘못된 형식: 목표 비중 없음');
+    if (!confirm(`"${fileName}" 백업으로 교체할까요?\n이 화면과 서버 데이터가 모두 이 내용으로 바뀝니다.`)) return;
     state = migrateState({ ...defaultState(), ...data });
     saveState();
+    flushServerSave();
     render();
     updateFxBadge();
     toast(`📂 ${fileName} 불러오기 완료 (${data.holdings.length}개 종목)`);
@@ -371,206 +371,11 @@ async function snapshot(auto = false) {
   toast(`📸 ${auto ? '오늘 스냅샷 자동 기록 · ' : ''}${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
 }
 
-// 데모용 더미 자산 holdings 생성(한국인 개인투자자 기준의 현실적인 포트폴리오).
-// 현금·국내/해외주식·코인·연금·ISA·금·부동산을 골고루 채우고 평단가도 넣어 P&L이 보이게 한다.
-// 기존 holdings를 통째로 교체하고 자산타입·통화노출 목표 비중도 데모값으로 덮어쓴다.
-// generateDummyHistory()의 1단계로 호출되며 저장(saveState)은 호출부가 담당한다.
-function generateDummyHoldings() {
-  const dummyHoldings = [
-    // === 현금 (총 약 8천만 KRW + USD $5,000) ===
-    { category: '현금', name: '신한 CMA', account: '신한은행', quantity: '1', price: '35000000',
-      exposure: '원화', memo: '비상금', assetType: '현금' },
-    { category: '현금', name: '토스뱅크 파킹', account: '토스뱅크', quantity: '1', price: '25000000',
-      exposure: '원화', memo: '단기자금', assetType: '현금' },
-    { category: '현금', name: 'KB Star통장 (USD)', account: 'KB국민은행', quantity: '1', price: '5000',
-      exposure: '달러(노출)', memo: '해외 결제용', assetType: '현금' },
-
-    // === 국내주식 (3종목) - 평단가 입력해서 P&L 보이게 ===
-    { category: '국내주식', name: '삼성전자', ticker: '005930.KS', symbol: '005930',
-      quantity: '40', price: '78500', avgPrice: '72000',
-      exposure: '원화', memo: '코어', assetType: '주식' },
-    { category: '국내주식', name: 'SK하이닉스', ticker: '000660.KS', symbol: '000660',
-      quantity: '15', price: '195000', avgPrice: '145000',
-      exposure: '원화', memo: 'AI 메모리', assetType: '주식' },
-    { category: '국내주식', name: 'LG에너지솔루션', ticker: '373220.KS', symbol: '373220',
-      quantity: '6', price: '385000', avgPrice: '420000',
-      exposure: '원화', memo: '2차전지', assetType: '주식' },
-
-    // === 해외주식 (4종목, USD 입력) ===
-    { category: '해외주식', name: 'Apple Inc.', ticker: 'AAPL', symbol: 'AAPL',
-      quantity: '20', priceUSD: '195.50', avgPriceUSD: '170.00',
-      exposure: '달러(노출)', memo: '코어 빅테크', assetType: '주식' },
-    { category: '해외주식', name: 'Microsoft', ticker: 'MSFT', symbol: 'MSFT',
-      quantity: '10', priceUSD: '420.00', avgPriceUSD: '380.00',
-      exposure: '달러(노출)', memo: 'AI 코파일럿', assetType: '주식' },
-    { category: '해외주식', name: 'NVIDIA', ticker: 'NVDA', symbol: 'NVDA',
-      quantity: '15', priceUSD: '880.00', avgPriceUSD: '450.00',
-      exposure: '달러(노출)', memo: 'AI 인프라', assetType: '주식' },
-    { category: '해외주식', name: 'Tesla', ticker: 'TSLA', symbol: 'TSLA',
-      quantity: '8', priceUSD: '245.00', avgPriceUSD: '290.00',
-      exposure: '달러(노출)', memo: '반등 기다림', assetType: '주식' },
-
-    // === 암호화폐 (3종목) ===
-    { category: '암호화폐', name: 'Bitcoin', ticker: 'bitcoin', symbol: 'BTC',
-      quantity: '0.08', price: '95000000', avgPrice: '65000000',
-      exposure: '달러(노출)', memo: '장기 보유', assetType: '암호화폐' },
-    { category: '암호화폐', name: 'Ethereum', ticker: 'ethereum', symbol: 'ETH',
-      quantity: '2.5', price: '4800000', avgPrice: '3200000',
-      exposure: '달러(노출)', memo: 'L2 스테이킹', assetType: '암호화폐' },
-    { category: '암호화폐', name: 'Solana', ticker: 'solana', symbol: 'SOL',
-      quantity: '40', price: '280000', avgPrice: '180000',
-      exposure: '달러(노출)', memo: '', assetType: '암호화폐' },
-
-    // === 연금저축펀드 (2종목) ===
-    { category: '연금저축펀드', name: 'TIGER 미국S&P500', ticker: '360750.KS', symbol: '360750',
-      quantity: '120', price: '18500', avgPrice: '15800',
-      exposure: '원화', memo: '연금 코어', assetType: '주식' },
-    { category: '연금저축펀드', name: 'KODEX 200', ticker: '069500.KS', symbol: '069500',
-      quantity: '80', price: '34800', avgPrice: '33500',
-      exposure: '원화', memo: '국내 코어', assetType: '주식' },
-
-    // === 퇴직연금 (2종목) ===
-    { category: '퇴직연금', name: 'TIGER 미국나스닥100', ticker: '133690.KS', symbol: '133690',
-      quantity: '40', price: '95000', avgPrice: '78000',
-      exposure: '원화', memo: '회사DC', assetType: '주식' },
-    { category: '퇴직연금', name: 'KODEX MSCI Korea TR', ticker: '278530.KS', symbol: '278530',
-      quantity: '60', price: '15800', avgPrice: '15200',
-      exposure: '원화', memo: '회사DC', assetType: '주식' },
-
-    // === ISA (2종목) ===
-    { category: 'ISA', name: 'KODEX 미국S&P500', ticker: '379780.KS', symbol: '379780',
-      quantity: '90', price: '17500', avgPrice: '14200',
-      exposure: '원화', memo: '비과세 한도', assetType: '주식' },
-    { category: 'ISA', name: 'TIGER 미국배당다우존스', ticker: '458730.KS', symbol: '458730',
-      quantity: '50', price: '11200', avgPrice: '10500',
-      exposure: '원화', memo: '배당 ETF', assetType: '주식' },
-
-    // === 금 (2종목) ===
-    { category: '금', name: 'KRX 금현물', account: '한국투자증권', quantity: '30', price: '132000', avgPrice: '95000',
-      exposure: '달러(노출)', memo: 'KRX 시장 거래', assetType: '금' },
-    { category: '금', name: '골드바 보관', account: '집 금고', quantity: '20', price: '132000', avgPrice: '85000',
-      exposure: '달러(노출)', memo: '실물 보관', assetType: '금' },
-
-    // === 부동산 (1건, 큰 비중) ===
-    { category: '부동산', name: '잠실엘스 84A', quantity: '1', price: '1900000000',
-      exposure: '원화', memo: '실거주', assetType: '부동산' },
-  ];
-
-  // id, ticker(없으면 빈), 기타 기본 필드 채워서 holdings 형식 맞추기
-  state.holdings = dummyHoldings.map(h => ({
-    id: uid(),
-    category: h.category,
-    name: h.name || '',
-    account: h.account || '',
-    ticker: h.ticker || '',
-    symbol: h.symbol || '',
-    quantity: h.quantity || '',
-    price: h.price || '',
-    priceUSD: h.priceUSD || '',
-    avgPrice: h.avgPrice || '',
-    avgPriceUSD: h.avgPriceUSD || '',
-    exposure: h.exposure,
-    memo: h.memo || '',
-    assetType: h.assetType,
-    lastFetched: '',
-  }));
-
-  // 자산타입 목표 비중도 데모용으로 설정 (부동산이 큰 비중인 자산가 타입)
-  state.assetTypeTargets = {
-    '현금': 0.05, '주식': 0.20, '채권': 0.00, '금': 0.05,
-    '원자재': 0.00, '부동산': 0.60, '암호화폐': 0.10,
-  };
-  state.expTargets = { '원화': 0.65, '달러(노출)': 0.35 };
-}
-
-// 데모용 더미 이력 생성 버튼 핸들러. 기존 데이터가 있으면 확인 후 전부 교체한다.
-// 더미 holdings를 먼저 채우고 14개월치 스냅샷을 합성한다(마지막 2~3개월은 YoY 비교 가능).
-// 시나리오 — 자산 월 +0.8% 성장에 노이즈, CPI 월 +0.28%, M2 월 +0.4%, 환율 1300~1500 사인파.
-// 각 스냅샷에 isDummy 표시를 남겨 실데이터와 구분하고, 완료 후 저장·재렌더·토스트.
-function generateDummyHistory() {
-  const hasData = state.history.length > 0
-    || state.holdings.some(h => num(h.price) > 0 || num(h.priceUSD) > 0);
-  if (hasData) {
-    if (!confirm('기존 자산내역과 이력이 있습니다.\n모두 지우고 데모용 더미 데이터(자산 + 12개월 이력)로 교체할까요?')) return;
-  }
-  // 1) 더미 holdings 먼저 채우기
-  generateDummyHoldings();
-  // 2) 그 다음 12개월 이력 생성
-  state.history = [];
-
-  const now = new Date();
-  const baseUSD = 50000;
-  const baseCPI = 305.0;
-  const baseM2 = 21000;  // 21조 달러 (대략 최근 M2 수준, billions)
-  const numMonths = 14;  // 14개월 → 최근 2~3개월은 YoY 비교 가능
-  // 시나리오: 자산 월평균 +0.8% 성장(연 ~10%) + 약간의 변동
-  // 인플레이션 월 +0.28% (연 약 3.4%)
-  // 환율 1300 ~ 1500 사이 변동
-
-  for (let i = numMonths - 1; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 15);
-    const dateStr = localDateStr(date);
-    const monthsElapsed = numMonths - 1 - i;
-
-    // 자산 USD 성장 (약간 랜덤)
-    const baseGrowth = Math.pow(1.008, monthsElapsed);
-    const noise = 1 + (Math.random() - 0.5) * 0.06;
-    const totalUSD = baseUSD * baseGrowth * noise;
-
-    // 환율: 사인 웨이브 + 약간 랜덤
-    const fxRate = 1380 + Math.sin(monthsElapsed / 12 * Math.PI * 2) * 80 + (Math.random() - 0.5) * 30;
-    const total = totalUSD * fxRate;
-
-    // CPI: 안정적으로 매월 0.28% 상승
-    const cpiIndex = baseCPI * Math.pow(1.0028, monthsElapsed);
-    const cpiLabel = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    // M2: 매월 약 0.4% 증가 (연 ~5%)
-    const m2Value = baseM2 * Math.pow(1.004, monthsElapsed);
-    const m2Label = cpiLabel;
-
-    // 자산타입 비중 (약간 변동, 합 = 1.0)
-    const cashShare = 0.05 + (Math.random() - 0.5) * 0.01;
-    const stockShare = 0.30 + (Math.random() - 0.5) * 0.05;
-    const goldShare = 0.05 + (Math.random() - 0.5) * 0.01;
-    const commodityShare = 0.05;
-    const realestateShare = 0.45 + (Math.random() - 0.5) * 0.04;
-    const cryptoShare = 1 - cashShare - stockShare - goldShare - commodityShare - realestateShare;
-
-    const byAssetType = {
-      '현금': total * cashShare,
-      '주식': total * stockShare,
-      '금': total * goldShare,
-      '원자재': total * commodityShare,
-      '부동산': total * realestateShare,
-      '암호화폐': total * cryptoShare,
-    };
-
-    // 통화노출 비중
-    const krwShare = 0.55;
-    const usdShare = 0.45;
-
-    state.history.push({
-      id: uid(), date: dateStr, total, totalUSD, fxRate,
-      cpiIndex, cpiLabel,
-      m2: m2Value, m2Label,
-      krw: total * krwShare,
-      usd: total * usdShare,
-      usdTotal: total * usdShare,
-      byAssetType,
-      byCategory: {},
-      isDummy: true,
-    });
-  }
-
-  saveState();
-  render();
-  toast(`🧪 데모 데이터 생성됨 · 자산 ${state.holdings.length}종목 + ${numMonths}개월 이력 (자산 +${((Math.pow(1.008, numMonths-1)-1)*100).toFixed(1)}% / CPI +${((Math.pow(1.0028, numMonths-1)-1)*100).toFixed(1)}%)`);
-}
-
 // 확인(confirm) 후 모든 데이터(자산·이력·설정)를 defaultState()로 초기화하고 저장·재렌더한다.
-// saveState()가 localStorage의 기존 내용도 덮어쓰므로 백업 없이는 되돌릴 수 없다.
+// 자동 저장 체제라 초기화도 서버 저장본을 빈 상태로 덮어쓴다 — confirm 문구에 명시.
+// 백업(JSON 파일·서버 날짜별 버전 90일) 없이는 되돌릴 수 없다.
 function resetAll() {
-  if (!confirm('정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라집니다.')) return;
+  if (!confirm('정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라지고, 서버 저장본도 빈 상태로 덮어써집니다.')) return;
   state = defaultState();
   saveState();
   render();

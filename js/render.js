@@ -480,12 +480,10 @@ function renderTaxAnalysis() {
   tbody.appendChild(sumRow);
 }
 
-// ==================== 설정 탭 (백업 메타 + 환율/CPI 인풋) ====================
-// 설정 탭 렌더 — 백업 경과 경고, 환율/CPI 수동 입력 바인딩. 포커스 중인 인풋은 덮어쓰지 않음(입력 유실 방지).
-// 마지막 JSON 백업 시각(state.lastBackupAt)이 14일 이상 지났으면 빨간 경고를 띄운다.
-// 환율 인풋 onchange 시 state.usdKrwRate(KRW/USD)·갱신 시각·출처('manual')를 기록하고
-// saveState→render→updateFxBadge(fetch.js)→toast(data-io.js)까지 연쇄 실행된다.
-// CPI 인풋은 %로 받아 state.usCpiAnnual(연율, 비율)로 저장. sync.js의 동기화 완료 콜백도 이 함수를 호출.
+// ==================== 설정 탭 (백업 메타) ====================
+// 설정 탭 렌더 — 마지막 JSON 백업 시각(state.lastBackupAt)이 14일 이상 지났으면
+// 빨간 경고를 띄운다. 환율/CPI 수동 입력 카드는 3차 개편에서 제거됨 —
+// 환율은 헤더 배지의 자동/클릭 갱신으로, CPI 폴백은 기본값 3.5%로 동작한다.
 function renderSettings() {
   const meta = document.getElementById('backupMeta');
   if (meta) {
@@ -502,36 +500,6 @@ function renderSettings() {
     } else {
       meta.innerHTML = `📁 <span style="color:#dc2626;font-weight:600">⚠️ 백업 이력 없음 - 지금 한번 다운로드해 두세요</span>`;
     }
-  }
-  const rateEl = document.getElementById('rateInput');
-  if (rateEl && document.activeElement !== rateEl) {
-    rateEl.value = num(state.usdKrwRate).toFixed(2);
-    rateEl.onchange = (e) => {
-      state.usdKrwRate = num(e.target.value);
-      state.rateUpdatedAt = new Date().toISOString();
-      state.rateSource = 'manual';
-      saveState();
-      render();
-      updateFxBadge();
-      toast(`💱 환율 수동 설정: ${state.usdKrwRate.toFixed(2)}`);
-    };
-  }
-  const rateMeta = document.getElementById('rateMeta');
-  if (rateMeta) {
-    if (state.rateUpdatedAt) {
-      const dt = new Date(state.rateUpdatedAt);
-      rateMeta.textContent = `${dt.toLocaleString('ko-KR')} ${state.rateSource ? '(' + state.rateSource + ')' : ''}`;
-    } else { rateMeta.textContent = '갱신 이력 없음'; }
-  }
-  const cpiEl = document.getElementById('cpiAnnualInput');
-  if (cpiEl && document.activeElement !== cpiEl) {
-    cpiEl.value = (num(state.usCpiAnnual) * 100).toFixed(1);
-    cpiEl.onchange = (e) => {
-      state.usCpiAnnual = num(e.target.value) / 100;
-      saveState();
-      render();
-      toast(`CPI 연율 ${(state.usCpiAnnual*100).toFixed(1)}% 적용`);
-    };
   }
 }
 
@@ -1264,7 +1232,7 @@ function renderExpTargets() {
 // 이력 탭 렌더 — state.history의 스냅샷별 USD 자산을 CPI/M2 기준선과 비교해 실질 성과를 표와 상단 KPI로 표시.
 // 스냅샷 생성은 data-io.js의 snapshot()(main.js가 window.snapshot으로 노출), 여기는 표시만 담당.
 // 첫 스냅샷이 모든 누적 비교의 기준점. CPI 지수가 없으면 state.usCpiAnnual 연율 가정치로 근사.
-// 이력이 없으면 빈 상태 안내와 함께 첫 스냅샷/더미 데이터 버튼(인라인 onclick → window 노출 함수)을 보여준다.
+// 이력이 없으면 빈 상태 안내와 함께 첫 스냅샷 버튼(인라인 onclick → window 노출 함수)을 보여준다.
 // 행별 삭제·메모 버튼도 여기서 바인딩되며, 삭제 시 render()로 전체 갱신된다.
 function renderHistory() {
   const tbody = document.getElementById('historyTbody');
@@ -1274,9 +1242,8 @@ function renderHistory() {
   if (state.history.length === 0) {
     tbody.innerHTML = `
       <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px;">
-        아직 저장된 이력이 없습니다.<br />
+        아직 저장된 이력이 없습니다. 🔄 전체 시세 갱신을 하면 자동으로 기록됩니다.<br />
         <button class="btn" style="margin-top:10px;" onclick="snapshot()">📸 지금 첫 스냅샷 찍기</button>
-        <button class="btn" style="margin-top:10px;margin-left:6px;background:#fef3c7;border-color:#f59e0b;color:#78350f;" onclick="generateDummyHistory()">🧪 데모용 더미 데이터 (자산 + 12개월)</button>
       </td></tr>`;
     if (box) box.style.display = 'none';
     return;
