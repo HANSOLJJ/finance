@@ -26,6 +26,14 @@
     (암호화폐, 환율, 금 카테고리는 그대로 작동합니다)
   </div>
 
+  <!-- 부트(서버 로드) 실패 배너 — main.js showBootFail 이 표시한다. 이 상태에서는 -->
+  <!-- 빈 화면이 서버를 덮지 않도록 자동 저장이 잠긴다(sync.js syncEnabled). -->
+  <div id="bootFailBanner" class="file-warn" style="display:none;">
+    ⚠️ <b>서버에서 데이터를 불러오지 못했습니다</b> — <span id="bootFailMsg"></span><br />
+    지금 보이는 것은 빈 화면이며, 데이터 보호를 위해 저장이 잠겨 있습니다.
+    <button class="btn" onclick="location.reload()" style="margin-left:8px;">🔄 다시 시도</button>
+  </div>
+
   <!-- 상단 헤더 — 타이틀 · 환율 배지 · 전역 액션 버튼 묶음. -->
   <!-- #fxBadge(환율 표시)는 fetch.js updateFxBadge 가 갱신하고 클릭 시 fetchExchangeRate 를 부른다. -->
   <!-- 버튼들의 인라인 onclick 대상 — refreshAllPrices(fetch.js), exportJSON·importJSON·snapshot·generateDummyHistory·resetAll(data-io.js). -->
@@ -38,6 +46,8 @@
         <span class="fx-meta" id="fxMeta">로딩 중...</span>
       </span>
       <button class="btn primary" onclick="refreshAllPrices()" id="refreshAllBtn">🔄 전체 시세 갱신</button>
+      <!-- 자동 저장 상태 표시 — sync.js updateSyncIndicator 가 문구·색을 갱신하고, 클릭하면 즉시 저장한다. -->
+      <span class="sync-indicator" id="syncIndicator" onclick="savePortfolio()" title="자동 저장 상태 — 클릭하면 즉시 서버에 저장">☁️ …</span>
       <button class="btn" onclick="exportJSON()">💾 내보내기</button>
       <button class="btn" onclick="document.getElementById('fileInput').click()">📂 불러오기</button>
       <input type="file" id="fileInput" accept=".json" onchange="importJSON(event)" />

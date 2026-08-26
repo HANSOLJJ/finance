@@ -22,13 +22,20 @@ const MAX_BYTES = 5 * 1024 * 1024; // 5MB 상한 (현재 데이터 ~90KB)
 export async function onRequestGet({ request, env }) {
   const email = await getVerifiedEmail(request);
   if (!email) return new Response('unauthenticated', { status: 401 });
-  const version = new URL(request.url).searchParams.get('version');
+  const params = new URL(request.url).searchParams;
+  const version = params.get('version');
   const key = version
     ? `user:${email}:portfolio:v:${version}`
     : `user:${email}:portfolio:latest`;
   const data = await env.KV.get(key);
   if (data === null) return new Response('not found', { status: 404 });
-  return new Response(data, { headers: { 'Content-Type': 'application/json' } });
+  const headers = { 'Content-Type': 'application/json' };
+  // ?download=1 — 브라우저가 파일로 저장하도록 첨부 헤더를 붙인다 (백업 다운로드용).
+  if (params.get('download') === '1') {
+    const kstDate = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    headers['Content-Disposition'] = `attachment; filename="portfolio_${version || kstDate}.json"`;
+  }
+  return new Response(data, { headers });
 }
 
 // PUT — 로그인 사용자의 state 전체를 저장. 크기 상한(5MB)과 최소한의 형태 검증

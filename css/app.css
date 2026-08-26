@@ -1218,3 +1218,15 @@
     .tax-grid { grid-template-columns: 1fr; }
     .tab-btn { min-width: 90px; padding: 8px 10px; font-size: 12px; }
   }
+
+  /* 동기화 상태 인디케이터 (헤더) — sync.js updateSyncIndicator 가 문구와 ok/err 클래스를 갱신. */
+  /* 클릭하면 savePortfolio()로 즉시 저장. ok=마지막 저장 성공(초록), err=실패·연결 안 됨(빨강). */
+  .sync-indicator {
+    font-size: 12px; color: var(--text-muted);
+    cursor: pointer; white-space: nowrap;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card, #fff);
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-indicator.ok { color: #16a34a; border-color: #86efac; background: #f0fdf4; }
+  .sync-indicator.err { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }

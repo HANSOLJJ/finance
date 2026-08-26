@@ -1,6 +1,8 @@
 // ============================================================================
-// 상태(state) 관리 — 기본값·localStorage 로드/저장·마이그레이션·메모 헬퍼.
+// 상태(state) 관리 — 기본값·마이그레이션·메모 헬퍼.
 // 앱의 유일한 데이터 원천인 전역 `state` 객체를 이 파일에서 만들고 소유한다.
+// 영속화는 서버(KV) 단일 소스 — 부트 로드는 main.js bootstrap(), 자동 저장 예약은
+// sync.js scheduleServerSave() 가 담당하며 localStorage 는 더 이상 쓰지 않는다.
 // 주요 필드 구조 (defaultState() 참고).
 //  - holdings: 보유 자산 행 배열 (id/category/name/quantity/price/exposure 등).
 //  - history: 스냅샷 배열 (총자산 추이, totalUSD 포함).
@@ -43,21 +45,10 @@ function defaultState() {
   };
 }
 
-// 전역 단일 상태 객체 — 스크립트 로드 시점에 즉시 초기화된다.
-// main.js bootstrap()이 서버 데이터로 통째로 재할당할 수 있으므로 let 선언.
-let state = loadState() || defaultState();
-
-// localStorage에서 상태 로드 후 마이그레이션 적용 (실패 시 null → 기본값 사용).
-// 저장본 파싱 실패(손상·쿼터 등)도 조용히 null 로 처리해 앱이 항상 뜨게 한다.
-// 호출은 위의 state 초기화 한 곳뿐이다.
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return migrateState(parsed);
-  } catch (e) { return null; }
-}
+// 전역 단일 상태 객체 — 빈 기본값으로 시작하고 main.js bootstrap()이 서버(KV)
+// 데이터로 통째로 재할당한다 (재할당 때문에 let 선언). 서버 단일 소스 구조라
+// 이 기기(localStorage)에는 저장본을 두지 않는다.
+let state = defaultState();
 
 // 구버전 저장 데이터를 현재 스키마로 보정 — 카테고리/통화노출 rename,
 // 신규 필드 기본값 채우기, 목표비중 키 보정, 과거 스냅샷 USD 누락 보정.
@@ -147,13 +138,14 @@ function migrateState(s) {
   return s;
 }
 
-// 현재 상태를 localStorage에 저장 (lastUpdated 갱신 포함).
-// 모든 편집 핸들러가 수정 직후 호출하는 유일한 영속화 지점 — 서버(KV) 저장은
-// 여기서 하지 않고 사용자가 sync.js savePortfolio()를 눌러야 이뤄진다.
-// 쿼터 초과 등 저장 실패는 조용히 무시된다 (메모리 상 state 는 유지).
+// 상태 변경을 영속화하는 유일한 진입점 — 모든 편집 핸들러가 수정 직후 호출한다.
+// localStorage 대신 서버(KV) 자동 저장을 예약한다(sync.js scheduleServerSave —
+// 마지막 변경 후 잠시 조용해지면 업로드 1회로 묶는 디바운스). 변경이 없으면
+// 이 함수가 불릴 일이 없으므로 불필요한 통신도 발생하지 않는다.
+// scheduleServerSave 는 로드 순서상 뒤(sync.js)에 정의되지만 호출 시점엔 존재한다.
 function saveState() {
   state.lastUpdated = localDateStr();
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  scheduleServerSave();
 }
 
 // 홀딩/스냅샷 식별용 랜덤 8자리 id 생성.

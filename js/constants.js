@@ -93,10 +93,8 @@ const DEFAULT_LIQUIDITY_BY_CAT = {
   '연금저축펀드': 'locked', '퇴직연금': 'locked', 'ISA': 'locked', '부동산': 'locked',
 };
 
-// localStorage 저장 키.
-// state.js loadState()/saveState()와 main.js bootstrap()의 "이 기기에 데이터
-// 있음" 판정이 이 키를 공유한다. 이름을 바꾸면 기존 기기 데이터가 유실된 것처럼
-// 보이므로 스키마가 호환 불가능하게 바뀔 때만 v2 등으로 올릴 것.
+// 구 체제의 localStorage 저장 키 — 서버 단일 소스 전환 후 데이터 저장에는 쓰지
+// 않고, main.js bootstrap()이 남아 있는 옛 캐시를 지우는 일회성 청소에만 쓴다.
 const STORAGE_KEY = 'portfolio_state_v1';
 
 // 로컬(KST 등) 시간대 기준 YYYY-MM-DD 문자열을 돌려주는 날짜 헬퍼.
