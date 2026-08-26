@@ -301,12 +301,14 @@ function applyImportedJSON(text, fileName) {
 }
 
 // 현재 자산 총계를 오늘 날짜의 스냅샷으로 state.history에 저장한다(같은 날짜는 덮어씀).
+// auto=true 는 시세 갱신(refreshAllPrices) 완료 시의 자동 호출 — 토스트 문구만 다르고
+// 동작은 수동 버튼과 동일하다. 기록 후 saveState()로 자동 저장까지 예약된다.
 // 총액과 함께 통화노출(krw/usd)·유동성(liquid/locked)·자산타입별·카테고리별 내역과
 // 당시 환율을 같이 기록해, 이후 구성이 바뀌어도 과거 시점 분석이 가능하게 한다.
 // 미국 CPI·M2는 fetch.js(fetchUSCPI/fetchM2)로 자동 수집하되, 실패하면
 // state.lastCPI/lastM2 캐시값으로 대체하고 스냅샷 자체는 계속 진행한다(네트워크 불통 대비).
 // YoY는 API 응답에서 함께 계산해 저장하므로 사용자의 이력이 짧아도 표시할 수 있다.
-async function snapshot() {
+async function snapshot(auto = false) {
   const date = localDateStr();
   const total = grandTotal();
   const krw = exposureTotal('원화');
@@ -362,10 +364,11 @@ async function snapshot() {
     byAssetType: Object.fromEntries(ASSET_TYPES.map(t => [t, assetTypeTotal(t)])),
     byCategory: Object.fromEntries(CATEGORIES.map(c => [c.key, categoryTotal(c.key)]))
   });
+  saveState(); // 이력 변경 영속화 — 자동 저장 예약 (기존엔 누락돼 있던 저장 지점)
   render();
   const cpiNote = cpiIndex ? ` · CPI ${cpiIndex.toFixed(2)}` : '';
   const m2Note = m2Value ? ` · M2 ${(m2Value/1000).toFixed(1)}T` : '';
-  toast(`📸 ${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
+  toast(`📸 ${auto ? '오늘 스냅샷 자동 기록 · ' : ''}${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
 }
 
 // 데모용 더미 자산 holdings 생성(한국인 개인투자자 기준의 현실적인 포트폴리오).

@@ -590,5 +590,10 @@ async function refreshAllPrices() {
   btn.textContent = '🔄 전체 시세 갱신';
   toast(`✓ ${ok}개 갱신${fail ? ` · ${fail}개 실패` : ''}`);
   render();
+  // 방금 갱신된 최신 시세 기준으로 오늘 이력 스냅샷을 자동 기록하고(같은 날짜 덮어쓰기)
+  // 디바운스 없이 즉시 서버에 저장한다 — 스냅샷은 시세가 갱신됐을 때만 의미가 있으므로
+  // 이 완료 지점이 자동 이력 기록의 트리거다 (계획: 3차 개편).
+  await snapshot(true);
+  flushServerSave();
 }
 
