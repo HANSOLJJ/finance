@@ -296,13 +296,14 @@
             <th class="right">USD 자산<span class="help" title="위: 그 시점 환율로 환산한 USD 절대값 (KRW 총액 ÷ USD/KRW). 아래: 직전 스냅샷 대비, 약 30일 전 대비, 첫 스냅샷 대비 누적 % 변화. 30일 전 데이터가 ±10일 범위 내 없으면 '—' 표시.">?</span></th>
             <!-- 순입금 컬럼 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
             <th class="right" id="thNetFlow" style="display:none;">순입금<span class="help" title="직전 스냅샷 이후 기록된 입출금 합계 (KRW, 💰 입출금 기록 기반). 아래 작은 숫자는 그 구간의 실투자 수익률(TWR) — 입출금 효과를 제거한 순수 성과.">?</span></th>
-            <th class="right" style="color:#dc2626">CPI 기준선<span class="help" title="첫 스냅샷 USD 자산 × (현재 CPI Index / 첫 스냅샷 CPI Index). 구매력을 그대로 유지하려면 지금 있어야 할 USD 금액. 자산이 이 위에 있으면 인플레이션을 이긴 것.">?</span></th>
-            <th class="right" style="color:#9333ea">M2 기준선<span class="help" title="첫 스냅샷 USD 자산 × (현재 M2 / 첫 스냅샷 M2). 통화공급 증가율만큼 따라가려면 있어야 할 USD. 자산이 이 위에 있으면 통화확장 속도를 이긴 것 (자산가격 인플레 헤지).">?</span></th>
-            <th class="right">vs CPI<span class="help" title="USD 자산이 CPI 기준선 대비 +/- %. 양수: 실질 자산 증가 (구매력 ↑) / 음수: 실질 자산 감소 (구매력 ↓)">?</span></th>
-            <th class="right">vs M2<span class="help" title="USD 자산이 M2 기준선 대비 +/- %. 양수: 통화확장보다 빨리 늘어남 / 음수: 사회적으로 뒤처짐 (자산가격 인플레 못 따라잡음)">?</span></th>
+            <th class="right" style="color:#dc2626">CPI 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 CPI / 첫 CPI) — 구매력을 유지하려면 지금 있어야 할 USD 금액. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 인플레이션 이김 = 실질 구매력 증가).">?</span></th>
+            <th class="right" style="color:#9333ea">M2 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 M2 / 첫 M2) — 통화공급 증가만큼 따라가려면 있어야 할 USD. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 통화확장 속도 이김 = 자산가격 인플레 헤지 성공).">?</span></th>
             <th class="right">CPI<span class="help" title="위: BLS Consumer Price Index 절대값 (1982-84=100, 시리즈 CUUR0000SA0). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) 변화율 — 뉴스에서 보는 인플레이션율과 동일.">?</span></th>
             <th class="right">M2 (B$)<span class="help" title="위: FRED M2 Money Supply 절대값 (Billions USD, SA, 시리즈 M2SL). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) M2 증가율.">?</span></th>
             <th class="right">환율<span class="help" title="위: 그 시점 USD/KRW 환율 (자산을 USD 환산 시 사용된 값). 아래: 직전 스냅샷 대비, 첫 스냅샷 대비 누적 % 변화. 양수 = 원화 약세 (USD 비쌈), 음수 = 원화 강세.">?</span></th>
+            <!-- 벤치마크 컬럼 2개 — 지수 데이터가 있는 스냅샷이 생기면 render.js renderHistory 가 표시한다. -->
+            <th class="right" id="thSpx" style="display:none;">S&P500<span class="help" title="위: 그 시점 S&P500 종가 (스냅샷에 기록, 주말이면 직전 영업일). 아래: 첫 기록 대비 누적 변화율 — 내 USD 자산 누적과 비교하면 시장 대비 성과가 보임.">?</span></th>
+            <th class="right" id="thNdx" style="display:none;">나스닥<span class="help" title="위: 그 시점 나스닥 종합지수 종가 (스냅샷에 기록). 아래: 첫 기록 대비 누적 변화율.">?</span></th>
             <th></th>
           </tr>
         </thead>

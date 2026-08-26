@@ -651,9 +651,6 @@ async function refreshAllPrices() {
   // 디바운스 없이 즉시 서버에 저장한다 — 스냅샷은 시세가 갱신됐을 때만 의미가 있으므로
   // 이 완료 지점이 자동 이력 기록의 트리거다 (계획: 3차 개편).
   await snapshot(true);
-  // 새 스냅샷 + 과거 스냅샷의 벤치마크 지수(S&P500/나스닥)를 채운 뒤 서버 반영.
-  await applyBenchmarksToHistory();
-  render();
   flushServerSave();
 }
 

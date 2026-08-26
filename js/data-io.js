@@ -480,6 +480,10 @@ async function snapshot(auto = false) {
   const cpiNote = cpiIndex ? ` · CPI ${cpiIndex.toFixed(2)}` : '';
   const m2Note = m2Value ? ` · M2 ${(m2Value/1000).toFixed(1)}T` : '';
   toast(`📸 ${auto ? '오늘 스냅샷 자동 기록 · ' : ''}${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
+  // 벤치마크 지수(S&P500/나스닥)를 방금 스냅샷과 과거 누락분에 채워 넣는다 (fetch.js).
+  // CPI/M2 처럼 스냅샷에 저장되며, 시세 갱신 없이 수동 스냅샷만 찍어도 여기서 함께 기록된다.
+  await applyBenchmarksToHistory();
+  render();
 }
 
 // 확인(confirm) 후 모든 데이터(자산·이력·설정)를 defaultState()로 초기화하고 저장·재렌더한다.

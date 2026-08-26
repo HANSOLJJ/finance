@@ -1257,9 +1257,16 @@ function renderHistory() {
   const twrCell = document.getElementById('m-twr-cell');
   if (twrCell) twrCell.style.display = hasFlows ? '' : 'none';
 
+  // 벤치마크 컬럼(S&P500·나스닥)은 지수가 기록된 스냅샷이 하나라도 있을 때만 노출한다.
+  const hasBench = (state.history || []).some(x => x.spx || x.ndx);
+  const spxTh = document.getElementById('thSpx');
+  if (spxTh) spxTh.style.display = hasBench ? '' : 'none';
+  const ndxTh = document.getElementById('thNdx');
+  if (ndxTh) ndxTh.style.display = hasBench ? '' : 'none';
+
   if (state.history.length === 0) {
     tbody.innerHTML = `
-      <tr><td colspan="${hasFlows ? 11 : 10}" style="text-align:center;color:var(--text-muted);padding:24px;">
+      <tr><td colspan="${8 + (hasFlows ? 1 : 0) + (hasBench ? 2 : 0)}" style="text-align:center;color:var(--text-muted);padding:24px;">
         아직 저장된 이력이 없습니다. 🔄 전체 시세 갱신을 하면 자동으로 기록됩니다.<br />
         <button class="btn" style="margin-top:10px;" onclick="snapshot()">📸 지금 첫 스냅샷 찍기</button>
       </td></tr>`;
@@ -1309,6 +1316,10 @@ function renderHistory() {
   // 날짜로 바로 찾을 수 있게 맵으로 변환해 행 렌더에서 사용한다.
   const twrSeries = computeTWRSeries();
   const twrByDate = Object.fromEntries(twrSeries.map(t => [t.date, t]));
+
+  // 벤치마크 누적 % 의 기준점 — 지수가 기록된 첫 스냅샷.
+  const firstSpx = sorted.find(x => x.spx);
+  const firstNdx = sorted.find(x => x.ndx);
 
   // CPI·M2 기준선 대비 실질 갭, CPI/M2 지수(누적·YoY), 환율 변화를 계산해 채운다.
   sorted.forEach((s, i) => {
@@ -1392,17 +1403,25 @@ function renderHistory() {
       : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? '#16a34a' : '#dc2626'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:#9ca3af">—</span>'}
          ${twr ? `<div style="font-size:10px;color:var(--text-muted)" title="이 구간의 실투자 수익률 (입출금 효과 제거, KRW 기준)">TWR ${fmtSignedPctSmall(twr.r)}</div>` : ''}`;
 
+    // 벤치마크 지수 셀 — 절대값 + 첫 기록 대비 누적 % (지수 데이터가 있는 스냅샷부터).
+    const fmtIdxNum = v => v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const spxCell = s.spx
+      ? `${fmtIdxNum(s.spx)}${firstSpx ? `<div style="font-size:10px;color:#64748b;font-weight:500">${s.id === firstSpx.id ? '기준' : fmtSignedPct(s.spx / firstSpx.spx - 1)}</div>` : ''}`
+      : '—';
+    const ndxCell = s.ndx
+      ? `${fmtIdxNum(s.ndx)}${firstNdx ? `<div style="font-size:10px;color:#0ea5e9;font-weight:500">${s.id === firstNdx.id ? '기준' : fmtSignedPct(s.ndx / firstNdx.ndx - 1)}</div>` : ''}`
+      : '—';
+
     tr.innerHTML = `
       <td style="white-space:nowrap">${s.date}${memoDotHtml}</td>
       <td class="right">${usdCellContent}</td>
       ${hasFlows ? `<td class="right">${flowCellContent}</td>` : ''}
-      <td class="right" style="color:#dc2626">${fmtUSD(cpiBaseline)}</td>
-      <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}</td>
-      <td class="right ${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}">${cpiBaseline > 0 ? fmtSignedPct(realDiffCPI) : '—'}</td>
-      <td class="right ${realDiffM2 !== null && realDiffM2 > 0 ? 'mom-pos' : (realDiffM2 !== null && realDiffM2 < 0 ? 'mom-neg' : '')}">${realDiffM2 !== null ? fmtSignedPct(realDiffM2) : '—'}</td>
+      <td class="right" style="color:#dc2626">${fmtUSD(cpiBaseline)}${cpiBaseline > 0 ? `<div class="${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 CPI 기준선 대비 차이 — 양수면 인플레이션을 이긴 것">vs ${fmtSignedPct(realDiffCPI)}</div>` : ''}</td>
+      <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}${realDiffM2 !== null ? `<div class="${realDiffM2 > 0 ? 'mom-pos' : (realDiffM2 < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 M2 기준선 대비 차이 — 양수면 통화확장 속도를 이긴 것">vs ${fmtSignedPct(realDiffM2)}</div>` : ''}</td>
       <td class="right">${s.cpiIndex ? s.cpiIndex.toFixed(2) : '—'}${cpiCumPct !== null ? `<div style="font-size:10px;color:#dc2626;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(cpiCumPct)}</div>` : (s.cpiLabel ? `<div style="font-size:10px;color:var(--text-muted)">${s.cpiLabel}</div>` : '')}${cpiYoYPct !== null ? `<div style="font-size:10px;color:#dc2626;opacity:0.8" title="전년 대비 (뉴스에서 보는 인플레이션율). ${yoy ? yoy.actualDaysAgo + '일 전 스냅샷 사용' : ''}">YoY ${fmtSignedPct(cpiYoYPct)}</div>` : ''}</td>
       <td class="right">${s.m2 ? s.m2.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '—'}${m2CumPct !== null ? `<div style="font-size:10px;color:#9333ea;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(m2CumPct)}</div>` : (s.m2Label ? `<div style="font-size:10px;color:var(--text-muted)">${s.m2Label}</div>` : '')}${m2YoYPct !== null ? `<div style="font-size:10px;color:#9333ea;opacity:0.8" title="전년 대비 M2 통화공급 증가율">YoY ${fmtSignedPct(m2YoYPct)}</div>` : ''}</td>
       <td class="right">${fxCellContent}</td>
+      ${hasBench ? `<td class="right">${spxCell}</td><td class="right">${ndxCell}</td>` : ''}
       <td class="center"><button class="icon-btn" data-del-snap="${s.id}" title="삭제">×</button></td>
     `;
     tbody.appendChild(tr);
