@@ -382,6 +382,7 @@
 
   /* Highlight metrics box */
   /* 통화노출 분석(설정 탭)·이력 탭 상단의 요약 지표 박스. 기본 4열 그리드, 1024px 이하에서 2열. */
+  /* .metrics-3 — 설정 탭 통화노출 3칸 변형 (인라인 style이면 미디어쿼리가 못 이겨서 클래스로 분리). */
   .metrics-box {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -390,6 +391,7 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-bottom: 1px solid var(--border);
   }
+  .metrics-box.metrics-3 { grid-template-columns: repeat(3, 1fr); }
   .metric-cell {
     text-align: center;
     padding: 8px;
@@ -1238,3 +1240,26 @@
   }
   .sync-indicator.ok { color: #16a34a; border-color: #86efac; background: #f0fdf4; }
   .sync-indicator.err { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }
+
+  /* ==================== 모바일 (768px 이하) ==================== */
+  /* 4차 개편 — 폰 대응 규칙을 이 블록 하나에 모은다 (320~768px 연속 대응, 별도 480px 분기 없음). */
+  /* 여백·헤더 줄바꿈·KPI 2열·지표 박스 2열·섹션 헤더 랩·탭 버튼·차트 높이 축소. */
+  /* 넓은 테이블은 전역 .table-scroll 래퍼가, 자산 입력 행은 컴팩트 모드가 담당한다. */
+  @media (max-width: 768px) {
+    .app { padding: 12px; }
+    header.top { flex-wrap: wrap; gap: 10px; }
+    header.top h1 { font-size: 20px; }
+    .actions { flex-wrap: wrap; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kpi-card { padding: 14px; }
+    .kpi-card .value { font-size: 18px; }
+    .rebal-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: 12px 14px; }
+    .metrics-box, .metrics-box.metrics-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 14px; }
+    .section-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+    .tab-btn { min-width: fit-content; flex: 1 0 auto; padding: 8px 10px; font-size: 12px; }
+    .tax-grid { grid-template-columns: 1fr; }
+    .cat-header .left { flex-wrap: wrap; }
+    .chart-wrap { height: 260px; padding: 12px; }
+    .chart-wrap.tall { height: 320px; }
+    .treemap-wrap { height: 340px; padding: 12px; }
+  }
