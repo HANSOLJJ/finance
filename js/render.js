@@ -571,7 +571,6 @@ function renderKPIs() {
 function renderInflationKPI() {
   const card = document.getElementById('kpi-inflation');
   const gapEl = document.getElementById('kpi-inflation-gap');
-  const stateEl = document.getElementById('kpi-inflation-state');
   const breakdownEl = document.getElementById('kpi-inflation-breakdown');
   if (!card) return;
 
@@ -581,7 +580,6 @@ function renderInflationKPI() {
   const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
   if (sorted.length < 2) {
     card.classList.add('flat');
-    stateEl.textContent = '대기';
     gapEl.textContent = '—';
     breakdownEl.innerHTML = sorted.length === 0
       ? '<span>이력 탭에서 첫 스냅샷 찍으면 자동 계산</span>'
@@ -595,7 +593,6 @@ function renderInflationKPI() {
   const lastUSD = last.totalUSD || 0;
   if (baseUSD <= 0) {
     card.classList.add('flat');
-    stateEl.textContent = '대기';
     gapEl.textContent = '—';
     breakdownEl.innerHTML = '<span>첫 스냅샷에 자산 데이터 부족</span>';
     return;
@@ -615,20 +612,16 @@ function renderInflationKPI() {
   // 실질 갭 (명목 - CPI)
   const gap = nominalRet - cpiRet;
 
-  // 상태 분류
-  let stateClass, stateLabel;
+  // 상태 분류 — 값 색상(win/lose/flat 카드 클래스)만 사용, 문구 배지는 제거됨
+  let stateClass;
   if (gap > 0.005) {
     stateClass = 'win';
-    stateLabel = '🟢 이기는 중';
   } else if (gap < -0.005) {
     stateClass = 'lose';
-    stateLabel = '🔴 잠식 중';
   } else {
     stateClass = 'flat';
-    stateLabel = '⚪ 보합';
   }
   card.classList.add(stateClass);
-  stateEl.textContent = stateLabel;
   gapEl.textContent = (gap >= 0 ? '+' : '') + (gap * 100).toFixed(1) + '%p';
   breakdownEl.innerHTML = `
     <span>총 자산 ${nominalRet >= 0 ? '+' : ''}${(nominalRet * 100).toFixed(1)}% (입출금 포함)</span>

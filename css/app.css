@@ -1193,16 +1193,8 @@
   }
 
   /* 인플레 KPI 카드 (대시보드) — render.js renderInflationKPI 가 채우는 "총 자산 vs 인플레" 카드. */
-  /* win(이김, 초록)·lose(짐, 빨강)·flat(데이터 없음, 회색) 상태 클래스가 우상단 배지와 값 색을 바꾼다. */
+  /* win(이김, 초록)·lose(짐, 빨강)·flat(데이터 없음, 회색) 상태 클래스가 값 색을 바꾼다. */
   .kpi-card.inflation { position: relative; }
-  .kpi-card.inflation .badge-state {
-    position: absolute; top: 12px; right: 12px;
-    font-size: 11px; padding: 2px 8px; border-radius: 999px;
-    font-weight: 600; letter-spacing: 0.2px;
-  }
-  .kpi-card.inflation.win .badge-state { background: #dcfce7; color: #166534; }
-  .kpi-card.inflation.lose .badge-state { background: #fee2e2; color: #991b1b; }
-  .kpi-card.inflation.flat .badge-state { background: #f1f5f9; color: var(--text-muted); }
   .kpi-card.inflation.win .value { color: var(--success); }
   .kpi-card.inflation.lose .value { color: var(--danger); }
   .kpi-card.inflation .breakdown {
