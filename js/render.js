@@ -713,14 +713,16 @@ function renderHoldings() {
     // .pnl 클래스를 추가해 P&L 컬럼 포함 grid 적용
     const headRow = document.createElement('div');
     headRow.className = 'row pnl head' + (c.hasTicker ? ' has-ticker' : '');
+    // m-keep — 모바일(768px 이하)에서 남기는 3칸 마킹. 나머지 셀은 CSS가 일괄 숨긴다.
+    // span-2 — 첫 두 트랙 병합(구 인라인 grid-column:1/3). 모바일에선 auto로 풀린다.
     if (c.hasTicker) {
       headRow.innerHTML = `
-        <div style="grid-column: 1 / 3">종목명/티커 검색</div>
+        <div class="span-2 m-keep">종목명/티커 검색</div>
         <div style="text-align:right">수량</div>
         <div style="text-align:right" title="평단가 (매수 평균 단가)">평단가</div>
         <div style="text-align:right">${c.isUSD ? '현재가 (USD/KRW)' : '현재가'}</div>
-        <div style="text-align:right">평가금액</div>
-        <div style="text-align:right" title="평단가 입력 시 자동 계산">평가손익</div>
+        <div class="m-keep" style="text-align:right">평가금액</div>
+        <div class="m-keep" style="text-align:right" title="평단가 입력 시 자동 계산">평가손익</div>
         <div style="text-align:center">통화노출</div>
         <div style="text-align:center">타입</div>
         <div>메모</div>
@@ -732,15 +734,17 @@ function renderHoldings() {
       const col1Label = c.key === '현금' ? '계좌명' : (c.key === '금' ? '명칭' : (c.key === '부동산' ? '단지/명칭' : '종목명'));
       const col2Label = c.key === '현금' ? '은행' : (c.key === '금' ? '보관처' : '계좌/거래소');
       const skipAcc = c.skipAccount;
+      // 모바일 3칸 정렬 — amountOnly 행은 이름·평가금액입력(5번째)·손익(7번째),
+      // 금 행은 이름·평가금액(6번째)·손익(7번째)을 남기므로 헤더도 같은 위치를 마킹한다.
       headRow.innerHTML = `
         ${skipAcc
-          ? `<div style="grid-column: 1 / 3">${col1Label}</div>`
-          : `<div>${col1Label}</div><div>${col2Label}</div>`}
+          ? `<div class="span-2 m-keep">${col1Label}</div>`
+          : `<div class="m-keep">${col1Label}</div><div>${col2Label}</div>`}
         <div style="text-align:right">${isAmount ? '' : (c.key === '금' ? '그램(g)' : '수량')}</div>
         <div style="text-align:right">${isAmount ? '' : '평단가'}</div>
-        <div style="text-align:right">${isAmount ? '평가금액' : (c.key === '금' ? '시세(원/g)' : '현재가')}</div>
-        <div style="text-align:right">${isAmount ? '' : '평가금액'}</div>
-        <div style="text-align:right">${isAmount ? '' : '평가손익'}</div>
+        <div class="${isAmount ? 'm-keep' : ''}" style="text-align:right">${isAmount ? '평가금액' : (c.key === '금' ? '시세(원/g)' : '현재가')}</div>
+        <div class="${isAmount ? '' : 'm-keep'}" style="text-align:right">${isAmount ? '' : '평가금액'}</div>
+        <div class="m-keep" style="text-align:right">${isAmount ? '' : '평가손익'}</div>
         <div style="text-align:center">통화노출</div>
         <div style="text-align:center">타입</div>
         <div>메모</div>
@@ -756,6 +760,7 @@ function renderHoldings() {
       const row = document.createElement('div');
       // .pnl 클래스 추가: 11-column grid 적용
       row.className = 'row pnl' + (c.hasTicker ? ' has-ticker' : '') + (holdingLiquidity(h) === 'locked' ? ' is-locked' : '');
+      row.dataset.holdingId = h.id;  // 모바일 행 탭 → 편집 모달 식별용
       const at = assetTypeOf(h);
       const atCls = ASSET_TYPE_CLS[at] || 'asset-stock';
       // 선택 가능한 자산타입 — 부동산/암호화폐는 카테고리 잠금이 따로 있어서 제외
@@ -786,10 +791,10 @@ function renderHoldings() {
       // calc.js의 holdingPnL(평단가 기반)이 null이면 '—', 아니면 손익 금액(KRW 축약)+%를 색상 클래스와 함께 출력.
       function pnlCellHTML(h) {
         const p = holdingPnL(h);
-        if (!p) return `<div class="pnl-cell zero">—</div>`;
+        if (!p) return `<div class="pnl-cell zero m-keep">—</div>`;
         const cls = p.pnl > 0 ? 'pos' : (p.pnl < 0 ? 'neg' : 'zero');
         const sign = p.pnl > 0 ? '+' : '';
-        return `<div class="pnl-cell ${cls}">
+        return `<div class="pnl-cell ${cls} m-keep">
           <div class="amt">${sign}${fmtKRWshort(p.pnl)}</div>
           <div class="pct">${sign}${(p.pct*100).toFixed(2)}%</div>
         </div>`;
@@ -816,7 +821,7 @@ function renderHoldings() {
           ? `<div class="ticker-info"><span class="sym">${escapeHtml(h.ticker)}</span>${h.symbol && h.symbol !== h.ticker ? ' · ' + escapeHtml(h.symbol) : ''}</div>`
           : '';
         row.innerHTML = `
-          <div class="search-cell">
+          <div class="search-cell m-keep">
             <input class="search-input" placeholder="${searchPlaceholder}" value="${escapeHtml(h.name)}" data-search="${h.id}" data-id="${h.id}" autocomplete="off" />
             ${tickerInfo}
             <div class="search-dropdown" data-dropdown="${h.id}"></div>
@@ -824,7 +829,7 @@ function renderHoldings() {
           <input class="inp right" placeholder="0" value="${h.quantity}" data-field="quantity" data-id="${h.id}" />
           ${avgPriceCell}
           ${priceCell}
-          <div class="computed">${fmtKRW(holdingValue(h))}</div>
+          <div class="computed m-keep">${fmtKRW(holdingValue(h))}</div>
           ${pnlCellHTML(h)}
           ${exposureSelect}
           ${chipCellWrap}
@@ -838,17 +843,17 @@ function renderHoldings() {
         // 통화노출이 '달러(노출)'인 현금은 USD로 입력받아 KRW 환산액을 병기.
         const isDollarCash = h.exposure === '달러(노출)';
         const amountCell = isDollarCash
-          ? `<div class="dual-price">
+          ? `<div class="dual-price m-keep">
                <div class="usd">$<input class="" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" /></div>
                <div class="krw">${num(h.price) > 0 ? fmtKRW(num(h.price) * num(state.usdKrwRate)) : '—'}</div>
              </div>`
-          : `<input class="inp right" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" />`;
+          : `<input class="inp right m-keep" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" />`;
         const computedDisplay = isDollarCash ? fmtKRW(holdingValue(h)) : '';
         const namePh = c.key === '부동산' ? '예: 잠실엘스 84A' : '예: 신한 CMA';
         // 부동산: 명칭이 col 1-2 spanning, account 입력 생략
         const nameAndAccountCells = c.skipAccount
-          ? `<input class="inp" style="grid-column: 1 / 3" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />`
-          : `<input class="inp" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
+          ? `<input class="inp span-2 m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />`
+          : `<input class="inp m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
              <input class="inp" placeholder="—" value="${escapeHtml(h.account)}" data-field="account" data-id="${h.id}" />`;
         row.innerHTML = `
           ${nameAndAccountCells}
@@ -856,7 +861,7 @@ function renderHoldings() {
           <div class="col-empty"></div>
           ${amountCell}
           <div class="computed">${computedDisplay}</div>
-          <div class="pnl-cell zero">—</div>
+          <div class="pnl-cell zero m-keep">—</div>
           ${exposureSelect}
           ${chipCellWrap}
           ${memoInput}
@@ -868,12 +873,12 @@ function renderHoldings() {
         // 수량은 그램(g), 시세·평단가는 원/g 단위. 검색 없이 명칭·보관처를 직접 입력한다.
         const avgPriceCell = `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="g당 매수 평단가. 비우면 손익 계산 안 함" />`;
         row.innerHTML = `
-          <input class="inp" placeholder="예: KRX 금현물 / 골드바" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
+          <input class="inp m-keep" placeholder="예: KRX 금현물 / 골드바" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
           <input class="inp" placeholder="한국투자증권/금고 등" value="${escapeHtml(h.account)}" data-field="account" data-id="${h.id}" />
           <input class="inp right" placeholder="g" value="${h.quantity}" data-field="quantity" data-id="${h.id}" />
           ${avgPriceCell}
           <input class="inp right" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" />
-          <div class="computed">${fmtKRW(holdingValue(h))}</div>
+          <div class="computed m-keep">${fmtKRW(holdingValue(h))}</div>
           ${pnlCellHTML(h)}
           ${exposureSelect}
           ${chipCellWrap}
