@@ -4,11 +4,12 @@
 
 ## 아키텍처 불변 조건 (깨면 앱이 죽는다)
 
-- **클래식 스크립트 로드 순서 고정**: constants → state → calc → render → charts → data-io → fetch → sync → main. ES 모듈 아님, 전역 스코프 공유. index.html 하단의 나열 순서를 바꾸지 말 것.
+- **클래식 스크립트 로드 순서 고정**: constants → state → calc → render → charts → data-io → fetch → sync → broker → main. ES 모듈 아님, 전역 스코프 공유. index.html 하단의 나열 순서를 바꾸지 말 것.
 - **서버 단일 소스**: localStorage에 데이터를 저장하지 않는다. 부트는 `GET /api/portfolio` 단일 경로, 저장은 `saveState()` → 2초 디바운스 자동 업로드(sync.js). 새 수정 핸들러는 `saveState()`만 부르면 저장까지 이어진다.
 - **인증**: Functions는 `functions/_lib/access.js`의 JWT 서명 검증으로 이메일을 얻는다 (헤더 신뢰 금지). Access 앱을 재생성하면 `APP_AUD` 상수 갱신 필요.
 - **부채 카테고리는 자산이 아니다**: 모든 자산 축 집계는 `assetHoldings()`(부채 제외) 기반. 새 집계 코드에서 `state.holdings`를 직접 돌리면 부채가 섞인다.
 - 집계 3축 = 카테고리 / 자산타입(assetType) / 통화노출(exposure). 축별 정의는 constants.js.
+- **증권사 동기화의 소유권 마커**: `h.source`(소스 id, 예수금은 `<id>:cash`)가 찍힌 행만 동기화가 갱신·삭제한다. 수동 입력 행(`source: ''`)은 절대 삭제하지 않으며, 실패한 소스는 diff에서 통째로 스킵해 "장애 = 전량 매도" 오판을 막는다. 새 행 생성 코드를 추가하면 `source`/`syncedAt` 기본값도 함께 넣을 것 (state.js·render.js·data-io.js 3곳 + migrateState).
 
 ## 배포 철칙 — ?v= 캐시 스탬프
 
@@ -32,4 +33,8 @@
 
 - `README.md` 구조·사용법 / `SETUP.md` Cloudflare·Google 설정 (정확한 새 UI 메뉴명 기준)
 - `TODO.md` 백로그 / `checklist.md`·`context-notes.md` 진행 기록·결정 이유 (gitignore, 세션 인수인계용 — 작업 후 갱신)
+- `references/` 투자 판단 참고자료. **앱 코드와 무관하니 SPA 작업 시엔 읽지 말 것.**
+  - `AI기업_9factor_채점표_2026-08.md` — AI 12개사 정성 채점표 **규칙 정본**(v1.4). 채점 관련 판단은 항상 이 파일이 이김
+  - `AI기업_9factor_자동화_설계.md` — 채점 일부를 코드로 뽑기 위한 설계 노트. **원자료를 저장하고 점수는 함수로 계산**(규칙 개정 시 소급 재채점)이 핵심 전제
+  - `AI기업_채점표_2026-08.html`(`D` 배열 하나가 전체 시각화 구동) · `채점이력.csv` · `check_채점표.py`(MD↔HTML 정합성 검사기 — 통과 전 배포 금지)
 - 계획 파일: `~/.claude/plans/eager-knitting-orbit.md` (개편 단위로 교체)
