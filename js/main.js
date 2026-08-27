@@ -19,10 +19,9 @@ window.resetAll = resetAll;
 window.fetchExchangeRate = fetchExchangeRate;
 window.refreshAllPrices = refreshAllPrices;
 window.switchTab = switchTab;
-// 증권사 잔고 동기화 (broker.js) — 🏦 모달과 설정 탭 🔑 키 카드 버튼용
+// 증권사 잔고 동기화 (broker.js) — 🏦 동기화 모달과 설정 탭 연결 관리 버튼용
 window.openBrokerSyncModal = openBrokerSyncModal;
-window.saveBrokerKeys = saveBrokerKeys;
-window.deleteBrokerKeys = deleteBrokerKeys;
+window.openBrokerConnModal = openBrokerConnModal;
 // 진단용 — 브라우저 콘솔에서 시세 API·현재 state 를 직접 확인하기 위한 노출.
 // 앱 코드에서는 호출하지 않으며 개발/디버깅 편의 목적이다.
 window.fetchUSCPI = fetchUSCPI;
@@ -47,7 +46,7 @@ function boot() {
   render();
   updateFxBadge();
   updateSyncIndicator(); // ☁️ 헤더·설정 탭 동기화 상태 초기 표시
-  refreshBrokerKeyStatus(); // 🔑 설정 탭 증권사 키 등록 상태 (실패해도 무해 — 내부 try/catch)
+  refreshBrokerConnections(); // 🔗 설정 탭 증권사 연결 목록 (실패해도 무해 — 내부 try/catch)
   // 페이지 로드 시 환율 자동 갱신 (rateUpdatedAt이 1시간 이상 지났거나 비어있으면)
   const stale = !state.rateUpdatedAt
     || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;

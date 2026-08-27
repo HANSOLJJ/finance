@@ -13,16 +13,18 @@
 // sync(flushServerSave) 의 전역을 사용하고, main.js 가 window 노출과 초기 호출을 맡는다.
 // ============================================================================
 
-// 소스별 예수금 행의 배치 규칙 — 계좌의 카테고리 섹션 안에 넣고 자산타입만 '현금'.
-// (섹션 = 계좌 단위 그룹이라는 사용자 결정. 자산타입 축 집계는 '현금'으로 정확해진다.)
-// 빗썸 원화만 예외로 현금 섹션 — 암호화폐 카테고리는 assetTypeFixed 라 왜곡되기 때문.
-const BROKER_CASH_PLACEMENT = {
-  'kis-pension': { category: '연금저축펀드', name: '예수금 (한투)', usd: false },
-  'kis-isa': { category: 'ISA', name: '예수금 (한투)', usd: false },
-  'kw-kr': { category: '국내주식', name: '예수금 (키움)', usd: false },
-  'kw-us': { category: '해외주식', name: '달러 예수금 (키움)', usd: true },
-  bithumb: { category: '현금', name: '빗썸 원화', usd: false },
-};
+// 예수금 행의 배치 — 서버 응답에서 파생한다(하드코딩 테이블 없음).
+// 카테고리: source.cashCategory (없으면 계좌 카테고리 그대로). 계좌 섹션 안에 두되
+// 자산타입만 '현금'으로 지정해 섹션=계좌 그룹을 유지하면서 자산타입 축 집계는 정확하게.
+// 빗썸처럼 카테고리에 assetTypeFixed 가 걸린 곳은 provider 가 cashCategory 를 따로 준다.
+// 통화(USD 여부)는 source.cash.currency 로 판정 — provider 별 분기 불필요.
+function _bkCashPlan(source) {
+  const category = source.cashCategory || source.category;
+  const usd = !!(source.cash && source.cash.currency === 'USD');
+  // 라벨은 "연결이름 · 카테고리" 형태라 예수금 행 이름에는 연결이름만 쓴다(중복 방지).
+  const connName = String(source.label || '').split(' · ')[0];
+  return { category, usd, name: `${usd ? '달러 ' : ''}예수금${connName ? ` (${connName})` : ''}` };
+}
 
 // dust 기준 — 이보다 작은 신규 항목(예수금·코인)은 행을 만들지 않는다.
 // 이미 동기화 행이 존재하면 금액이 작아져도 계속 갱신한다(0원 포함).
@@ -128,9 +130,9 @@ function computeBrokerDiff(holdings, sources) {
       if (r.source === source.id && !consumed.has(r.id)) removes.push({ row: r, source });
     }
 
-    // 예수금 — 마커 행(<id>:cash)을 계좌 섹션 안에 생성·관리 (배치 규칙 상단 참조)
+    // 예수금 — 마커 행(<id>:cash)을 계좌 섹션 안에 생성·관리 (배치는 _bkCashPlan 참조)
     if (source.cash) {
-      const place = BROKER_CASH_PLACEMENT[source.id];
+      const place = _bkCashPlan(source);
       const cashRow = holdings.find(h => h.source === `${source.id}:cash`) || null;
       const amount = source.cash.amount;
       const cur = cashRow ? num(place.usd ? cashRow.priceUSD : cashRow.price) : null;
@@ -320,61 +322,256 @@ function applyBrokerDiff(diff) {
   flushServerSave();
 }
 
-// ==================== 설정 탭 — 🔑 API 키 카드 ====================
-// 키는 서버(/api/broker-keys)를 통해 로그인 이메일 귀속 KV 에 저장된다.
-// 저장 후 입력칸은 즉시 비우고, 상태 표시는 마스킹된 값(앞 4자)만 사용한다.
+// ==================== 설정 탭 — 증권사 연결 관리 ====================
+// 연결 하나 = { id, provider, label, creds, accounts[] }. 서버(/api/broker-connections)가
+// 목록과 함께 provider 메타(입력칸 정의·계좌 모드)를 주므로, 새 증권사가 추가돼도
+// 이 UI 코드는 수정할 필요가 없다 — 폼이 메타를 읽어 자동으로 그려진다.
+// 자격증명 원본은 서버가 돌려주지 않으므로(마스킹만) 수정 시 빈 칸은 "기존 유지"를 뜻한다.
 
-const BROKER_KEY_FIELDS = ['kisAppkey', 'kisAppsecret', 'kisCano', 'kwAppkey', 'kwSecretkey', 'bithumbKey', 'bithumbSecret'];
+let _bkConns = [];      // 현재 연결 목록 (자격증명은 마스킹된 상태)
+let _bkProviders = {};  // provider 메타 (서버 제공)
 
-// 등록 상태 갱신 — 설정 탭 카드의 상태 줄을 서버 마스킹 응답으로 채운다.
-async function refreshBrokerKeyStatus() {
-  const el = document.getElementById('brokerKeyStatus');
-  if (!el) return;
+// 설정 탭 연결 목록 렌더 — main.js boot() 와 저장/삭제 후에 호출된다.
+async function refreshBrokerConnections() {
+  const box = document.getElementById('brokerConnList');
+  if (!box) return;
   try {
-    const res = await fetch('/api/broker-keys', { cache: 'no-store' });
+    const res = await fetch('/api/broker-connections', { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(`HTTP ${res.status}`);
-    if (!data.registered) { el.textContent = '등록된 키 없음'; return; }
-    const label = { kisAppkey: '한투 앱키', kisAppsecret: '한투 시크릿', kisCano: '한투 계좌', kwAppkey: '키움 앱키', kwSecretkey: '키움 시크릿', bithumbKey: '빗썸 키', bithumbSecret: '빗썸 시크릿' };
-    const parts = BROKER_KEY_FIELDS.filter(f => data.fields[f]).map(f => `${label[f]} ${data.fields[f]}`);
-    el.textContent = parts.length ? `등록됨 — ${parts.join(' · ')}` : '등록된 키 없음';
+    _bkConns = data.connections || [];
+    _bkProviders = data.providers || {};
   } catch (_) {
-    el.textContent = '상태 확인 불가 (서버 연결 필요)';
+    box.innerHTML = '<div class="backup-desc">연결 상태를 확인할 수 없습니다 (서버 연결 필요)</div>';
+    return;
   }
+  if (!_bkConns.length) {
+    box.innerHTML = '<div class="backup-desc">등록된 연결이 없습니다. 아래 버튼으로 증권사를 추가하세요.</div>';
+    return;
+  }
+  const esc = escapeHtml;
+  box.innerHTML = _bkConns.map(c => {
+    const p = _bkProviders[c.provider] || { label: c.provider, accountMode: 'fixed', accounts: [] };
+    const accs = p.accountMode === 'fixed' ? (p.accounts || []) : (c.accounts || []);
+    const chips = accs.map(a => `<span class="badge" style="margin-right:4px;">${esc(a.category || a.code)}</span>`).join('');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <div style="font-weight:600;font-size:13px;">${esc(c.label || p.label)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${esc(p.label)} · ${chips || '<span style="color:#dc2626">계좌 미지정</span>'}</div>
+      </div>
+      <button class="btn" data-bk-edit="${esc(c.id)}" style="padding:4px 10px;font-size:12px;">수정</button>
+      <button class="btn" data-bk-del="${esc(c.id)}" style="padding:4px 10px;font-size:12px;color:#dc2626;">삭제</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-bk-edit]').forEach(b => {
+    b.onclick = () => openBrokerConnModal(b.getAttribute('data-bk-edit'));
+  });
+  box.querySelectorAll('[data-bk-del]').forEach(b => {
+    b.onclick = () => deleteBrokerConnection(b.getAttribute('data-bk-del'));
+  });
 }
 
-// 저장 — 입력된 필드만 보낸다 (빈 칸은 기존 값 유지, 서버 PUT 이 부분 갱신).
-async function saveBrokerKeys() {
-  const body = {};
-  let any = false;
-  for (const f of BROKER_KEY_FIELDS) {
-    const inp = document.getElementById(`bk_${f}`);
-    if (inp && inp.value.trim()) { body[f] = inp.value.trim(); any = true; }
-  }
-  if (!any) { toast('⚠️ 입력된 키가 없습니다'); return; }
-  try {
-    const res = await fetch('/api/broker-keys', { method: 'PUT', body: JSON.stringify(body) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    for (const f of BROKER_KEY_FIELDS) {
-      const inp = document.getElementById(`bk_${f}`);
-      if (inp) inp.value = ''; // 화면에 키 잔류 금지
+// 연결 추가/수정 모달 — provider 를 고르면 credFields 로 입력칸을,
+// accountMode 가 'user' 면 계좌 편집 행을 그린다. [계좌 찾기]로 상품코드 자동 발견.
+function openBrokerConnModal(connId) {
+  const existing = document.getElementById('bkConnBackdrop');
+  if (existing) existing.remove();
+  const conn = connId ? _bkConns.find(c => c.id === connId) : null;
+  const esc = escapeHtml;
+  // 편집 중인 계좌 목록 (모달 로컬 상태 — 저장 시에만 서버로 전송)
+  let accounts = conn && Array.isArray(conn.accounts) ? conn.accounts.map(a => ({ ...a })) : [];
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'bkConnBackdrop';
+  backdrop.className = 'memo-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="memo-modal" style="width:min(560px,94vw);">
+      <div class="memo-modal-head">
+        <div>
+          <div class="memo-modal-title">${conn ? '🔗 연결 수정' : '🔗 증권사 연결 추가'}</div>
+          <div class="memo-modal-sub">조회 전용 API 키만 등록하세요 — 이 앱은 주문 API를 호출하지 않습니다</div>
+        </div>
+        <button class="memo-modal-x" id="bkConnCloseX" title="닫기">×</button>
+      </div>
+      <label style="font-size:12px;">
+        <div style="color:var(--text-muted);margin-bottom:4px;">증권사</div>
+        <select id="bkConnProvider" class="inp" style="width:100%;border:1px solid var(--border);padding:6px 8px;" ${conn ? 'disabled' : ''}>
+          ${Object.entries(_bkProviders).map(([id, p]) =>
+            `<option value="${esc(id)}" ${conn && conn.provider === id ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}
+        </select>
+      </label>
+      <label style="font-size:12px;">
+        <div style="color:var(--text-muted);margin-bottom:4px;">표시 이름 (선택)</div>
+        <input id="bkConnLabel" class="inp" placeholder="예: 한투 연금·ISA" value="${esc(conn ? conn.label : '')}" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
+      </label>
+      <div id="bkConnCreds" class="hist-form-grid"></div>
+      <div id="bkConnAccounts"></div>
+      <div class="memo-modal-hint" id="bkConnMsg" style="display:none;"></div>
+      <div class="memo-modal-foot">
+        <span class="memo-modal-help">수정 시 빈 칸은 기존 값을 유지합니다</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="bkConnCancel">취소</button>
+          <button class="btn primary" id="bkConnSave">저장</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  const close = () => backdrop.remove();
+  const msgEl = document.getElementById('bkConnMsg');
+  const showMsg = (text, isError) => {
+    msgEl.style.display = 'block';
+    msgEl.textContent = text;
+    msgEl.style.borderLeftColor = isError ? '#dc2626' : '#0e7490';
+    msgEl.style.background = isError ? '#fef2f2' : '#ecfeff';
+  };
+
+  const collectCreds = (p) => {
+    const creds = {};
+    for (const f of p.credFields) {
+      const el = document.getElementById(`bkc_${f.key}`);
+      if (el && el.value.trim()) creds[f.key] = el.value.trim();
     }
-    toast('🔑 API 키 저장됨');
-    refreshBrokerKeyStatus();
-  } catch (err) {
-    toast(`⚠️ 키 저장 실패: ${err.message}`);
-  }
+    return creds;
+  };
+
+  // 계좌 행 렌더 — 코드 입력 + 카테고리 select. 카테고리 목록은 앱의 CATEGORIES 그대로.
+  const renderAccRows = (p) => {
+    const box = document.getElementById('bkConnAccRows');
+    if (!box) return;
+    if (!accounts.length) {
+      box.innerHTML = '<div class="backup-desc">계좌를 1개 이상 추가하세요 (🔍 계좌 찾기 권장)</div>';
+      return;
+    }
+    box.innerHTML = accounts.map((a, i) => `
+      <div style="display:grid;grid-template-columns:100px 1fr 28px;gap:6px;margin-bottom:6px;align-items:center;">
+        <input class="inp" data-acc-code="${i}" value="${esc(a.code)}" placeholder="${esc(p.accountCodeLabel || '코드')}" style="border:1px solid var(--border);padding:5px 8px;font-size:12px;" />
+        <select class="inp" data-acc-cat="${i}" style="border:1px solid var(--border);padding:5px 8px;font-size:12px;">
+          <option value="">카테고리 선택…</option>
+          ${CATEGORIES.filter(c => !c.isDebt).map(c => `<option value="${esc(c.key)}" ${a.category === c.key ? 'selected' : ''}>${esc(c.key)}</option>`).join('')}
+        </select>
+        <button class="icon-btn" data-acc-del="${i}" title="삭제">×</button>
+      </div>`).join('');
+    box.querySelectorAll('[data-acc-code]').forEach(el => {
+      el.oninput = () => { accounts[+el.getAttribute('data-acc-code')].code = el.value.trim(); };
+    });
+    box.querySelectorAll('[data-acc-cat]').forEach(el => {
+      el.onchange = () => { accounts[+el.getAttribute('data-acc-cat')].category = el.value; };
+    });
+    box.querySelectorAll('[data-acc-del]').forEach(el => {
+      el.onclick = () => { accounts.splice(+el.getAttribute('data-acc-del'), 1); renderAccRows(p); };
+    });
+  };
+
+  // 계좌 찾기 — 서버가 후보 코드를 순차 조회해 실제 존재하는 계좌만 돌려준다.
+  // 보유 종목명을 함께 보여줘서 사용자가 카테고리만 고르면 되게 한다.
+  const discoverAccounts = async (p) => {
+    const btn = document.getElementById('bkConnDiscover');
+    btn.disabled = true; btn.textContent = '🔍 찾는 중…';
+    try {
+      const body = { provider: document.getElementById('bkConnProvider').value, creds: collectCreds(p) };
+      if (conn) body.connId = conn.id;
+      const res = await fetch('/api/broker-discover', { method: 'POST', body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      for (const a of data.accounts) {
+        if (!accounts.some(x => x.code === a.code)) accounts.push({ code: a.code, category: '' });
+      }
+      renderAccRows(p);
+      showMsg(data.accounts.map(a =>
+        `${a.code}: ${a.holdingCount}종목${a.sampleNames.length ? ' (' + a.sampleNames.join(', ') + ')' : ''}`
+      ).join(' / ') + ' — 각 계좌의 카테고리를 골라주세요', false);
+    } catch (err) {
+      showMsg(`계좌 찾기 실패: ${err.message}`, true);
+    }
+    btn.disabled = false; btn.textContent = '🔍 계좌 찾기';
+  };
+
+  // 계좌 편집 영역 — 'user' 모드(한투)만 편집 UI, fixed 모드는 안내 문구만.
+  const renderAccounts = (p) => {
+    const box = document.getElementById('bkConnAccounts');
+    if (p.accountMode !== 'user') {
+      const list = (p.accounts || []).map(a => a.category).join(' · ');
+      box.innerHTML = `<div class="backup-desc" style="margin-top:4px;">조회 대상: <b>${esc(list)}</b> (자동)</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px;gap:8px;flex-wrap:wrap;">
+        <div style="font-size:12px;color:var(--text-muted);">조회할 계좌 — ${esc(p.accountCodeHint || '')}</div>
+        <div style="display:flex;gap:6px;">
+          ${p.discoverable ? '<button class="btn" id="bkConnDiscover" style="padding:4px 10px;font-size:12px;">🔍 계좌 찾기</button>' : ''}
+          <button class="btn" id="bkConnAddAcc" style="padding:4px 10px;font-size:12px;">+ 계좌</button>
+        </div>
+      </div>
+      <div id="bkConnAccRows"></div>`;
+    renderAccRows(p);
+    const disc = document.getElementById('bkConnDiscover');
+    if (disc) disc.onclick = () => discoverAccounts(p);
+    document.getElementById('bkConnAddAcc').onclick = () => { accounts.push({ code: '', category: '' }); renderAccRows(p); };
+  };
+
+  // provider 메타에 맞춰 입력칸·계좌 영역을 그린다 (증권사 전환 시 재호출).
+  const renderForm = () => {
+    const pid = document.getElementById('bkConnProvider').value;
+    const p = _bkProviders[pid];
+    if (!p) return;
+    document.getElementById('bkConnCreds').innerHTML = p.credFields.map(f => `
+      <label style="font-size:12px;">
+        <div style="color:var(--text-muted);margin-bottom:4px;">${esc(f.label)}${conn && conn.credsMasked && conn.credsMasked[f.key] ? ` <span style="color:#16a34a;">(등록됨)</span>` : ''}</div>
+        <input id="bkc_${esc(f.key)}" type="password" class="inp" autocomplete="off"
+          placeholder="${conn ? '변경 시에만 입력' : esc(f.hint || '')}" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
+      </label>`).join('');
+    renderAccounts(p);
+  };
+
+  document.getElementById('bkConnProvider').onchange = renderForm;
+  document.getElementById('bkConnCloseX').onclick = close;
+  document.getElementById('bkConnCancel').onclick = close;
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+
+  // 저장 — 전체 연결 배열을 보낸다. 다른 연결의 creds 는 빈 객체로 보내 기존 값이 유지되게.
+  document.getElementById('bkConnSave').onclick = async () => {
+    const pid = document.getElementById('bkConnProvider').value;
+    const p = _bkProviders[pid];
+    const entry = {
+      id: conn ? conn.id : `c${Date.now().toString(36)}`,
+      provider: pid,
+      label: document.getElementById('bkConnLabel').value.trim() || p.label,
+      creds: collectCreds(p),
+      accounts: p.accountMode === 'user' ? accounts.filter(a => a.code) : [],
+    };
+    if (p.accountMode === 'user' && entry.accounts.some(a => !a.category)) {
+      showMsg('각 계좌의 카테고리를 선택하세요', true); return;
+    }
+    const next = _bkConns.filter(c => c.id !== entry.id).map(c => ({
+      id: c.id, provider: c.provider, label: c.label, creds: {}, accounts: c.accounts,
+    }));
+    next.push(entry);
+    try {
+      const res = await fetch('/api/broker-connections', { method: 'PUT', body: JSON.stringify({ connections: next }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      close();
+      toast('🔗 증권사 연결 저장됨');
+      refreshBrokerConnections();
+    } catch (err) {
+      showMsg(`저장 실패: ${err.message}`, true);
+    }
+  };
+
+  renderForm();
 }
 
-// 전체 삭제 — 키와 토큰 캐시가 서버에서 함께 지워진다.
-async function deleteBrokerKeys() {
-  if (!confirm('등록된 증권사 API 키를 전부 삭제할까요?\n(동기화 기능이 비활성화됩니다)')) return;
+// 연결 1개 삭제 — 서버가 해당 연결의 토큰 캐시도 함께 지운다.
+async function deleteBrokerConnection(id) {
+  const conn = _bkConns.find(c => c.id === id);
+  if (!confirm(`'${conn ? (conn.label || conn.provider) : id}' 연결을 삭제할까요?\n(등록된 API 키가 지워집니다)`)) return;
   try {
-    const res = await fetch('/api/broker-keys', { method: 'DELETE' });
+    const res = await fetch(`/api/broker-connections?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    toast('🔑 API 키 삭제됨');
-    refreshBrokerKeyStatus();
+    toast('🔗 연결 삭제됨');
+    refreshBrokerConnections();
   } catch (err) {
-    toast(`⚠️ 키 삭제 실패: ${err.message}`);
+    toast(`⚠️ 삭제 실패: ${err.message}`);
   }
 }
