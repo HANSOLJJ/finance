@@ -27,8 +27,8 @@ FRED 연동(`/api/proxy` + 서버 키 주입)이 이미 있으므로 **시리즈
     - 주의: 실전 API rate limit이 빡빡함 (250ms 간격에도 초과 발생) — 구현 시 호출 간 1초+ 간격 or 순차 처리
   - 키움증권: **실계좌 검증 완료 (2026-08-27)** — 계좌 54033981 앱키 발급, 토큰(`POST /oauth2/token`, secretkey 필드) + 계좌평가잔고(`POST /api/dostk/acnt`, api-id `kt00018`, body `{qry_tp:'1',dmst_stex_tp:'KRX'}`) 성공. 보유 2건(SK하이닉스·KODEX 차이나AI반도체) + 예수금/추정예탁자산 수신 확인
     - 구현 주의: 종목코드에 A 접두사(`A000660`) → 앱 ticker 매칭 시 제거 필요. 숫자는 zero-pad 문자열 → parseInt. 응답에 매입가·현재가·평가금액 포함
-    - 미국주식 카테고리(계좌·예수금 ust21110 등)도 문서 존재 — 키움에 미국주식 보유 시 추가 검증
-  - 빗썸: 잔고 조회 API (API 키 발급 + 서명 인증). 시세는 이미 빗썸 공개 API 사용 중이라 잔고만 추가
+    - **미국주식도 실계좌 검증 완료** — `POST /api/us/acnt` api-id `ust21070`, USD 매입단가+원화 환산까지 수신. 미국주식 종목코드는 티커 그대로(A접두사 없음)
+  - 빗썸: **실계좌 검증 완료 (2026-08-27)** — API 2.0 (Upbit식 JWT HS256), `GET /v1/accounts`로 코인별 수량+평단 수신. dust 코인 필터 필요, balance+locked 합산
   - 공통 과제: API 키를 어디에 둘지 (KV per-user? Cloudflare secret?) + 자동 반영 vs 확인 후 반영 UX
   - 은행은 제외 (오픈뱅킹=기업 등록, 마이데이터=허가제 — 개인 프로젝트 불가. 현금은 수동 유지)
 - **enc 히스토리 퍼지** — 공개 repo 히스토리에 남은 구 암호문(portfolio.enc) 커밋 청소 (git filter-repo)
