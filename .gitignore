@@ -13,6 +13,9 @@ context-notes.md
 # 개인 스크린샷 (버그 리포트용 임시 폴더)
 screencapture/
 
+# 개인 설정·자격증명 폴더 — 어떤 파일이든 절대 커밋 금지
+config/
+
 # 로컬 실행용 (배포에 불필요)
 proxy_server.py
 *.vbs
