@@ -4,7 +4,7 @@
 // 404 는 신규 사용자(빈 상태)로 취급하고, 그 외 실패 시에는 자동 저장을 잠근 채
 // (#bootFailBanner) 재시도만 안내한다 — 빈 화면이 자동 저장으로 서버 데이터를
 // 덮어쓰는 사고를 막기 위해서다.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 의
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 의
 // 마지막 파일 — 앞선 모든 파일의 전역 함수가 정의된 뒤에 실행돼야 하므로
 // index.html 의 script 태그 순서상 항상 맨 끝이어야 한다.
 // ============================================================================
@@ -19,6 +19,10 @@ window.resetAll = resetAll;
 window.fetchExchangeRate = fetchExchangeRate;
 window.refreshAllPrices = refreshAllPrices;
 window.switchTab = switchTab;
+// 증권사 잔고 동기화 (broker.js) — 🏦 모달과 설정 탭 🔑 키 카드 버튼용
+window.openBrokerSyncModal = openBrokerSyncModal;
+window.saveBrokerKeys = saveBrokerKeys;
+window.deleteBrokerKeys = deleteBrokerKeys;
 // 진단용 — 브라우저 콘솔에서 시세 API·현재 state 를 직접 확인하기 위한 노출.
 // 앱 코드에서는 호출하지 않으며 개발/디버깅 편의 목적이다.
 window.fetchUSCPI = fetchUSCPI;
@@ -43,6 +47,7 @@ function boot() {
   render();
   updateFxBadge();
   updateSyncIndicator(); // ☁️ 헤더·설정 탭 동기화 상태 초기 표시
+  refreshBrokerKeyStatus(); // 🔑 설정 탭 증권사 키 등록 상태 (실패해도 무해 — 내부 try/catch)
   // 페이지 로드 시 환율 자동 갱신 (rateUpdatedAt이 1시간 이상 지났거나 비어있으면)
   const stale = !state.rateUpdatedAt
     || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;

@@ -5,7 +5,7 @@
 // 주요 함수 그룹 — 프록시(CORS_PROXIES·fetchViaProxy), 환율(fetchExchangeRate·updateFxBadge),
 // 시세 수집(fetchStockPrice·fetchCryptoPrice·fetchAndApplyGoldPrice·refreshHolding·refreshAllPrices),
 // 검색 자동완성(searchQuotes·searchNaverFinance·onSearch 계열), 거시지표(fetchM2·fetchUSCPI).
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 7번째.
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 중 7번째.
 // calc.js(num)·state.js(state·saveState)·render.js(render 계열)·data-io.js(toast)에 의존하고,
 // data-io.js의 snapshot()이 이 파일의 fetchUSCPI/fetchM2를 호출한다.
 // ==================== 외부 시세/환율 API ====================
@@ -623,9 +623,11 @@ async function refreshAllPrices() {
   btn.textContent = '⏳ 갱신 중...';
   // 환율 먼저
   await fetchExchangeRate(false);
-  // 시세 가능한 모든 행 (주식/암호화폐)
+  // 시세 가능한 모든 행 (주식/암호화폐).
+  // 증권사 동기화가 만든 예수금 행(source '<id>:cash')은 티커가 없는 금액 행이라 제외.
   const targets = state.holdings.filter(h => {
     const cat = CATEGORY_MAP[h.category];
+    if (String(h.source || '').endsWith(':cash')) return false;
     return cat?.hasTicker && (h.ticker || h.name);
   });
   let ok = 0, fail = 0;

@@ -5,7 +5,7 @@
 // byAssetType, byCategory, cpiIndex·cpiLabel·cpiYoYPct, m2·m2Label·m2YoYPct } 구조로,
 // 이력 차트(charts.js)와 실질가치 분석의 원천 데이터가 된다.
 // 복원 시 구버전 백업은 state.js의 migrateState()가 현재 스키마로 끌어올린다.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 6번째.
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 중 6번째.
 // calc.js의 합계 함수와 state.js(saveState·defaultState·uid)에 의존하고,
 // snapshot()은 fetch.js의 fetchUSCPI/fetchM2를 호출한다(실행 시점엔 이미 로드되어 있음).
 // ==================== 액션 ====================
@@ -179,6 +179,7 @@ function applyHistoricalAsset(data) {
     assetType,
     liquidity: data.liquidity,
     lastFetched: '',
+    source: '', syncedAt: '',  // 수동 입력 행 (증권사 동기화 마커 없음)
   });
 
   // 2. 모든 스냅샷에 동일 금액 가산

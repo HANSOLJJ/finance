@@ -13,7 +13,7 @@
 <!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=20260827a" />
+  <link rel="stylesheet" href="css/app.css?v=20260827b" />
 </head>
 <body>
 
@@ -156,6 +156,8 @@
       <div class="section-header">
         <h2>📝 자산 내역</h2>
         <div class="desc">노란 셀 = 입력 · 평단가 입력 시 평가손익/수익률 자동 계산</div>
+        <!-- 증권사 잔고 동기화 — broker.js openBrokerSyncModal. 미리보기 확인 후 적용되는 조회 전용 기능. -->
+        <button class="btn primary" onclick="openBrokerSyncModal()" style="flex-shrink:0;">🏦 증권사 동기화</button>
       </div>
       <div id="holdingsContainer"></div>
     </div>
@@ -417,6 +419,41 @@
     </div>
   </div>
 
+  <!-- 증권사 API 키 — broker.js가 /api/broker-keys로 로그인 계정 귀속 KV에 저장한다 (portfolio와 동일 규약). -->
+  <!-- 값은 저장 후 서버가 마스킹 상태만 돌려주고 원본은 어떤 API로도 재반출되지 않는다. 발급처는 SETUP.md 6.5절. -->
+  <div class="section">
+    <div class="section-header">
+      <h2>🔑 증권사 API 키 (잔고 동기화)</h2>
+      <div class="desc">한투·키움·빗썸 조회 전용 키 등록 — 자산 입력 탭의 🏦 동기화에 사용 · 계정별 분리 저장</div>
+    </div>
+    <div class="backup-card">
+      <div class="backup-desc" style="margin-bottom:8px;">등록 상태: <b id="brokerKeyStatus">확인 중…</b></div>
+      <div class="hist-form-grid">
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">한투 앱키</div>
+          <input id="bk_kisAppkey" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">한투 앱시크릿</div>
+          <input id="bk_kisAppsecret" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">한투 계좌번호 (앞 8자리)</div>
+          <input id="bk_kisCano" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">키움 앱키</div>
+          <input id="bk_kwAppkey" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">키움 시크릿키</div>
+          <input id="bk_kwSecretkey" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">빗썸 액세스 키</div>
+          <input id="bk_bithumbKey" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+        <label style="font-size:12px;"><div style="color:var(--text-muted);margin-bottom:4px;">빗썸 시크릿 키</div>
+          <input id="bk_bithumbSecret" type="password" class="inp" autocomplete="off" placeholder="변경 시에만 입력" style="border:1px solid var(--border);padding:6px 8px;width:100%;" /></label>
+      </div>
+      <div class="backup-actions" style="margin-top:10px;">
+        <button class="btn primary" onclick="saveBrokerKeys()">🔑 키 저장</button>
+        <button class="btn" onclick="deleteBrokerKeys()" style="color:#dc2626;">전체 삭제</button>
+      </div>
+      <div class="backup-desc" style="margin-top:8px;">
+        입력한 칸만 갱신됩니다 (빈 칸은 기존 값 유지). 조회 전용 키만 등록하세요 — 이 앱은 주문 API를 호출하지 않습니다.
+      </div>
+    </div>
+  </div>
+
   <!-- 과거 이력 보정 — 빼먹은 자산을 과거 스냅샷에 소급 반영. 버튼이 data-io.js openHistoricalAddModal 모달을 연다. -->
   <div class="section">
     <div class="section-header">
@@ -464,17 +501,19 @@
 <!-- 클래식 스크립트 분할(ES 모듈 아님, 전역 스코프 공유) — 나열 순서가 곧 의존성 순서이므로 절대 바꾸면 안 된다. -->
 <!-- constants.js 카테고리·자산타입 등 상수 정의 → state.js 상태 로드/저장·메모 모달 → calc.js 합계·손익·검산 계산. -->
 <!-- → render.js 탭·KPI·테이블 렌더 → charts.js Chart.js 차트·트리맵 → data-io.js JSON 입출력·스냅샷·더미·토스트. -->
-<!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → main.js 부트스트랩(반드시 마지막에 실행). -->
+<!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → broker.js 증권사 잔고 동기화 -->
+<!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
 <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
 <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260827a"></script>
-<script src="js/state.js?v=20260827a"></script>
-<script src="js/calc.js?v=20260827a"></script>
-<script src="js/render.js?v=20260827a"></script>
-<script src="js/charts.js?v=20260827a"></script>
-<script src="js/data-io.js?v=20260827a"></script>
-<script src="js/fetch.js?v=20260827a"></script>
-<script src="js/sync.js?v=20260827a"></script>
-<script src="js/main.js?v=20260827a"></script>
+<script src="js/constants.js?v=20260827b"></script>
+<script src="js/state.js?v=20260827b"></script>
+<script src="js/calc.js?v=20260827b"></script>
+<script src="js/render.js?v=20260827b"></script>
+<script src="js/charts.js?v=20260827b"></script>
+<script src="js/data-io.js?v=20260827b"></script>
+<script src="js/fetch.js?v=20260827b"></script>
+<script src="js/sync.js?v=20260827b"></script>
+<script src="js/broker.js?v=20260827b"></script>
+<script src="js/main.js?v=20260827b"></script>
 </body>
 </html>

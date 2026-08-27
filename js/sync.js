@@ -7,7 +7,7 @@
 // 부트(서버 로드)가 성공하기 전에는 syncEnabled=false 로 잠가, 빈 state 가
 // 서버 데이터를 덮는 사고를 막는다 (잠금 해제는 main.js bootstrap 이 수행).
 // 인증은 Cloudflare Access 가 엣지에서 전담 — 누구의 데이터로 저장될지는 로그인이 결정.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 중
 // 여덟 번째 — state.js 의 state, data-io.js 의 toast 에 의존한다.
 // ============================================================================
 

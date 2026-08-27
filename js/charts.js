@@ -2,7 +2,7 @@
 // - 대시보드: 자산타입/통화노출 도넛 2종 (viewScope 유동/전체 반영, 값 단위 KRW).
 // - 분석 탭: 현재 vs 목표 가로 막대 2종(% 단위), 종목별 트리맵(drill-down·flat·손익 히트맵).
 // - 이력 탭: 총자산 라인 차트 (명목/실질 USD·CPI·M2 기준선·환율, 절대값/정규화 2모드).
-// 로드 순서: constants → state → calc → render → [charts] → data-io → fetch → sync → main.
+// 로드 순서: constants → state → calc → render → [charts] → data-io → fetch → sync → broker → main.
 //   클래식 스크립트라 모듈 시스템 없이 전역 스코프를 공유한다.
 // 의존: CDN 전역 Chart(Chart.js 4)와 chartjs-chart-treemap 플러그인(type:'treemap' 등록).
 //   state.js 의 state 전역·saveState()·getHoldingMemo(), calc.js 의 합계·환산 함수(grandTotal 등),

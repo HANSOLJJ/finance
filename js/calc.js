@@ -5,7 +5,7 @@
 // 축별 합계(categoryTotal·exposureTotal·assetTypeTotal·liquidityTotal·grandTotal),
 // 검산(verifyTotals·renderVerifyResult), View Scope(scoped 계열·setViewScope),
 // P&L(holdingPnL), 세금(TAX_RULES·computeTaxByCategory), debounce 헬퍼.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중 3번째.
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 중 3번째.
 // constants.js(CATEGORY_MAP·CATEGORIES 등)와 state.js(state·saveState)에 의존하고,
 // render.js·charts.js·data-io.js·fetch.js가 이 파일의 집계 함수를 두루 호출한다.
 // ==================== 계산 함수 ====================

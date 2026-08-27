@@ -8,7 +8,7 @@
 //  - history: 스냅샷 배열 (총자산 추이, totalUSD 포함).
 //  - assetTypeTargets/expTargets: 리밸런싱 목표 비중, usdKrwRate: 환율 캐시.
 //  - lastUpdated/lastBackupAt/lastServerSaveAt: 갱신·백업·서버 저장 시각.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 중
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 중
 // 두 번째 — constants.js 의 상수에 의존하고, 이후 모든 파일이 state 를 읽고 쓴다.
 // ============================================================================
 // ==================== 상태 관리 ====================
@@ -25,7 +25,8 @@ function defaultState() {
       exposure: DEFAULT_EXPOSURE_BY_CAT[c.key], memo: '',
       assetType: c.assetTypeFixed || '주식',
       liquidity: DEFAULT_LIQUIDITY_BY_CAT[c.key] || 'liquid',
-      lastFetched: ''
+      lastFetched: '',
+      source: '', syncedAt: ''  // 증권사 동기화 마커 ('' = 수동 입력, broker.js 참조)
     }]),
     assetTypeTargets: { ...DEFAULT_ASSET_TYPE_TARGETS },
     expTargets: { ...DEFAULT_EXP_TARGETS },
@@ -81,6 +82,9 @@ function migrateState(s) {
       if (h.avgPrice === undefined) h.avgPrice = '';
       if (h.avgPriceUSD === undefined) h.avgPriceUSD = '';
       if (h.lastFetched === undefined) h.lastFetched = '';
+      // 증권사 동기화 마커 — '' 로 정규화해야 broker.js 가 "수동 행"을 명시 비교로 판별한다
+      if (h.source === undefined) h.source = '';
+      if (h.syncedAt === undefined) h.syncedAt = '';
       if (h.liquidity === undefined) {
         h.liquidity = DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid';
       }

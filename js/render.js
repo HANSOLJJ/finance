@@ -7,7 +7,7 @@
 // (3) 전체 재렌더 총괄 render()와 대시보드(KPI/리밸런싱 카드), (4) 자산 입력 테이블
 // (renderHoldings + 입력 핸들러/partialUpdate), (5) 목표 비중 테이블, (6) 분석 탭 세후
 // 평가(renderTaxAnalysis), (7) 이력 탭(renderHistory), (8) 설정 탭(renderSettings).
-// 로드 순서는 index.html 기준 constants→state→calc→render→charts→data-io→fetch→sync→main.
+// 로드 순서는 index.html 기준 constants→state→calc→render→charts→data-io→fetch→sync→broker→main.
 // 앞의 constants(CATEGORIES/EXPOSURES 등)·state·calc를 사용하고, 여기서 정의한 render()/
 // 포맷터를 뒤의 charts/data-io/fetch/sync/main이 호출한다(캔버스 차트 렌더 자체는 charts.js 담당).
 // ==================== 탭 네비게이션 ====================
@@ -922,7 +922,8 @@ function renderHoldings() {
         exposure: DEFAULT_EXPOSURE_BY_CAT[c.key], memo: '',
         assetType: c.assetTypeFixed || '주식',
         liquidity: DEFAULT_LIQUIDITY_BY_CAT[c.key] || 'liquid',
-        lastFetched: ''
+        lastFetched: '',
+        source: '', syncedAt: ''  // 수동 입력 행 (증권사 동기화 마커 없음)
       });
       render();
     };

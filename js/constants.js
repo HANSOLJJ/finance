@@ -3,7 +3,7 @@
 // 자산 입력 테이블의 섹션 구성(CATEGORIES), 집계·차트의 3개 축(카테고리/자산타입/
 // 통화노출)과 축별 색상·CSS 클래스, 리밸런싱 기본 목표 비중, 신규 행 기본값,
 // localStorage 저장 키(STORAGE_KEY), 로컬 시간대 날짜 헬퍼(localDateStr)를 담는다.
-// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→main 의
+// 로드 순서 constants→state→calc→render→charts→data-io→fetch→sync→broker→main 의
 // 첫 번째 파일 — 다른 js 파일에 의존하지 않으며, 이후 모든 파일이 여기 정의된
 // 전역 const 를 스크립트 전역 스코프로 직접 참조한다 (모듈/export 없음).
 // ============================================================================
