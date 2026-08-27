@@ -13,7 +13,7 @@
 <!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=20260826b" />
+  <link rel="stylesheet" href="css/app.css?v=20260827a" />
 </head>
 <body>
 
@@ -278,7 +278,7 @@
           <div class="val" id="m-mdd">—</div>
         </div>
         <div class="metric-cell">
-          <div class="lbl">변동성 (연환산)<span class="help" title="스냅샷 간 수익률의 출렁임을 연 단위로 환산한 값 (USD 자산 기준). 낮을수록 완만, 높을수록 등락이 큼. 스냅샷 주기가 불규칙하면 근사치.">?</span></div>
+          <div class="lbl">변동성 (연환산)<span class="help" title="최근 1년(이력이 1년 미만이면 전체 기간) 스냅샷 간 수익률의 출렁임을 연 단위로 환산한 값 (USD 자산 기준). 위아래 모든 움직임이 포함되고 1년으로 스케일업된 값이라 MDD보다 크게 나오는 게 정상. 아래 보조줄은 실제 관측 기간으로 되돌린 출렁임 폭.">?</span></div>
           <div class="val" id="m-vol">—</div>
         </div>
       </div>
@@ -467,14 +467,14 @@
 <!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → main.js 부트스트랩(반드시 마지막에 실행). -->
 <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
 <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260826b"></script>
-<script src="js/state.js?v=20260826b"></script>
-<script src="js/calc.js?v=20260826b"></script>
-<script src="js/render.js?v=20260826b"></script>
-<script src="js/charts.js?v=20260826b"></script>
-<script src="js/data-io.js?v=20260826b"></script>
-<script src="js/fetch.js?v=20260826b"></script>
-<script src="js/sync.js?v=20260826b"></script>
-<script src="js/main.js?v=20260826b"></script>
+<script src="js/constants.js?v=20260827a"></script>
+<script src="js/state.js?v=20260827a"></script>
+<script src="js/calc.js?v=20260827a"></script>
+<script src="js/render.js?v=20260827a"></script>
+<script src="js/charts.js?v=20260827a"></script>
+<script src="js/data-io.js?v=20260827a"></script>
+<script src="js/fetch.js?v=20260827a"></script>
+<script src="js/sync.js?v=20260827a"></script>
+<script src="js/main.js?v=20260827a"></script>
 </body>
 </html>

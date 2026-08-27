@@ -391,8 +391,11 @@ function computeTWRSeries() {
 
 // ==================== 리스크 지표 (MDD · 변동성) ====================
 // 스냅샷 이력(totalUSD, USD 구매력 기준)만으로 계산하는 참고용 리스크 지표.
-// MDD(최대 낙폭): 이전 고점 대비 가장 깊었던 하락률 — 최악의 시기 체감 크기.
-// 변동성: 스냅샷 간 로그수익률의 실현 변동성을 경과 기간으로 연환산한 값.
+// MDD(최대 낙폭): 전 기간에서 이전 고점 대비 가장 깊었던 하락률 — 역대 최악의 체감 크기.
+// 변동성: 최근 1년 윈도우 안의 스냅샷 간 로그수익률 실현 변동성을 연환산한 값.
+//   이력 전체를 쓰면 몇 년 뒤 "지금의 리스크"가 아니라 "역사 평균"이 되므로 1년 롤링이 표준.
+//   이력이 1년 미만이면 전체 기간으로 계산하고 volYears로 관측 기간을 함께 돌려줘
+//   렌더 쪽에서 "관측 N개월 기준 ±x%" 보조 표시에 쓴다.
 // 스냅샷 주기가 불규칙하면 근사치이며, 자동 스냅샷으로 데이터가 촘촘해질수록 정확해진다.
 // 스냅샷이 2개 미만이면 null (렌더 쪽에서 '—' 표시).
 function computeRiskStats() {
@@ -400,20 +403,30 @@ function computeRiskStats() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .filter(s => (s.totalUSD || 0) > 0);
   if (snaps.length < 2) return null;
+  // MDD — 전 기간
   let peak = snaps[0].totalUSD;
   let mdd = 0;
-  let sumSq = 0;
   for (let i = 1; i < snaps.length; i++) {
     const v = snaps[i].totalUSD;
     if (v > peak) peak = v;
     const dd = (peak - v) / peak;
     if (dd > mdd) mdd = dd;
-    const r = Math.log(v / snaps[i - 1].totalUSD);
-    sumSq += r * r;
   }
-  const totalYears = (new Date(snaps[snaps.length - 1].date) - new Date(snaps[0].date)) / (365.25 * 86400000);
-  const vol = totalYears > 0 ? Math.sqrt(sumSq / totalYears) : null;
-  return { mdd, vol };
+  // 변동성 — 마지막 스냅샷 기준 최근 1년 안의 스냅샷만 사용
+  const lastDate = new Date(snaps[snaps.length - 1].date);
+  const cutoff = new Date(lastDate.getTime() - 365.25 * 86400000);
+  const win = snaps.filter(s => new Date(s.date) >= cutoff);
+  let vol = null, volYears = null;
+  if (win.length >= 2) {
+    let sumSq = 0;
+    for (let i = 1; i < win.length; i++) {
+      const r = Math.log(win[i].totalUSD / win[i - 1].totalUSD);
+      sumSq += r * r;
+    }
+    volYears = (new Date(win[win.length - 1].date) - new Date(win[0].date)) / (365.25 * 86400000);
+    if (volYears > 0) vol = Math.sqrt(sumSq / volYears);
+  }
+  return { mdd, vol, volYears };
 }
 
 // ==================== Debounce 헬퍼 ====================

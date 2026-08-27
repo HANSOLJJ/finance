@@ -1653,8 +1653,23 @@ function renderHistory() {
     }
     const volEl = document.getElementById('m-vol');
     if (volEl) {
-      volEl.textContent = risk && risk.vol !== null ? (risk.vol * 100).toFixed(1) + '%' : '—';
-      volEl.style.color = risk && risk.vol !== null ? '#64748b' : '#9ca3af';
+      if (risk && risk.vol !== null) {
+        // 보조줄 — 이력 1년 미만이면 연환산을 관측 기간으로 되돌린 실제 출렁임 폭을 병기해
+        // "MDD보다 왜 큰가" 혼동을 막고, 1년 이상이면 롤링 윈도우임을 표시한다.
+        let sub;
+        if (risk.volYears < 0.99) {
+          const months = Math.max(1, Math.round(risk.volYears * 12));
+          const realized = risk.vol * Math.sqrt(risk.volYears) * 100;
+          sub = `관측 ${months}개월 기준 ±${realized.toFixed(1)}%`;
+        } else {
+          sub = '최근 1년 기준';
+        }
+        volEl.innerHTML = `${(risk.vol * 100).toFixed(1)}%<div style="font-size:10px;font-weight:400;color:var(--text-muted);margin-top:2px">${sub}</div>`;
+        volEl.style.color = '#64748b';
+      } else {
+        volEl.textContent = '—';
+        volEl.style.color = '#9ca3af';
+      }
     }
     box.style.display = 'grid';
     // 셀 수가 상황에 따라 달라(TWR 숨김 등) 고정 컬럼 수 대신 auto-fit 으로 자연 배치한다.
