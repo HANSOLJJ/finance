@@ -480,8 +480,12 @@
     padding: 2px 8px; line-height: 1.25;
     font-variant-numeric: tabular-nums;
   }
+  /* "$" 라벨과 입력칸을 한 줄에 묶는다 — 입력칸이 width:100%(폭 압축 허용)라
+     블록 배치면 라벨이 윗줄로 밀려 올라간다. flex + min-width:0 으로 같은 줄 유지. */
   .dual-price .usd {
     font-size: 13px; font-weight: 600; color: var(--c-usd);
+    display: flex; align-items: center; justify-content: flex-end; gap: 1px;
+    width: 100%;
   }
   .dual-price .krw {
     font-size: 11px; color: var(--text-muted);
@@ -489,7 +493,7 @@
   .dual-price .usd input {
     background: transparent; border: 1px solid transparent;
     border-radius: 4px; padding: 1px 4px;
-    width: 100%; max-width: 110px; text-align: right;
+    width: 100%; min-width: 0; max-width: 110px; text-align: right;
     font-weight: 600; color: var(--c-usd);
     font-variant-numeric: tabular-nums; font-family: inherit; font-size: 13px;
   }
