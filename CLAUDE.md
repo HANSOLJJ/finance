@@ -9,6 +9,7 @@
 - **인증**: Functions는 `functions/_lib/access.js`의 JWT 서명 검증으로 이메일을 얻는다 (헤더 신뢰 금지). Access 앱을 재생성하면 `APP_AUD` 상수 갱신 필요.
 - **부채 카테고리는 자산이 아니다**: 모든 자산 축 집계는 `assetHoldings()`(부채 제외) 기반. 새 집계 코드에서 `state.holdings`를 직접 돌리면 부채가 섞인다.
 - 집계 3축 = 카테고리 / 자산타입(assetType) / 통화노출(exposure). 축별 정의는 constants.js.
+- **증권사 추가는 어댑터 1곳**: `functions/_lib/providers.js` 에 항목 1개(자격증명 필드·계좌 모드·호출 함수) + `_lib/brokers.js` 에 정규화 함수 1개면 끝난다. 설정 화면·저장 구조·diff 는 그 선언을 읽어 동작하므로 수정하지 말 것 — 증권사별 분기를 다른 파일에 넣는 순간 확장성이 깨진다.
 - **증권사 동기화의 소유권 마커**: `h.source`(소스 id, 예수금은 `<id>:cash`)가 찍힌 행만 동기화가 갱신·삭제한다. 수동 입력 행(`source: ''`)은 절대 삭제하지 않으며, 실패한 소스는 diff에서 통째로 스킵해 "장애 = 전량 매도" 오판을 막는다. 새 행 생성 코드를 추가하면 `source`/`syncedAt` 기본값도 함께 넣을 것 (state.js·render.js·data-io.js 3곳 + migrateState).
 
 ## 배포 철칙 — ?v= 캐시 스탬프

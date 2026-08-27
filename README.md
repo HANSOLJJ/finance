@@ -25,7 +25,7 @@
 
 ## 코드 구성
 
-빌드 도구 없는 클래식 스크립트 구조다. index.html이 js 9개를 `<script src>`로 순서대로 로드하며, **태그 순서가 곧 의존성 순서**(constants → state → calc → render → charts → data-io → fetch → sync → main)이므로 순서를 바꾸면 안 된다. 클래식 스크립트라 각 파일의 최상위 `let`/`const`/`function`은 전역으로 공유된다 — 뒤 파일이 앞 파일의 함수·변수를 그대로 쓴다.
+빌드 도구 없는 클래식 스크립트 구조다. index.html이 js 10개를 `<script src>`로 순서대로 로드하며, **태그 순서가 곧 의존성 순서**(constants → state → calc → render → charts → data-io → fetch → sync → broker → main)이므로 순서를 바꾸면 안 된다. 클래식 스크립트라 각 파일의 최상위 `let`/`const`/`function`은 전역으로 공유된다 — 뒤 파일이 앞 파일의 함수·변수를 그대로 쓴다.
 
 | 경로 | 설명 |
 |---|---|
@@ -39,12 +39,14 @@
 | `js/data-io.js` | 데이터 입출력 — JSON 백업 다운로드(`exportJSON`)/복원(`importJSON`), 일별 스냅샷(`snapshot`)과 이력 보정. 서버와 무관한 파일 기반 안전망 |
 | `js/fetch.js` | 외부 데이터 수집 — 국내·해외 주식 시세(네이버/야후), 코인(업비트/빗썸), 환율(frankfurter), 매크로 지표(FRED/BLS). 브라우저 CORS 제한 때문에 전부 같은 도메인의 `/api/proxy` 경유 |
 | `js/sync.js` | 서버 자동 저장 — 변경 시 2초 디바운스 업로드(`scheduleServerSave`), 즉시 저장(`flushServerSave`/`savePortfolio`), 헤더 ☁️ 인디케이터. 부트 성공 전엔 저장 잠금. 누구 데이터로 저장되는지는 서버가 Access 로그인으로 판단 |
-| `js/broker.js` | 증권사 잔고 동기화 — 자산 입력 탭 🏦 버튼이 `/api/broker` 조회 후 `computeBrokerDiff`로 변경/신규/삭제/예수금 미리보기를 띄우고, [적용] 시에만 반영. 동기화가 만든 행(`h.source` 마커)만 갱신·삭제하고 수동 입력 행은 건드리지 않는다. 설정 탭 🔑 API 키 카드도 담당 |
+| `js/broker.js` | 증권사 잔고 동기화 — 자산 입력 탭 🏦 버튼이 `/api/broker` 조회 후 `computeBrokerDiff`로 변경/신규/삭제/예수금 미리보기를 띄우고, [적용] 시에만 반영. 동기화가 만든 행(`h.source` 마커)만 갱신·삭제하고 수동 입력 행은 건드리지 않는다. 설정 탭 🔗 증권사 연결 관리(추가/수정/삭제·계좌 찾기)도 담당 |
 | `js/main.js` | 시작점 — 인라인 onclick용 window 노출, `bootstrap`(서버 로드 단일 경로 — 404는 신규, 실패 시 저장 잠금+재시도 배너) 후 `boot`(첫 렌더·환율 자동 갱신) |
 | `functions/api/portfolio.js` | Pages Function — GET/PUT. Access가 붙여주는 인증 이메일 헤더로 사용자를 구분해 `user:<이메일>:` 키에 읽고 씀. 헤더 없으면 401. PUT마다 날짜별 버전 키도 기록(90일 보관) |
 | `functions/api/proxy.js` | Pages Function — 시세 프록시. 허용 도메인 화이트리스트 밖은 403, FRED 요청엔 서버 보관 API 키를 주입(키가 클라이언트에 노출되지 않음) |
-| `functions/api/broker.js` | Pages Function — 증권사(한투·키움·빗썸) 잔고 조회 프록시. 로그인 계정 귀속 KV에서 API 키를 꺼내 조회 전용 TR만 호출하고, 소스별로 에러를 격리해 정규화 결과를 돌려준다. 접근 토큰은 KV에 23시간 캐시 |
-| `functions/api/broker-keys.js` | Pages Function — 증권사 API 키 등록/삭제. `user:<이메일>:broker:keys`에 저장하며 조회 시 원본 대신 마스킹만 반환 |
+| `functions/api/broker.js` | Pages Function — 증권사 잔고 조회. 등록된 연결을 순회하며 provider 어댑터로 조회 전용 API만 호출하고, 소스별로 에러를 격리해 정규화 결과를 돌려준다. 접근 토큰은 연결 단위로 KV에 23시간 캐시 |
+| `functions/api/broker-connections.js` | Pages Function — 증권사 연결(자격증명+조회할 계좌) 등록/삭제. `user:<이메일>:broker:connections`에 저장하며 조회 시 원본 대신 마스킹만 반환 |
+| `functions/api/broker-discover.js` | Pages Function — 계좌 찾기. 한투처럼 계좌가 여러 개인 곳에서 후보를 순차 조회해 실제 존재하는 계좌를 보유 종목과 함께 알려준다 |
+| `functions/_lib/providers.js` | 증권사 어댑터 레지스트리 — 증권사마다 다른 것(자격증명 필드·계좌 모드·호출 방법)만 선언. **새 증권사 지원 = 여기 항목 1개 + 정규화 함수 1개** |
 | `functions/_lib/brokers.js` | 증권사 응답 정규화(네트워크 없는 순수 함수) — 키움 A접두사·zero-pad, 한투 D+2 예수금, 빗썸 KRW 분리 등 |
 | `backups/` | 평문 JSON 백업 (**git 제외** — .gitignore) |
 
@@ -54,7 +56,7 @@
 - **수정**: 값을 고치면 **몇 초 안에 서버로 자동 저장** — 헤더의 ☁️ 인디케이터로 상태 확인, 다른 기기는 새로고침
 - **이력**: 🔄 전체 시세 갱신을 하면 **오늘 날짜 스냅샷이 자동 기록**됨 (같은 날은 덮어쓰기)
 - **백업**: 설정 탭 → 💾 JSON 백업 다운로드(서버 진본) 주기적으로. 서버에도 날짜별 버전이 90일 보관됨 (`/api/portfolio?version=YYYY-MM-DD`)
-- **잔고 동기화**: 설정 탭에서 증권사 API 키를 한 번 등록해두면, 자산 입력 탭 🏦 버튼으로 수량·평단·예수금을 실계좌에서 가져온다 (미리보기 확인 후 적용, 조회 전용). 대상은 한투 연금저축·ISA, 키움 국내·미국주식, 빗썸 — **퇴직연금(DC)·한투 금현물·은행 현금·부동산은 증권사 API가 지원하지 않아 수동 입력 유지**
+- **잔고 동기화**: 설정 탭에서 증권사 연결을 한 번 등록해두면, 자산 입력 탭 🏦 버튼으로 수량·평단·예수금을 실계좌에서 가져온다 (미리보기 확인 후 적용, 조회 전용). 대상은 한투 연금저축·ISA, 키움 국내·미국주식, 빗썸 — **퇴직연금(DC)·한투 금현물·은행 현금·부동산은 증권사 API가 지원하지 않아 수동 입력 유지**
 
 ## 사용자(친구) 추가
 
