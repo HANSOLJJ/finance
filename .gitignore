@@ -9,9 +9,8 @@ backups/
 # 예외 — 로컬 서버 기동 설정(개인정보 없음, CLAUDE.md 검증 루틴이 참조)
 !.claude/launch.json
 
-# 로컬 작업 노트 (커밋 불필요)
-checklist.md
-context-notes.md
+# 로컬 작업 노트·계획서 — 커밋 금지. 세션 인수인계용이라 기기에만 둔다
+ref/
 
 # 개인 스크린샷 (버그 리포트용 임시 폴더)
 screencapture/
