@@ -25,10 +25,11 @@
 
 ## 검증 루틴
 
+- **실행 환경은 SSH 터미널 전용(Mac mini)** — GUI 브라우저·Chrome 확장을 쓸 수 없다. 화면 검증은 **MCP playwright**로 한다(`~/.claude.json`에 연결돼 있고 브라우저도 설치돼 있다 — repo에 npm 의존성을 추가하지 말 것). 요소 존재·텍스트 확인은 `browser_snapshot`(접근성 트리 텍스트)이 스크린샷보다 정확하고 싸다. 레이아웃을 봐야 할 때만 `browser_resize` 375x812·1280px 후 캡처. 운영 도메인은 Cloudflare Access 구글 로그인 때문에 헤드리스로 열리지 않으니 로컬 서버로만 검증하고, 실물 확인은 폰 등 다른 기기에서 한다.
 - 수정한 js는 `node --check`부터.
-- 로컬 확인: `.claude/launch.json`의 `finance-static`(python http.server 8124) → 부트 실패 배너가 뜨는 게 정상(API 없음)이고 `syncEnabled=false`라 어떤 조작도 서버에 안 간다. javascript_tool로 테스트 state 주입 + `render()` 호출로 화면 검증.
+- 로컬 확인: `.claude/launch.json`의 `finance-static`(python http.server 8124) → 부트 실패 배너가 뜨는 게 정상(API 없음)이고 `syncEnabled=false`라 어떤 조작도 서버에 안 간다. `browser_evaluate`로 테스트 state 주입 + `render()` 호출해 화면 검증.
 - 모바일은 375x812 에뮬레이션 + 데스크톱 1280px 회귀 확인. 반응형 분기는 1200/1024/768px 세 지점(app.css).
-- 로컬 브라우저 캐시가 완고함: force reload가 안 먹으면 cache-bust 쿼리로 `<script>`/`<link>` 주입. 단 render.js는 top-level const 때문에 같은 페이지 재주입 불가 — 별도 테스트 html로.
+- 로컬 브라우저 캐시가 완고함: force reload가 안 먹으면 cache-bust 쿼리로 `<script>`/`<link>` 주입. 단 render.js는 top-level const 때문에 같은 페이지 재주입 불가 — 별도 테스트 html로. Playwright는 매 실행이 새 브라우저 컨텍스트라 이 문제가 아예 없다.
 
 ## 문서 지도
 

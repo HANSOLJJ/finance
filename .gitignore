@@ -6,6 +6,9 @@ portfolio_backup.json
 *.backup
 backups/
 
+# 예외 — 로컬 서버 기동 설정(개인정보 없음, CLAUDE.md 검증 루틴이 참조)
+!.claude/launch.json
+
 # 로컬 작업 노트 (커밋 불필요)
 checklist.md
 context-notes.md
