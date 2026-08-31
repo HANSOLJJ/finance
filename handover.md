@@ -190,10 +190,10 @@ Access가 인증 후 붙이는 `Cf-Access-Jwt-Assertion`을 팀 공개키(`<TEAM
 
 각 커밋은 한 문장으로 설명되는 단위. **co-author trailer 금지**(사용자 규칙).
 
-- [ ] **1. 서버 골격 + portfolio·whoami** — `index.js`, `lib/{db,access}.js`, `routes/{portfolio,whoami}.js`, `ecosystem.config.cjs`, `package.json`, `.gitignore`. 여기서 부트·저장 왕복이 검증된다
-- [ ] **2. 시세 프록시** — `routes/proxy.js`
-- [ ] **3. 증권사 3종** — `lib/{brokers,providers}.js` 이식 + `lib/secret.js` + `routes/broker*.js` 3개
-- [ ] **4. (검증 후) `functions/` 삭제 + 문서 갱신**
+- [x] **1. 서버 골격 + portfolio·whoami** — `index.js`, `lib/{db,access}.js`, `routes/{portfolio,whoami}.js`, `ecosystem.config.cjs`, `package.json`, `.gitignore`. 여기서 부트·저장 왕복이 검증된다 (9387496)
+- [x] **2. 시세 프록시** — `routes/proxy.js` (1af5c56)
+- [x] **3. 증권사 3종** — `lib/{brokers,providers}.js` 이식 + `lib/secret.js` + `routes/broker*.js` 3개 (3fd93ce)
+- [x] **4. 문서 갱신** (사용자 결정으로 `functions/` 삭제는 제외 — Tunnel 전환·안정화 후 별도 커밋. 지금 지우면 Pages 자동 배포로 운영 API 가 죽고 롤백 수단도 사라진다)
   - README — 아키텍처 절, "자격증명 평문 저장" 고지 정정(이제 암호화)
   - SETUP — Mac mini/Tunnel 절 추가, "Pages가 만든 CNAME 손대지 말 것" 규칙 폐기
   - **CLAUDE.md** — 불변조건의 `functions/_lib/…` 경로를 `server/lib/…`로, "서버 비밀은 Cloudflare 대시보드 환경변수로"를 `~/.finance/env` 기준으로, 검증 루틴의 python http.server를 `node server/index.js`로
@@ -202,6 +202,11 @@ Access가 인증 후 붙이는 `Cf-Access-Jwt-Assertion`을 팀 공개키(`<TEAM
 진행하면서 결정·발견은 아래에 날짜와 함께 append.
 
 - 2026-08-31 계획 확정. 셰임(어댑터) 방식 → 재작성으로 변경, 파일 저장소 → SQLite, creds 암호화 추가. 검증 중 발견한 원 계획의 오류 2개 — ① `express.json()`은 Content-Type 없는 클라이언트 요청을 파싱하지 않음 → `express.text` ② `broker_token`의 FK cascade는 discover 임시 id 때문에 INSERT 실패 → FK 제거
+- 2026-08-31 **윈도우 세션, 커밋 1(9387496)** — 사용자 결정 3개: 바인드 `127.0.0.1`(Tunnel 경로만, 프록시가 무인증이라 LAN 오픈 프록시 방지) · **커밋 4는 문서 갱신만, `functions/` 삭제는 Tunnel 전환·안정화 후**(지금 지우면 Pages 자동 배포로 운영 API 사망 + 롤백 수단 소실) · 커밋 3은 한투 실키로 실동작까지. 원안 대비 변경 — `express.text({ type: () => true })`(문자열 `'*/*'`는 Content-Type 헤더 부재 시 매치 실패, 함수형만 curl `-H "Content-Type:"` 통과 실측) · `?version=`은 `YYYY-MM-DD`만 인정(원본은 KV 키 `v:latest`가 없어 404였는데 SQLite는 latest 행을 돌려주므로 차단) · `--dns-result-order` 플래그 대신 코드 `dns.setDefaultResultOrder('ipv4first')`(dev/prod 동일) · `BEGIN IMMEDIATE` + `busy_timeout=5000`(후속 봇 프로세스 대비) · `.gitattributes eol=lf`(로컬 `core.autocrlf=true`라 체크아웃 파일이 CRLF로 바뀌는 것 실측) · `--disable-warning=ExperimentalWarning`(Node 25.0도 `node:sqlite` 경고 출력) · `.playwright-mcp/` gitignore(playwright MCP가 repo 안에 스냅샷·스크린샷을 씀). 수용한 편차 — Express 응답 Content-Type에 `; charset=utf-8`이 붙음(클라이언트는 `res.json()/text()`만 쓰므로 무해) · 매핑된 경로의 미지원 메서드는 404(Pages는 405) · `/index.html` 직접 경로 404(클라이언트 미사용). **Windows 실측 함정** — ① `process.kill`·TaskStop은 SIGINT 핸들러를 거치지 않아 graceful shutdown·WAL 정리는 Mac mini pm2에서 확인해야 함(강제 종료 후 재기동 시 WAL 재생으로 데이터 유지는 확인) ② 같은 포트 중복 listen이 조용히 성공함(EADDRINUSE 미발생) — 서버 재기동 전 `netstat -ano | grep 8787`로 확인 ③ `npm run dev`를 백그라운드로 띄우면 중지 시 node 자식이 고아로 남음 → node를 직접 실행 ④ Git Bash에서 `fc.exe /b`는 `/b`가 경로로 변환됨 → `cmp` 사용. 검증 13절 1~5·9·10 통과(바이트 동일 왕복, 재기동 유지, 401/404/413/400, no-cache, ETag 304, 375px 렌더).
+- 2026-08-31 **커밋 2(1af5c56)** — proxy는 `Readable.fromWeb(resp.body)` + `stream/promises.pipeline` 패스스루. 직접 호출과 프록시 경유 응답을 `cmp`로 바이트 비교해 동일 확인, upstream Content-Type 원형 통과(야후 `application/json;charset=utf-8` 공백 없는 그대로). 405/400/400/403 문구 원본과 일치. 브라우저 콘솔에서 corsproxy.io 폴백이 사라짐(자체 프록시가 1순위로 성공). `resp.body === null`이면 `res.end()`. 스트리밍 중 실패는 에러 미들웨어의 `headersSent` 가드로 소켓 종료.
+- 2026-08-31 **커밋 3** — `db.js`의 `getConnections`가 복호화까지 맡고 실패 행은 `creds:null + credsError`로 돌려줘 라우트가 500 없이 "재등록 필요"를 낸다(broker: 소스 `ok:false`, broker-connections GET: `credsMasked {}` + `credsError` 필드 추가 — 프론트는 무시). `deleteConnections`를 `putConnections`와 분리해 삭제 시 나머지 행을 재암호화하지 않는다(복호 실패 행의 암호문 보존). `secret.key`는 hex 64자 텍스트, 형식 오류면 새 키로 덮지 않고 기동 실패(고아 암호문 방지), BOM은 `charCodeAt(0)===0xFEFF`로 제거(정규식 `﻿` 이스케이프를 sed가 먹어버리는 사고가 있었음). **실키 검증(한투)**: 연금저축펀드(22) 3종목+예수금·ISA(01) 2종목 동기화 성공, 토큰 23h 캐시 → 같은 creds 재PUT·빈 creds PUT 시 토큰 유지 → appsecret 변경 PUT 시 토큰 삭제 → `expires_at=0` 강제 후 재발급 성공 → discover가 01/22/29 발견(`discover:kis` 토큰 행 생성) → DELETE로 연결·토큰 삭제. 🏦 동기화 모달 diff "변경 0·신규 5·예수금 1건" 렌더 확인(적용은 안 함). 암호문 바꿔치기(A→B 행) 시 B만 실패, 키 파일 제거 후 재기동 시 전 행 "재등록 필요"(200), 키 복원 후 정상. DB·WAL·stdout에 앱키 원문 없음. **KIS 토큰 발급은 1분당 1회** — 검증 중 `discover`가 직전 재발급 60초 안에 호출돼 "접근토큰 발급 잠시 후 다시 시도하세요(1분당 1회)"로 전부 실패 → 원본 계약대로 200 `ok:false`(에러 문구 그대로)를 돌려줬고 60초 후 재시도 성공. 운영에서 동기화 직후 계좌 찾기를 누르면 같은 현상이 나므로 문구가 그대로 보이는 게 맞다. 카테고리 키는 `연금저축펀드`·`ISA`(constants.js CATEGORIES). 원본 대조(13.12)는 라우트 6개를 나란히 놓고 이식했으며 응답 코드·문구 전부 유지, 추가된 것은 `credsError` 분기뿐.
+
+- 2026-08-31 **커밋 4(문서)** — CLAUDE.md(전환 중 상태·경로 `server/lib/`·비밀 위치·검증 루틴 `finance-server`·Windows 함정), README(목표/현재 아키텍처 병기·`server/` 파일 표·고지 정정·복구 시나리오), SETUP(8절 Mac mini 이전 절차·CNAME 예외·한투 토큰 1분 제한), `.claude/launch.json` → `finance-server`. **다음 단계는 Mac mini**: `git pull` → `npm ci` → `~/.finance/env` → `pm2 start` → Tunnel → 데이터 이전 → IP 등록 → 3사 동기화(13절 13). push 직후 확인할 것 — Pages 가 `package.json`을 보고 `npm install`을 돌려 `node_modules/`를 정적 자산으로 올릴 수 있다(`fin.hansoljj.com/node_modules/express/package.json`이 열리는지) → 열리면 Pages 환경변수 `SKIP_DEPENDENCY_INSTALL=1`(사용자 결정: 일단 진행하고 확인).
 
 ## 13. 검증 (커밋 전 통과)
 

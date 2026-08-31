@@ -40,7 +40,7 @@
 **우리 설정.** hansoljj.com을 Cloudflare Registrar에서 구입했고 DNS도 Cloudflare가 관리한다. `fin.` `arena.` 같은 서브도메인 레코드는 직접 만든 게 아니라, Pages 프로젝트에 커스텀 도메인을 연결할 때 **자동 생성**된 것이다.
 
 - 위치 — Cloudflare 대시보드 → 계정 홈 → **hansoljj.com** → **DNS** → Records.
-- 주의 — Pages가 자동으로 만든 CNAME 레코드는 손대지 말 것. 지우면 해당 서브도메인이 죽는다.
+- 주의 — Pages가 자동으로 만든 CNAME 레코드는 손대지 말 것. 지우면 해당 서브도메인이 죽는다. **예외: Mac mini 이전(8절)에서 `fin.hansoljj.com`을 Tunnel 로 돌릴 때는 Pages 프로젝트에서 커스텀 도메인을 먼저 분리해야 한다** — 같은 호스트명에 CNAME 둘은 불가. 롤백은 Tunnel 라우팅을 지우고 Pages 커스텀 도메인을 다시 붙이면 된다.
 
 ## 2. Cloudflare Pages — 웹사이트 호스팅
 
@@ -157,7 +157,7 @@ user:<이메일>:portfolio:v:2026-08-26  ← 그날의 백업본 (90일 뒤 자�
 
 > ⚠️ **호출 IP 사전 등록 — 키움·빗썸은 키만으로 동작하지 않는다.**
 > 두 곳은 API를 호출하는 서버의 공인 IP를 포털에 미리 등록해야 응답을 준다. 그런데 Cloudflare Workers는 요청을 처리하는 엣지마다 출발 IP가 다르고 IPv6로 나가므로 **현재 구성에서는 등록할 IP 자체가 없다.** 실제로 키움은 `8050 지정단말기 인증에 실패했습니다`, 빗썸은 `invalid ip format`(allowlist가 IPv4만 받음)으로 막혀 있다.
-> 고정 공인 IP를 가진 서버로 옮겨 그 IP를 등록해야 풀린다 — 이전 계획은 [handover.md](handover.md) 참고. **한국투자증권은 IP 등록을 요구하지 않아 현 구성에서도 정상 동작한다.**
+> 고정 공인 IP를 가진 서버로 옮겨 그 IP를 등록해야 풀린다 — 8절의 Mac mini 이전이 그 답이고 서버 코드(`server/`)는 완성돼 있다. **한국투자증권은 IP 등록을 요구하지 않아 현 구성에서도 정상 동작한다.**
 
 **등록 방법.** 설정 탭 → "🔗 증권사 연결" → **[+ 증권사 연결 추가]** → 증권사를 고르면 그 증권사에 필요한 입력칸만 나타난다 → 값 입력 → 저장.
 
@@ -166,7 +166,29 @@ user:<이메일>:portfolio:v:2026-08-26  ← 그날의 백업본 (90일 뒤 자�
 - 같은 증권사라도 **계좌마다 앱키가 다르면 연결을 따로 추가**한다 (한투는 계좌 단위로 앱키가 발급된다).
 - 수정 화면에서 자격증명 칸을 비워두면 기존 값이 유지된다. 값을 바꾸거나 연결을 지우면 저장된 접근 토큰 캐시도 함께 정리된다.
 
-**동작 범위.** 조회 전용 API만 호출한다(주문 불가). 퇴직연금(DC)·한투 금현물은 증권사 API가 공식적으로 지원하지 않아 수동 입력을 유지한다. 새 증권사 지원은 `functions/_lib/providers.js`에 어댑터를 추가하면 되고, 설정 화면은 그 선언을 읽어 자동으로 폼을 그린다.
+**동작 범위.** 조회 전용 API만 호출한다(주문 불가). 퇴직연금(DC)·한투 금현물은 증권사 API가 공식적으로 지원하지 않아 수동 입력을 유지한다. 새 증권사 지원은 `server/lib/providers.js`(전환 전까지는 `functions/_lib/providers.js`도 함께)에 어댑터를 추가하면 되고, 설정 화면은 그 선언을 읽어 자동으로 폼을 그린다.
+
+**한투 토큰 발급 제한.** 접근토큰 발급은 앱키당 **1분에 1회**. 서버가 23시간 캐시하므로 평소엔 문제없지만, 자격증명을 바꾼 직후나 동기화 직후에 [🔍 계좌 찾기]를 누르면 "접근토큰 발급 잠시 후 다시 시도하세요(1분당 1회)"가 그대로 보인다 — 1분 뒤 다시 누르면 된다.
+
+## 8. Mac mini 자립 서버 — 이전 절차 (진행 중)
+
+**왜.** 키움·빗썸이 호출 IP 등록을 요구하고(6.5절), 트레이딩 봇은 24/7 상주·WebSocket·고정 IP가 필요한데 Workers 는 셋 다 불가. 그래서 앱 서버를 집 Mac mini(고정 공인 IP)로 옮기고 Cloudflare 는 DNS·Access 로그인·Tunnel 만 맡긴다. Access 는 오리진이 어디든 `Cf-Access-Jwt-Assertion` 헤더를 붙여주므로 로그인 코드는 그대로다. 서버 코드는 `server/`(Express + SQLite)이며 로컬 검증은 끝났다 — 상세·진행 기록은 [handover.md](handover.md).
+
+**Mac mini 쪽 (Node 22.5+, pm2, cloudflared 설치됨)**
+
+1. `git pull` → `npm ci` (lock 파일 기준 설치)
+2. `~/.finance/env` 생성(권한 600) — 내용은 `FRED_API_KEY=…` 한 줄. **`DEV_EMAIL`은 절대 넣지 않는다**(로그인 우회).
+3. `pm2 start ecosystem.config.cjs` → `pm2 save` → `pm2 startup`(출력되는 명령을 실행해 launchd 등록). 첫 기동 로그에 "새 암호화 키 생성됨: ~/.finance/secret.key" 가 찍힌다 — **이 파일을 비밀번호 관리자에 백업**(DB 백업과 다른 곳에). 분실하면 증권사 연결만 재등록하면 되고 포트폴리오는 무관.
+4. 로컬 확인 — `curl -i http://127.0.0.1:8787/api/whoami`(401 이 아니라 200 + `verifiedEmail: null` 이면 정상. JWT 는 Tunnel 을 거쳐야 온다).
+5. `cloudflared tunnel login` → `cloudflared tunnel create finance` → ingress `fin.hansoljj.com → http://127.0.0.1:8787` → **Pages 프로젝트에서 커스텀 도메인 `fin.hansoljj.com` 분리** → `cloudflared tunnel route dns finance fin.hansoljj.com` → `brew services start cloudflared`(부팅 시 자동).
+6. 브라우저에서 fin.hansoljj.com → 구글 로그인 → `/api/whoami`의 `verifiedEmail`에 이메일이 나오면 JWT 가 오리진까지 온 것.
+7. **데이터 이전** — 전환 전에 Pages 에서 `/api/portfolio?download=1`로 받아둔 JSON 을, 로그인 상태에서 설정 탭 "📂 JSON에서 복원"으로 넣는다(형식 동일). 증권사 연결은 자격증명이라 옮기지 않고 **재등록**.
+8. 증권사 포털에 **집 공인 IP 등록**(키움·빗썸) → 앱 설정 탭에서 연결 등록 → 🏦 동기화 3사 성공이 이전의 성공 기준.
+9. 재부팅 후 pm2·cloudflared 자동 기동 확인. FileVault 켜기. `data/`를 백업 대상에 포함하되 WAL 이라 실행 중 `.db`만 복사하면 깨진다 — `sqlite3 data/finance.db ".backup <경로>"`.
+
+**롤백.** Tunnel 라우팅을 지우고 Pages 커스텀 도메인을 다시 붙이면 즉시 복구된다. 그래서 안정화 전까지 Pages 프로젝트·KV·`functions/`를 지우지 않는다.
+
+**Windows 개발 PC.** `.env`에 `DEV_EMAIL=test@x.com`을 두고 `npm run dev`(또는 `.claude/launch.json`의 `finance-server`). 데이터는 로컬 `data/finance.db`, 암호화 키는 `%USERPROFILE%\.finance\secret.key`. 한투는 IP 제한이 없어 실키로 로컬 검증이 가능하다.
 
 ## 7. 자주 하는 작업 모음
 
