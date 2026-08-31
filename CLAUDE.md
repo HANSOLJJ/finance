@@ -1,6 +1,6 @@
 # CLAUDE.md — finance 프로젝트 규칙
 
-개인 자산 포트폴리오 SPA. 바닐라 JS(빌드 없음), 인증은 Cloudflare Access(구글 로그인). **서버를 Cloudflare Pages Functions/KV 에서 Mac mini 자립 Node 서버(`server/`, Express + SQLite)로 옮기는 중이다** — `server/`는 완성·검증됐고, Tunnel 전환 전까지 운영(fin.hansoljj.com)은 아직 Pages(`functions/`)다. main push = Pages 자동 배포. **공개 repo다 — 개인정보·자격증명이 커밋되지 않게 항상 의식할 것.**
+개인 자산 포트폴리오 SPA. 바닐라 JS(빌드 없음), 인증은 Cloudflare Access(구글 로그인). **운영은 Mac mini 자립 Node 서버(`server/`, Express + SQLite, pm2)이고 Cloudflare 는 DNS·Access·Tunnel 만 맡는다(2026-08-31 전환 완료).** 배포 = main push 뒤 Mac mini 에서 `git pull` → (의존성 바뀌면 `npm ci`) → `pm2 restart finance` — **자동 배포는 없다.** `functions/`(구 Pages Functions)·Pages 프로젝트·KV 는 롤백용으로 안정화 전까지 유지. **공개 repo다 — 개인정보·자격증명이 커밋되지 않게 항상 의식할 것.**
 
 ## 아키텍처 불변 조건 (깨면 앱이 죽는다)
 

@@ -4,11 +4,12 @@
 
 - **접속**: <https://fin.hansoljj.com> — **Cloudflare Access 로그인**(구글 계정)을 통과해야 앱이 보인다. 별도 비밀번호 없음.
 - **데이터**: **로그인한 계정별로 분리 저장**. 서버 API는 Access가 붙여준 통행증(JWT)을 서명 검증해 얻은 이메일로 사용자를 구분하므로, 다른 사용자의 데이터에 접근할 방법이 없다.
-- **서버 이전 중(2026-08-31)**: 증권사 API의 호출 IP 등록 요구와 트레이딩 봇(24/7) 계획 때문에 서버를 Cloudflare Pages Functions/KV 에서 **Mac mini 자립 Node 서버**(`server/`, Express + SQLite, Cloudflare Tunnel 경유)로 옮기고 있다. `server/`는 구현·검증이 끝났고, **Tunnel 전환 전까지 운영은 아직 아래 Pages 체제**다. 이전 계획·진행 기록은 [handover.md](handover.md).
+- **서버(2026-08-31 전환 완료)**: 증권사 API의 호출 IP 등록 요구와 트레이딩 봇(24/7) 계획 때문에 Cloudflare Pages Functions/KV 에서 **Mac mini 자립 Node 서버**(`server/`, Express + SQLite, pm2, Cloudflare Tunnel 경유)로 옮겼다. Cloudflare 는 DNS·Access 로그인·Tunnel 만 담당. 구 Pages 체제는 롤백용으로 당분간 유지. 이전 기록은 [handover.md](handover.md).
+- **배포**: main push 뒤 Mac mini 에서 `git pull` → (의존성 변경 시 `npm ci`) → `pm2 restart finance`. 자동 배포는 없다.
 
 ## 아키텍처
 
-**이전 후(목표)** — Cloudflare는 DNS·Access 로그인·Tunnel 만 맡고 앱은 Mac mini 에서 돈다.
+**현재 운영** — Cloudflare는 DNS·Access 로그인·Tunnel 만 맡고 앱은 Mac mini 에서 돈다.
 
 ```
 브라우저 → Cloudflare (DNS · Access 구글 로그인 · Tunnel)
@@ -21,7 +22,7 @@
               ↓ 아웃바운드 = 집 고정 공인 IP → 한투 · 키움 · 빗썸
 ```
 
-**현재 운영(Pages, 전환 전)**
+**구 체제(Pages — 2026-08-31 까지 운영, 롤백용으로 유지)**
 
 ```
 [GitHub repo]  index.html + css/ + js/ + functions/api/  ← 코드만. 데이터 없음
@@ -64,7 +65,7 @@
 | `server/lib/providers.js` · `brokers.js` | `functions/_lib/` 사본. 토큰 캐시만 KV → `db.getToken/putToken` |
 | `server/routes/*.js` | `portfolio` `whoami` `proxy` `broker` `broker-connections` `broker-discover` — 원본 `functions/api/*.js`와 응답 코드·헤더·문구 1:1. 프록시는 upstream 바디를 스트림 패스스루(EUC-KR 응답 보존) |
 | `ecosystem.config.cjs` · `package.json` | pm2 설정(`~/.finance/env`를 `--env-file`로, 비밀 없음) · 스크립트 `dev`(`.env` 사용)/`start`. 의존성은 express 하나 |
-| `functions/**` | **구 Cloudflare Pages Functions — Tunnel 전환·안정화 후 삭제 예정.** 그때까지 운영 코드이므로 `server/`와 동일하게 유지 |
+| `functions/**` | **구 Cloudflare Pages Functions — 롤백용, 안정화 후 삭제 예정.** 운영 코드는 `server/`. 어댑터(providers/brokers)를 고치면 롤백 대비로 여기도 맞춰두는 편이 안전 |
 | `functions/api/portfolio.js` | Pages Function — GET/PUT. `_lib/access.js`의 JWT 검증으로 얻은 이메일로 사용자를 구분해 `user:<이메일>:` 키에 읽고 씀. 검증 실패면 401. PUT마다 날짜별 버전 키도 기록(90일 보관) |
 | `functions/api/proxy.js` | Pages Function — 시세 프록시. 허용 도메인 화이트리스트 밖은 403, FRED 요청엔 서버 보관 API 키를 주입(키가 클라이언트에 노출되지 않음) |
 | `functions/api/broker.js` | Pages Function — 증권사 잔고 조회. 등록된 연결을 순회하며 provider 어댑터로 조회 전용 API만 호출하고, 소스별로 에러를 격리해 정규화 결과를 돌려준다. 접근 토큰은 연결 단위로 KV에 23시간 캐시 |
@@ -96,7 +97,8 @@
 
 > 개념 설명과 정확한 메뉴·옵션명까지 포함한 전체 인프라 가이드는 **[SETUP.md](SETUP.md)** 참고. 아래는 요약.
 
-- Pages 프로젝트 `finance` — repo 연결, 빌드 없음, 커스텀 도메인 fin.hansoljj.com
+- Zero Trust Tunnel `finance` — Mac mini 의 cloudflared 가 유지, `fin.hansoljj.com → 127.0.0.1:8787` (SETUP.md 8절)
+- Pages 프로젝트 `finance` — repo 연결, 빌드 없음. 커스텀 도메인은 2026-08-31 Tunnel 로 넘기면서 분리(롤백 시 다시 추가)
 - Bindings: KV `finance-data` → 변수명 `KV` (**Production만** — 프리뷰 배포는 데이터 접근 불가)
 - Secrets: `FRED_API_KEY`
 - Zero Trust Access: 앱 `finance`, 정책 `everyone`(Include: Everyone — 로그인만 하면 통과), 세션 30일. 바인딩/시크릿 변경 시 Retry deployment 필요
@@ -113,4 +115,4 @@
 - 2026-08-25: Cloudflare 체제 이전(Access·KV) → 이후 2차 개편으로 암호화 층 제거, 계정별 다중 사용자 구조 전환, 코드 분할(css/js). 히스토리에 남은 portfolio.enc 커밋들은 폐기된 비밀번호의 암호문
 - 2026-08-26: 인증을 Access JWT 서명 검증으로 교체(신 UI 앱이 이메일 헤더를 안 붙임) · 3차 개편 — 서버 단일 소스(localStorage 제거)·변경 시 자동 저장·시세 갱신 연동 자동 스냅샷·구글 로그인(IdP)
 - 2026-08-27: 증권사 잔고 자동 동기화 구현 — 한투(연금저축·ISA)·키움(국내·미국)·빗썸. provider 어댑터 구조라 증권사 추가는 `_lib/providers.js` 항목 1개 + 정규화 함수 1개로 끝난다
-- 2026-08-31: 서버를 Mac mini 자립 Node 서버로 재작성(`server/` — Express + `node:sqlite`, 자격증명 암호화). 키움·빗썸의 호출 IP 등록 요구(Workers 는 고정 IP 없음)와 트레이딩 봇 계획이 동기. 로컬에서 한투 실계좌 동기화까지 검증 완료, Tunnel 전환은 다음 단계
+- 2026-08-31: 서버를 Mac mini 자립 Node 서버로 재작성(`server/` — Express + `node:sqlite`, 자격증명 암호화). 키움·빗썸의 호출 IP 등록 요구(Workers 는 고정 IP 없음)와 트레이딩 봇 계획이 동기. 같은 날 Tunnel 전환·데이터 이전·3사 연결 재등록까지 완료
