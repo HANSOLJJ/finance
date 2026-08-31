@@ -1,11 +1,16 @@
 // Express 앱 진입점 — 정적 파일(index.html·css·js)과 /api/* 를 127.0.0.1:8787 에서 서빙한다.
 import dns from 'node:dns';
+import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import { openDb } from './lib/db.js';
+import { loadOrCreateKey } from './lib/secret.js';
 import portfolioRoutes from './routes/portfolio.js';
 import whoamiRoutes from './routes/whoami.js';
 import proxyRoutes from './routes/proxy.js';
+import brokerRoutes from './routes/broker.js';
+import brokerConnectionsRoutes from './routes/broker-connections.js';
+import brokerDiscoverRoutes from './routes/broker-discover.js';
 
 // 빗썸 allowlist 가 IPv4 만 받으므로 아웃바운드 DNS 를 IPv4 우선으로.
 // 기동 플래그 대신 코드에 두어 dev(npm run dev)·prod(pm2) 가 동일하게 동작한다.
@@ -15,7 +20,9 @@ dns.setDefaultResultOrder('ipv4first');
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PORT = 8787;
 
-const db = openDb(path.join(ROOT, 'data', 'finance.db'));
+// 자격증명 암호화 키는 data/ 밖(~/.finance)에 둔다 — DB 백업에 키가 딸려가지 않게. 없으면 생성.
+const secretKey = loadOrCreateKey(path.join(os.homedir(), '.finance', 'secret.key'));
+const db = openDb(path.join(ROOT, 'data', 'finance.db'), secretKey);
 
 const app = express();
 app.disable('x-powered-by');
@@ -34,6 +41,10 @@ app.use('/api', express.text({ type: () => true, limit: '5mb' }));
 app.use('/api/portfolio', portfolioRoutes(db));
 app.use('/api/whoami', whoamiRoutes());
 app.use('/api/proxy', proxyRoutes());
+// /api/broker 마운트는 세그먼트 경계로 매칭되므로 /api/broker-connections 와 충돌하지 않는다.
+app.use('/api/broker-connections', brokerConnectionsRoutes(db));
+app.use('/api/broker-discover', brokerDiscoverRoutes(db));
+app.use('/api/broker', brokerRoutes(db));
 app.use('/api', (req, res) => res.status(404).type('text/plain').send('not found'));
 app.use((req, res) => res.status(404).type('text/plain').send('not found'));
 
