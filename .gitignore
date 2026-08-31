@@ -8,6 +8,14 @@ backups/
 
 # 예외 — 로컬 서버 기동 설정(개인정보 없음, CLAUDE.md 검증 루틴이 참조)
 !.claude/launch.json
+# 예외 — Node 서버 패키지 정의·잠금 파일 (위 *.json 규칙이 막으므로 명시 허용. lock 이 빠지면 Mac mini npm ci 불가)
+!package.json
+!package-lock.json
+
+# Node 서버 — 실데이터(SQLite)·의존성·로컬 환경변수(DEV_EMAIL)
+data/
+node_modules/
+.env
 
 # 로컬 작업 노트·계획서 — 커밋 금지. 세션 인수인계용이라 기기에만 둔다
 ref/
@@ -19,6 +27,7 @@ screencapture/
 config/
 
 # 로컬 실행용 (배포에 불필요)
+.playwright-mcp/
 proxy_server.py
 *.vbs
 *.bat
