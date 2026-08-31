@@ -5,6 +5,7 @@ import express from 'express';
 import { openDb } from './lib/db.js';
 import portfolioRoutes from './routes/portfolio.js';
 import whoamiRoutes from './routes/whoami.js';
+import proxyRoutes from './routes/proxy.js';
 
 // 빗썸 allowlist 가 IPv4 만 받으므로 아웃바운드 DNS 를 IPv4 우선으로.
 // 기동 플래그 대신 코드에 두어 dev(npm run dev)·prod(pm2) 가 동일하게 동작한다.
@@ -32,6 +33,7 @@ app.use('/js', express.static(path.join(ROOT, 'js')));
 app.use('/api', express.text({ type: () => true, limit: '5mb' }));
 app.use('/api/portfolio', portfolioRoutes(db));
 app.use('/api/whoami', whoamiRoutes());
+app.use('/api/proxy', proxyRoutes());
 app.use('/api', (req, res) => res.status(404).type('text/plain').send('not found'));
 app.use((req, res) => res.status(404).type('text/plain').send('not found'));
 
