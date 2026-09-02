@@ -59,7 +59,7 @@
 
 위치 — **Access controls** → **Policies** → `everyone`.
 
-- **Action: Allow** + Include: **Everyone** — "아무나 들어올 수 있다, 단 **로그인은 반드시 해야 한다**"는 뜻이다. 로그인만 하면 되므로 친구 초대는 주소 공유로 끝난다 (데이터는 어차피 계정별 분리).
+- **Action: Allow** + Include: **Everyone** — "아무나 들어올 수 있다, 단 **로그인은 반드시 해야 한다**"는 뜻이다. 단 **실제 문지기는 이 정책이 아니라 구글 OAuth 앱의 테스트 모드다**(3절) — Cloudflare 는 열어둬도, 테스트 사용자 목록에 없는 계정은 구글 로그인 단계에서 먼저 막힌다.
 - **절대 Bypass로 바꾸지 말 것.** Bypass는 "로그인 자체 생략"이라 통행증이 안 붙고, 서버가 사용자를 식별 못 해 저장이 401로 죽는다.
 - 특정인 차단 — 정책 **Configure** → **Exclude** 에 Emails로 해당 주소 추가.
 
@@ -73,7 +73,7 @@
 
 ### 2-4. 자리(Seat) 관리
 
-**개념.** 한 번이라도 로그인한 사용자는 요금제의 "자리" 하나를 차지한다. 현재 **Zero Trust Free 플랜, 50석** (Settings → Cloudflare One plan에서 확인). Everyone 정책이라 지나가던 사람도 자리를 먹을 수 있어 자동 회수를 켜뒀다.
+**개념.** 한 번이라도 로그인한 사용자는 요금제의 "자리" 하나를 차지한다. 현재 **Zero Trust Free 플랜, 50석** (Settings → Cloudflare One plan에서 확인). 구글 테스트 모드(3절)가 앞단을 막고 있어 실제로 자리를 먹을 수 있는 건 등록된 사용자뿐이지만, 미접속 자리 자동 회수는 켜뒀다.
 
 - 자동 회수 — **Settings** → **Admin controls** → **Remove inactive users from seats** → Inactivity time **1 month**. 한 달간 로그인 없는 사용자를 자동으로 자리에서 내린다 (다시 로그인하면 다시 들어옴).
 - 수동 회수 — **Team & Resources** → **Users** → 사용자 체크 → **Action** → **Remove users**.
@@ -86,11 +86,11 @@
 **우리 설정.** console.cloud.google.com → 프로젝트 `finance-login` → **Google 인증 플랫폼** 메뉴.
 
 1. **브랜딩** — 구글 로그인 동의 화면에 표시될 앱 이름·지원 이메일. 꾸미기 용도라 아무 값이어도 동작에 영향 없다.
-2. **대상** — 사용자 유형 **외부**(External). 내부는 Google Workspace 조직 전용이라 개인 지메일이 못 들어온다. **게시 상태는 반드시 "프로덕션"** — 테스트 상태면 등록해둔 테스트 사용자만 로그인되어 Everyone 정책과 어긋난다. (권한 범위를 기본값 — 이메일·프로필 — 에서 안 늘렸기 때문에 프로덕션 게시에 구글 심사가 필요 없다.)
+2. **대상** — 사용자 유형 **외부**(External). 내부는 Google Workspace 조직 전용이라 개인 지메일이 못 들어온다. **게시 상태는 "테스트 중"이고 그대로 둔다**(2026-09-02 확인·결정) — 테스트 모드에서 로그인되는 건 ① 테스트 사용자 목록의 계정 ② 구글 프로젝트 소유자·편집자뿐이고, 목록이 비어 있는 지금 운영자가 로그인되는 건 ②의 예외 덕분이다. **사용자를 늘리려면 이 화면의 "테스트 사용자 → Add users"에 상대 지메일을 추가**한다(한도 100명 — 지인용으로 충분). "프로덕션" 게시는 홈페이지·개인정보처리방침 등 공개 URL이 필수라 하지 않기로 했다(docs/TODO.md 참고). 구글 refresh token 의 테스트 모드 7일 만료는 무관 — Access 는 로그인 순간에만 구글을 쓰고 이후 30일은 자체 세션 쿠키로 유지한다.
 3. **클라이언트** — OAuth 클라이언트. 반드시 **"웹 애플리케이션"** 유형이어야 한다 (데스크톱 유형에는 리디렉션 URI 입력란 자체가 없다).
    - **승인된 리디렉션 URI** — `https://tight-star-46f3.cloudflareaccess.com/cdn-cgi/access/callback` 한 줄. 구글이 확인서를 **이 주소로만** 돌려주겠다는 화이트리스트다. 다른 주소로는 절대 안 보내므로 확인서 탈취가 차단된다.
    - **승인된 JavaScript 원본** — 비워둠. 웹페이지 안에서 자바스크립트로 직접 구글 팝업을 띄우는 방식일 때만 쓰는 칸인데, 우리는 Cloudflare 서버가 뒤에서 통신하므로 해당 없다.
-4. **Client ID / Client Secret** — 이 클라이언트의 아이디와 비밀번호 같은 쌍이다. 클라이언트 상세 화면에서 재확인/재발급할 수 있다. **Secret은 절대 repo에 커밋 금지** (.gitignore의 `*.json` 규칙이 다운로드 JSON을 막아준다).
+4. **Client ID / Client Secret** — 이 클라이언트의 아이디와 비밀번호 같은 쌍이다. ID 는 클라이언트 상세 화면에서 언제든 재확인되지만 **Secret 은 생성 직후에만 표시**될 수 있다(2025년부터 구글이 마스킹) — 값을 모르면 재발급하고, Cloudflare 쪽 IdP 등록(아래)도 같이 갱신한다. **Secret은 절대 repo에 커밋 금지** (.gitignore의 `*.json` 규칙이 다운로드 JSON을 막아준다).
 
 **Cloudflare 쪽 등록 위치** — Cloudflare One → **Integrations** → **Identity providers** → **Add new identity provider** → **Google** → **App ID** 칸에 Client ID, **Client Secret** 칸에 Secret → Save. Secret을 구글에서 재발급하면 여기도 같이 갱신해야 한다.
 
@@ -191,7 +191,7 @@ select json from portfolio where version='latest' and email='<이메일>';  -- s
 
 | 하고 싶은 것 | 방법 |
 |---|---|
-| 친구 초대 | 주소만 공유 (fin.hansoljj.com). 계정별 데이터 분리라 서로 안 보임. "운영자는 열람 가능" 고지 권장 |
+| 사용자 추가 | ① 구글 콘솔 → Google 인증 플랫폼 → 대상 → 테스트 사용자 **Add users** 에 상대 지메일 추가(3절) ② 주소 공유 (fin.hansoljj.com). 계정별 데이터 분리라 서로 안 보임. "운영자는 열람 가능" 고지 권장 |
 | 특정인 차단 | Access controls → Policies → everyone → Configure → Exclude에 Emails 추가 |
 | 자리 수동 회수 | Team & Resources → Users → 체크 → Action → Remove users |
 | 데이터 롤백 | `/api/portfolio?version=YYYY-MM-DD` 로 과거 버전 확인 → 설정 탭 "JSON에서 복원". DB 직접 조회는 7절 |
