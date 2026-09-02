@@ -36,6 +36,7 @@
 ## 문서 지도
 
 - `README.md`(루트) 구조·사용법 / `docs/SETUP.md` Cloudflare·Google·Mac mini 설정 — 5절 증권사 연결, 6절 이전 절차, **7절 운영 치트시트(재시작·배포·로그·DB 조회)**
+- `docs/DB.md` DB 스키마·쓰기 규칙·암호화 형식 (정본은 `server/lib/db.js`의 `SCHEMA` — 바꾸면 문서도 갱신)
 - `docs/TODO.md` 백로그 / `ref/` **커밋 금지 작업 노트**(gitignore) — `ref/checklist.md` 진행 기록, `ref/context-notes.md` 결정 이유. 읽고 참조만 하고 repo 로 옮기지 말 것. 작업 후 갱신
 - `references/` 투자 판단 참고자료. **앱 코드와 무관하니 SPA 작업 시엔 읽지 말 것.**
   - `AI기업_9factor_채점표_2026-08.md` — AI 12개사 정성 채점표 **규칙 정본**(v1.4). 채점 관련 판단은 항상 이 파일이 이김

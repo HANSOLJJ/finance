@@ -185,6 +185,8 @@ select json from portfolio where version='latest' and email='<이메일>';  -- s
 - **백업** — 실행 중엔 `.db` 파일만 복사하면 WAL 내용이 빠진다. `sqlite3 ~/projects/finance/data/finance.db ".backup ~/finance-backup-$(date +%F).db"` 로 뜬다. 암호화 키 `~/.finance/secret.key` 는 별도 보관(둘이 같이 새면 복호화된다).
 - 한 줄 실행은 `sqlite3 ~/projects/finance/data/finance.db "select count(*) from portfolio"` 처럼 따옴표로 감싼다.
 
+- 테이블 구조·열 의미·쓰기 규칙·암호화 형식은 **[DB.md](DB.md)** 참고.
+
 ## 8. 자주 하는 작업 모음
 
 | 하고 싶은 것 | 방법 |
