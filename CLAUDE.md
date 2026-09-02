@@ -35,10 +35,10 @@
 
 ## 문서 지도
 
-- `README.md` 구조·사용법 / `SETUP.md` Cloudflare·Google 설정 (정확한 새 UI 메뉴명 기준) + 8절 Mac mini 자립 서버 운영
-- `TODO.md` 백로그 / `ref/` **커밋 금지 작업 노트**(gitignore) — `ref/checklist.md` 진행 기록, `ref/context-notes.md` 결정 이유. 읽고 참조만 하고 repo 로 옮기지 말 것. 작업 후 갱신
+- `README.md`(루트) 구조·사용법 / `docs/SETUP.md` Cloudflare·Google·Mac mini 설정 — 5절 증권사 연결, 6절 이전 절차, **7절 운영 치트시트(재시작·배포·로그·DB 조회)**, 9절 구 Pages 체제(롤백)
+- `docs/TODO.md` 백로그 / `ref/` **커밋 금지 작업 노트**(gitignore) — `ref/checklist.md` 진행 기록, `ref/context-notes.md` 결정 이유. 읽고 참조만 하고 repo 로 옮기지 말 것. 작업 후 갱신
 - `references/` 투자 판단 참고자료. **앱 코드와 무관하니 SPA 작업 시엔 읽지 말 것.**
   - `AI기업_9factor_채점표_2026-08.md` — AI 12개사 정성 채점표 **규칙 정본**(v1.4). 채점 관련 판단은 항상 이 파일이 이김
   - `AI기업_9factor_자동화_설계.md` — 채점 일부를 코드로 뽑기 위한 설계 노트. **원자료를 저장하고 점수는 함수로 계산**(규칙 개정 시 소급 재채점)이 핵심 전제
   - `AI기업_채점표_2026-08.html`(`D` 배열 하나가 전체 시각화 구동) · `채점이력.csv` · `check_채점표.py`(MD↔HTML 정합성 검사기 — 통과 전 배포 금지)
-- 현재 계획: `handover.md` (6차 — Mac mini 자립 서버 이전. 계획 전문 + 진행 기록 12절. 다른 기기의 세션도 이 파일만으로 이어받는다. 개편 단위로 교체)
+- 현재 계획: `docs/handover.md` (6차 — Mac mini 자립 서버 이전, **전환 완료**. 계획 전문 + 진행 기록 12절. 다른 기기의 세션도 이 파일만으로 이어받는다. 개편 단위로 교체)

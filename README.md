@@ -4,7 +4,7 @@
 
 - **접속**: <https://fin.hansoljj.com> — **Cloudflare Access 로그인**(구글 계정)을 통과해야 앱이 보인다. 별도 비밀번호 없음.
 - **데이터**: **로그인한 계정별로 분리 저장**. 서버 API는 Access가 붙여준 통행증(JWT)을 서명 검증해 얻은 이메일로 사용자를 구분하므로, 다른 사용자의 데이터에 접근할 방법이 없다.
-- **서버(2026-08-31 전환 완료)**: 증권사 API의 호출 IP 등록 요구와 트레이딩 봇(24/7) 계획 때문에 Cloudflare Pages Functions/KV 에서 **Mac mini 자립 Node 서버**(`server/`, Express + SQLite, pm2, Cloudflare Tunnel 경유)로 옮겼다. Cloudflare 는 DNS·Access 로그인·Tunnel 만 담당. 구 Pages 체제는 롤백용으로 당분간 유지. 이전 기록은 [handover.md](handover.md).
+- **서버(2026-08-31 전환 완료)**: 증권사 API의 호출 IP 등록 요구와 트레이딩 봇(24/7) 계획 때문에 Cloudflare Pages Functions/KV 에서 **Mac mini 자립 Node 서버**(`server/`, Express + SQLite, pm2, Cloudflare Tunnel 경유)로 옮겼다. Cloudflare 는 DNS·Access 로그인·Tunnel 만 담당. 구 Pages 체제는 롤백용으로 당분간 유지. 이전 기록은 [docs/handover.md](docs/handover.md).
 - **배포**: main push 뒤 Mac mini 에서 `git pull` → (의존성 변경 시 `npm ci`) → `pm2 restart finance`. 자동 배포는 없다.
 
 ## 아키텍처
@@ -95,9 +95,9 @@
 
 ## Cloudflare 설정 (대시보드)
 
-> 개념 설명과 정확한 메뉴·옵션명까지 포함한 전체 인프라 가이드는 **[SETUP.md](SETUP.md)** 참고. 아래는 요약.
+> 개념 설명과 정확한 메뉴·옵션명까지 포함한 전체 인프라 가이드는 **[docs/SETUP.md](docs/SETUP.md)** 참고 (서버 재시작·배포·DB 조회는 7절 운영 치트시트). 아래는 요약.
 
-- Zero Trust Tunnel `finance` — Mac mini 의 cloudflared 가 유지, `fin.hansoljj.com → 127.0.0.1:8787` (SETUP.md 8절)
+- Zero Trust Tunnel `finance` — Mac mini 의 cloudflared 가 유지, `fin.hansoljj.com → 127.0.0.1:8787` (docs/SETUP.md 6절)
 - Pages 프로젝트 `finance` — repo 연결, 빌드 없음. 커스텀 도메인은 2026-08-31 Tunnel 로 넘기면서 분리(롤백 시 다시 추가)
 - Bindings: KV `finance-data` → 변수명 `KV` (**Production만** — 프리뷰 배포는 데이터 접근 불가)
 - Secrets: `FRED_API_KEY`
