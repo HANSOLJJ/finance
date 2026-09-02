@@ -432,12 +432,6 @@ async function refreshHolding(holdingId) {
   return result;
 }
 
-// FRED API 키 (St. Louis Fed). 공개 배포본에는 키를 하드코딩하지 않는다.
-// 로컬에서 M2 수집을 쓰려면 브라우저 콘솔에 아래 한 줄을 붙여넣어 설정한다.
-//   localStorage.setItem('FRED_API_KEY', '여기에_본인_키')
-// 키가 비어 있으면 fetchM2()가 실패하고 snapshot()은 마지막 캐시값으로 대체한다.
-const FRED_API_KEY = localStorage.getItem('FRED_API_KEY') || '';
-
 // ==================== 벤치마크 지수 (S&P500 · 나스닥) ====================
 // 이력 차트에 시장 대비 성과 비교선을 그리기 위한 지수 종가 수집.
 // 값은 CPI/M2 와 같은 방식으로 스냅샷(s.spx/s.ndx)에 저장되어 오프라인 렌더가 가능하다.
@@ -497,11 +491,14 @@ async function applyBenchmarksToHistory() {
 
 // 미국 M2 통화공급량 조회. FRED observations API(series_id=M2SL, 단위 Billions $, 계절조정)를 쓴다.
 // FRED는 브라우저 직접 호출을 CORS로 차단하므로 처음부터 프록시를 거친다.
+// API 키는 브라우저가 모른다 — 요청에 api_key 를 붙이지 않으면 서버 프록시(/api/proxy)가 자기 키를
+// 끼워 넣는다. (예전엔 localStorage 의 FRED_API_KEY 를 붙였는데, 거기 아무 값이나 남아 있으면 서버 주입이
+// 꺼져 M2 수집이 통째로 실패하는 함정이라 2026-08-31 제거.)
 // sort_order=desc&limit=13으로 최신 13개월치를 받아 최신값과 12개월 전 값으로 YoY를 함께 계산한다.
 // 반환 { value: 십억 달러, date, label: "YYYY-MM", yoyPct: 전년 동월 대비 증가율(소수 비율) }.
 // data-io.js의 snapshot()이 호출해 자산 이력에 M2를 같이 기록한다(실질가치 비교용).
 async function fetchM2() {
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=13`;
+  const url = 'https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&file_type=json&sort_order=desc&limit=13';
   const data = await fetchViaProxy(url);
   if (!data.observations || !data.observations.length) throw new Error('M2 데이터 없음');
   const latest = data.observations[0];
