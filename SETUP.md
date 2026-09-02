@@ -192,6 +192,37 @@ user:<이메일>:portfolio:v:2026-08-26  ← 그날의 백업본 (90일 뒤 자�
 
 **Windows 개발 PC.** `.env`에 `DEV_EMAIL=test@x.com`을 두고 `npm run dev`(또는 `.claude/launch.json`의 `finance-server`). 데이터는 로컬 `data/finance.db`, 암호화 키는 `%USERPROFILE%\.finance\secret.key`. 한투는 IP 제한이 없어 실키로 로컬 검증이 가능하다.
 
+### 8-1. 운영 치트시트 (Mac mini)
+
+전부 Mac mini 터미널(또는 SSH) 기준. brew 경로가 PATH에 없으면 앞에 `export PATH=/opt/homebrew/bin:$PATH`.
+
+| 하고 싶은 것 | 명령 |
+|---|---|
+| 서버 상태 | `pm2 status` (online / restarts 횟수) |
+| 서버 **재시작** | `pm2 restart finance` — `~/.finance/env`를 고쳤을 때 반드시 (env 는 기동 시 한 번만 읽는다) |
+| 서버 로그 | `pm2 logs finance --lines 50` (실시간은 `pm2 logs finance`, Ctrl+C 로 나감). 파일은 `~/.pm2/logs/finance-out.log`·`finance-error.log` |
+| **코드 배포** (main 에 push 한 뒤) | `cd ~/projects/finance && git pull && npm ci && pm2 restart finance` — js/css/html 만 바뀌었으면 `git pull` 만으로 반영되지만(디스크에서 그대로 서빙) 재시작해도 손해 없다 |
+| 환경변수 편집 | `nano ~/.finance/env` → 저장 → `pm2 restart finance`. `DEV_EMAIL` 은 절대 넣지 않는다 |
+| 터널 상태 | `cloudflared tunnel info finance` (CONNECTOR 행이 있으면 연결됨) · `launchctl list \| grep cloudflare` (PID 와 종료코드 0) |
+| 터널 로그 | `tail -50 ~/Library/Logs/com.cloudflare.cloudflared.err.log` |
+| 터널 재시작 | `launchctl unload ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist && launchctl load ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist` |
+| 재부팅 후 점검 | `pm2 status` 에 finance online · `cloudflared tunnel info finance` 에 커넥터 · 브라우저에서 fin.hansoljj.com. 둘 다 사용자 LaunchAgent 라 자동 로그인이 꺼져 있으면 안 올라온다 |
+| 인증 진단 | 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` → `verifiedEmail` 에 이메일이 나와야 정상 |
+
+**DB 보기** — `sqlite3 ~/projects/finance/data/finance.db` 로 들어가면 프롬프트가 뜬다(`.quit` 로 나감). 자주 쓰는 질의는 아래. 실행 중인 서버와 동시에 읽어도 안전하다(WAL).
+
+```sql
+.tables                                           -- portfolio / broker_connection / broker_token
+select email, version, length(json), datetime(updated_at/1000,'unixepoch','localtime') from portfolio;  -- 누구의 어떤 버전이 언제
+select email, id, provider, label, accounts from broker_connection;   -- 증권사 연결 (creds 는 enc:v1: 암호문)
+select conn_id, datetime(expires_at/1000,'unixepoch','localtime') from broker_token;  -- 토큰 캐시 만료시각
+select json from portfolio where version='latest' and email='<이메일>';  -- state 원문 (JSON 한 덩어리)
+```
+
+- 특정 날짜로 롤백하고 싶으면 앱에서 `fin.hansoljj.com/api/portfolio?version=YYYY-MM-DD` 를 열어 받은 JSON 을 설정 탭 "JSON에서 복원"으로 넣는 게 안전하다(DB 를 직접 UPDATE 하지 않는다).
+- **백업** — 실행 중엔 `.db` 파일만 복사하면 WAL 내용이 빠진다. `sqlite3 ~/projects/finance/data/finance.db ".backup ~/finance-backup-$(date +%F).db"` 로 뜬다. 암호화 키 `~/.finance/secret.key` 는 별도 보관(둘이 같이 새면 복호화된다).
+- 한 줄 실행은 `sqlite3 ~/projects/finance/data/finance.db "select count(*) from portfolio"` 처럼 따옴표로 감싼다.
+
 ## 7. 자주 하는 작업 모음
 
 | 하고 싶은 것 | 방법 |
