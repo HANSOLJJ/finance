@@ -211,6 +211,7 @@ Access가 인증 후 붙이는 `Cf-Access-Jwt-Assertion`을 팀 공개키(`<TEAM
 - 2026-08-31 **Mac mini 기동 완료(SSH로 대행)** — `~/projects/finance` 최신(5f56461), `npm ci`, `~/.finance/env`는 주석만 있는 빈 파일로 생성(700/600 — `FRED_API_KEY`는 사용자가 넣고 `pm2 restart finance`), `pm2 start ecosystem.config.cjs` + `pm2 save`. 첫 기동에 `secret.key` 생성(65B, 600), `data/finance.db` 생성. `pm2 restart`로 graceful shutdown 확인 — 에러 로그 없음, 재기동 시 키 재사용(재생성 안 함). 내부 확인: `/` 200, `/api/whoami` 200(JWT 없음), `/api/portfolio` 401. **남은 것(사용자)**: ① Mac 터미널에서 `pm2 startup` 출력 명령(sudo) 실행 ② FRED 키 입력 ③ Tunnel(`cloudflared tunnel login`은 URL 승인이 필요 — SSH로 실행해 URL만 전달 가능) → Pages 커스텀 도메인 분리 → `tunnel route dns` ④ 데이터 이전(JSON 백업→복원) ⑤ 앱에서 증권사 연결 재등록 → 3사 동기화. Cloudflare Secret은 대시보드에서 다시 읽을 수 없으므로 FRED 키는 fred.stlouisfed.org 계정에서 확인.
 - 2026-08-31 **pm2 startup·Tunnel 준비 완료(SSH 대행, DNS 미전환)** — `pm2 startup`은 `~/Library/LaunchAgents`가 없어 ENOENT로 실패했었음 → 폴더 생성 후 사용자가 sudo 명령 재실행해 `pm2.hansol.plist` 생성. 자동 로그인(`autoLoginUser=hansol`)·FileVault 꺼짐·GUI 세션 열려 있음 확인 — 사용자 LaunchAgent 방식(pm2·cloudflared 둘 다)은 이 전제 위에서만 재부팅 복구가 된다. `cloudflared tunnel login`은 SSH로 실행해 URL만 전달(브라우저는 아무 기기나 됨) → `tunnel create finance`(id 2558b984-…3c31, 자격증명 `~/.cloudflared/<id>.json`) → `~/.cloudflared/config.yml`(ingress `fin.hansoljj.com → http://127.0.0.1:8787`, 나머지 404) → 테스트 run 에서 icn 엣지 4연결. **함정**: `brew services start cloudflared`도 `cloudflared service install`도 인자 없이 `cloudflared`만 실행하는 plist를 만들며, cloudflared 2026.8은 "use `cloudflared tunnel run`"으로 거부(종료 1 반복). 해결 = `cloudflared service install` 후 `plutil -replace ProgramArguments -json '["/opt/homebrew/bin/cloudflared","tunnel","--config","/Users/hansol/.cloudflared/config.yml","run"]' ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist` → `launchctl unload/load`. brew 서비스는 stop 해둠. 로그는 `~/Library/Logs/com.cloudflare.cloudflared.err.log`. **남은 것**: 사용자가 현 사이트에서 JSON 백업 다운로드 → Pages Custom domains 에서 `fin.hansoljj.com` 제거 → (SSH) `cloudflared tunnel route dns finance fin.hansoljj.com` → 로그인·whoami 확인 → JSON 복원 → 연결 재등록 → 재부팅 테스트.
 - 2026-08-31 **전환 완료 — 사용자가 직접 수행**(JSON 백업 → Pages 도메인 분리 → 터널 DNS 연결 → 로그인 → JSON 복원 → 3사 연결 재등록). Mac mini DB 에 로그인 계정의 portfolio(latest + 날짜 버전, 69KB)와 broker_connection 3행(kis·kiwoom·bithumb)이 생긴 것으로 확인 — `DEV_EMAIL` 없는 운영 서버에 이메일이 붙었으므로 Access JWT 가 Tunnel 을 지나 오리진까지 도달·검증된 것(13절 13 충족). 문서(CLAUDE·README·SETUP)를 "전환 완료" 기준으로 갱신. **후속**: ① Mac mini 재부팅 테스트(pm2·cloudflared 자동 복귀) ② `~/.finance/env`에 FRED 키 ③ `secret.key` 백업 ④ 안정화 후 `functions/` 삭제 + Pages·KV·Secret 정리(별도 커밋) ⑤ Cron 자동 스냅샷·IP 변경 감지·봇은 다음 개편.
+- 2026-09-02 **구 체제 정리 완료(안정화 이틀 만 — 사용자 결정으로 조기 정리)** — 사용자가 대시보드에서 Pages 프로젝트·KV namespace 삭제(FRED Secret 은 프로젝트와 함께 소멸, KV 의 평문 creds 도 함께 제거됨), repo 에서 `functions/` 9개 파일 삭제 커밋. 문서에서 롤백 경로 제거 — SETUP 9절 삭제, TODO 항목 삭제, CLAUDE/README 의 "롤백용 유지"·"전환기엔 둘 다" 문구 정리. 이후 복구 수단은 SQLite 날짜 버전(`?version=`)·`backups/` 평문 JSON·`sqlite3 .backup` 뿐이다.
 
 ## 13. 검증 (커밋 전 통과)
 
@@ -262,7 +263,6 @@ Access가 인증 후 붙이는 `Cf-Access-Jwt-Assertion`을 팀 공개키(`<TEAM
 ## 17. 참고 문서
 
 - `CLAUDE.md` — 아키텍처 불변 조건·배포 철칙(`?v=` 스탬프)·절대 금지
-- `SETUP.md` — Cloudflare·Google 설정, 6.5절 증권사 연결 등록과 IP 등록 요구사항
+- `SETUP.md`(같은 docs/) — Cloudflare·Google·Mac mini 설정. 5절 증권사 연결 등록, 6절 이전 절차, 7절 운영 치트시트
 - `README.md` — 파일별 역할
-- `functions/` — 재작성 원본. 삭제 전까지 대조용
 - `ref/`(gitignore, Mac mini 로컬) — checklist·context-notes. 윈도우 세션은 못 보므로 이 문서 12절이 대신한다

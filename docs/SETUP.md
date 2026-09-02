@@ -2,7 +2,7 @@
 
 이 앱을 돌리는 데 쓰인 모든 외부 서비스·서버 설정을, **왜 필요한지(개념)** 와 **정확한 메뉴·옵션명(2026-08 새 UI 기준)** 으로 정리한 문서다. 코드는 repo에 있지만 이 설정들은 대시보드와 Mac mini에만 존재하므로, 계정을 옮기거나 처음부터 다시 만들 때는 이 문서가 유일한 지도다.
 
-- 절 순서 = 현재 체제 기준. **0~5절 = 지금 돌아가는 것**, 6~7절 = Mac mini 서버 구축·운영, 8절 = 자주 하는 작업, **9절 = 구 Pages 체제(롤백용)**.
+- 절 순서 = 현재 체제 기준. **0~5절 = 지금 돌아가는 것**, 6~7절 = Mac mini 서버 구축·운영, 8절 = 자주 하는 작업.
 - Cloudflare 쪽 명칭은 **새 Cloudflare One 대시보드**(구 Zero Trust) 기준.
 - Google 쪽 명칭은 **Google 인증 플랫폼**(console.cloud.google.com, 한국어 UI) 기준.
 - UI는 계속 개편되므로 메뉴 위치가 다르면 대시보드 상단 **Quick search(Ctrl+K)** 에 항목명을 검색하면 찾아진다.
@@ -30,7 +30,7 @@
 ⑤ SQLite (data/finance.db) ─ 사용자별 portfolio·증권사 연결(암호화)·토큰 캐시
 ```
 
-로그인 기능은 여전히 코드에 없다 — ②의 Access가 사이트 앞단에서 대신 해주고, 서버는 통행증(JWT)의 서명만 검증한다(4절). 증권사 API 호출이 Mac mini에서 나가므로 출발 IP가 집 공인 IP로 고정된다 — 키움·빗썸의 호출 IP 등록 요구(5절)가 이걸로 풀렸다. 2026-08-31까지의 구 Pages 체제는 9절에 롤백용으로 남겨뒀다.
+로그인 기능은 여전히 코드에 없다 — ②의 Access가 사이트 앞단에서 대신 해주고, 서버는 통행증(JWT)의 서명만 검증한다(4절). 증권사 API 호출이 Mac mini에서 나가므로 출발 IP가 집 공인 IP로 고정된다 — 키움·빗썸의 호출 IP 등록 요구(5절)가 이걸로 풀렸다. 구 Pages 체제(~2026-08-31)는 2026-09-02에 정리했다 — Pages 프로젝트·KV namespace 삭제, repo 의 `functions/` 제거.
 
 ## 1. 도메인 — hansoljj.com
 
@@ -39,7 +39,7 @@
 **우리 설정.** hansoljj.com을 Cloudflare Registrar에서 구입했고 DNS도 Cloudflare가 관리한다. `fin.` 레코드는 터널 생성 시(`cloudflared tunnel route dns`) 자동으로 만들어진 CNAME이고, `arena.` 는 Pages 커스텀 도메인 연결 때 자동 생성된 것이다.
 
 - 위치 — Cloudflare 대시보드 → 계정 홈 → **hansoljj.com** → **DNS** → Records.
-- 자동 생성된 CNAME 레코드는 손대지 말 것. 지우면 해당 서브도메인이 죽는다. (롤백 시나리오는 9절.)
+- 자동 생성된 CNAME 레코드는 손대지 말 것. 지우면 해당 서브도메인이 죽는다.
 
 ## 2. Cloudflare One (Access) — 로그인 관문
 
@@ -47,13 +47,13 @@
 
 진입 — Cloudflare 대시보드에서 Zero Trust(Cloudflare One)로 이동. 팀 정보는 **Settings** → **Team name and domain** 에 있다.
 
-- Team name `tight-star-46f3`, Team domain `tight-star-46f3.cloudflareaccess.com` — 로그인 페이지가 뜨는 주소이자 구글 리디렉션 URI의 기반이다. **바꾸면 Google 클라이언트의 리디렉션 URI와 `server/lib/access.js`(롤백용 `functions/_lib/access.js` 포함)의 `TEAM_DOMAIN` 상수도 함께 바꿔야 한다.**
+- Team name `tight-star-46f3`, Team domain `tight-star-46f3.cloudflareaccess.com` — 로그인 페이지가 뜨는 주소이자 구글 리디렉션 URI의 기반이다. **바꾸면 Google 클라이언트의 리디렉션 URI와 `server/lib/access.js`의 `TEAM_DOMAIN` 상수도 함께 바꿔야 한다.**
 
 ### 2-1. 애플리케이션 (무엇을 지킬 것인가)
 
 위치 — **Access controls** → **Applications** → `finance` (Self-hosted 타입, 대상 호스트네임 fin.hansoljj.com).
 
-"fin.hansoljj.com으로 오는 모든 요청은 경비실을 거쳐라"라는 선언이다. 앱마다 고유 식별자(**AUD 태그**)가 발급되는데, **앱을 지웠다 다시 만들면 AUD가 바뀌므로 `server/lib/access.js`(와 `functions/_lib/access.js`)의 `APP_AUD` 상수를 새 값으로 갱신해야 한다** (안 하면 저장/조회가 전부 401).
+"fin.hansoljj.com으로 오는 모든 요청은 경비실을 거쳐라"라는 선언이다. 앱마다 고유 식별자(**AUD 태그**)가 발급되는데, **앱을 지웠다 다시 만들면 AUD가 바뀌므로 `server/lib/access.js`의 `APP_AUD` 상수를 새 값으로 갱신해야 한다** (안 하면 저장/조회가 전부 401).
 
 ### 2-2. 정책 (누구를 들여보낼 것인가)
 
@@ -100,7 +100,7 @@
 
 **왜 이 방식인가.** 원래는 Access가 붙여주는 이메일 평문 헤더(`Cf-Access-Authenticated-User-Email`)를 쓸 계획이었지만, **새 Cloudflare One UI로 만든 앱은 이 헤더를 붙여주지 않는 것**을 확인했다(2026-08-26, 로그인 후에도 저장이 401로 실패하던 원인). 그래서 JWT를 직접 검증하는 방식으로 교체했고, 결과적으로 보안도 더 강해졌다 (서명 검증이라 어떤 경로로 와도 사칭 불가).
 
-**코드와 설정의 연결 고리** — [server/lib/access.js](../server/lib/access.js) 상단 상수 두 개 (롤백용 `functions/_lib/access.js`에도 동일하게 존재).
+**코드와 설정의 연결 고리** — [server/lib/access.js](../server/lib/access.js) 상단 상수 두 개.
 
 | 상수 | 현재 값 | 언제 바꾸나 |
 |---|---|---|
@@ -132,7 +132,7 @@
 
 **한투 토큰 발급 제한.** 접근토큰 발급은 앱키당 **1분에 1회**. 서버가 23시간 캐시하므로 평소엔 문제없지만, 자격증명을 바꾼 직후나 동기화 직후에 [🔍 계좌 찾기]를 누르면 "접근토큰 발급 잠시 후 다시 시도하세요(1분당 1회)"가 그대로 보인다 — 1분 뒤 다시 누르면 된다.
 
-**동작 범위.** 조회 전용 API만 호출한다(주문 불가). 퇴직연금(DC)·한투 금현물은 증권사 API가 공식적으로 지원하지 않아 수동 입력을 유지한다. 새 증권사 지원은 `server/lib/providers.js`(롤백용 `functions/_lib/providers.js`도 함께)에 어댑터를 추가하면 되고, 설정 화면은 그 선언을 읽어 자동으로 폼을 그린다.
+**동작 범위.** 조회 전용 API만 호출한다(주문 불가). 퇴직연금(DC)·한투 금현물은 증권사 API가 공식적으로 지원하지 않아 수동 입력을 유지한다. 새 증권사 지원은 `server/lib/providers.js`에 어댑터를 추가하면 되고, 설정 화면은 그 선언을 읽어 자동으로 폼을 그린다.
 
 ## 6. Mac mini 자립 서버 — 이전 절차 (2026-08-31 완료)
 
@@ -196,21 +196,3 @@ select json from portfolio where version='latest' and email='<이메일>';  -- s
 | 저장이 401일 때 | ① `/api/whoami`의 verifiedEmail 확인 → null이면 ② 정책이 Allow인지(Bypass 아님), ③ 앱 AUD와 코드 `APP_AUD` 일치 여부, ④ 터널·서버 상태(7절) 순서로 점검 |
 | 구글 로그인 장애 시 | Applications → finance → Login methods에서 One-time PIN 임시로 다시 켜기 |
 | 서버 재시작·로그·배포·DB | 7절 운영 치트시트 |
-
-## 9. 구 체제 — Cloudflare Pages · KV (2026-08-31까지 운영, 롤백용으로 유지)
-
-Mac mini 체제가 안정될 때까지 아래를 지우지 않는다. **롤백 = ① DNS 에서 터널 CNAME(`fin`) 삭제 ② Workers & Pages → finance → Custom domains 에 `fin.hansoljj.com` 다시 추가.** 몇 분 안에 구 체제로 돌아간다 (데이터는 KV 의 전환 시점 상태).
-
-```text
-[GitHub repo] ── push = 자동 배포 ──▶ [Cloudflare Pages] 정적 서빙 + Functions(/api/*) ──▶ [KV] user:<이메일>: 키
-```
-
-**Pages 프로젝트 `finance`** — 위치: Workers & Pages. repo 연결, 빌드 없음(파일 그대로 업로드), `functions/` 폴더가 `/api/*` 서버리스 함수가 된다.
-
-1. **Bindings** — KV namespace 바인딩. Variable name `KV` → namespace `finance-data`, **Production 환경에만** (프리뷰 배포는 데이터 접근 불가 — 의도된 것).
-2. **Variables and Secrets** — `FRED_API_KEY` (Secret 타입, 값은 저장 후 다시 볼 수 없음). 현 체제에서는 Mac mini 의 `~/.finance/env` 가 이 역할.
-3. **주의 — Retry deployment.** 바인딩이나 Secret은 배포가 만들어지는 순간에 굳는다. 바꾸면 **Deployments** 탭 → 최신 배포 ⋯ → **Retry deployment** 로 새 배포를 떠야 반영된다.
-
-**KV `finance-data`** — 위치: Storage & Databases → KV. 키 구조는 `user:<이메일>:portfolio:latest`(최신본) / `user:<이메일>:portfolio:v:YYYY-MM-DD`(90일 자동 만료 롤백본) / `user:<이메일>:broker:connections`(구 체제 자격증명 — **평문이므로 정리 대상**). 운영자는 이 화면에서 모든 사용자 데이터를 열람할 수 있다.
-
-**정리 시점** — Mac mini 체제 1~2주 안정 후: repo 의 `functions/` 삭제 커밋 → Pages 프로젝트 삭제 → KV namespace 삭제 → 이 절도 그때 지운다.
