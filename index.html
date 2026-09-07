@@ -2,7 +2,7 @@
 <!-- 자산 포트폴리오 웹앱의 단일 페이지 뼈대 HTML — 정적 마크업만 담고 모든 동적 내용은 js 가 채운다. -->
 <!-- 화면은 탭 5개(대시보드 · 자산 입력 · 분석 · 이력 · 설정)로 구성되며 탭 전환은 render.js initTabs 가 처리한다. -->
 <!-- 스타일은 css/app.css 1개, 로직은 body 하단의 자체 js 9개 파일이 전담한다. -->
-<!-- 외부 의존성은 CDN 의 Chart.js 4.4.1 과 treemap 차트 플러그인 두 개뿐이다. -->
+<!-- 외부 의존성은 CDN 의 Chart.js 4.4.1 과 treemap 차트 플러그인, Pretendard 웹폰트(jsDelivr) 세 개뿐이다. -->
 <!-- 비어 있는 동적 영역(#holdingsContainer, 각 canvas, 각 tbody 등)은 render.js·charts.js 가 렌더링 시점에 채운다. -->
 <!-- 경고 — body 하단 script 태그의 나열 순서가 곧 의존성 순서다. 순서를 바꾸면 정의 전 참조로 앱이 깨진다. -->
 <html lang="ko">
@@ -13,7 +13,9 @@
 <!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=20260831a" />
+<!-- Pretendard 웹폰트(동적 서브셋 — 쓰인 글자 범위의 woff2 만 내려받는다). app.css 의 font-family 첫 항목이 이 링크에 의존한다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
+  <link rel="stylesheet" href="css/app.css?v=20260907a" />
 </head>
 <body>
 
@@ -489,15 +491,15 @@
 <!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
 <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
 <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260831a"></script>
-<script src="js/state.js?v=20260831a"></script>
-<script src="js/calc.js?v=20260831a"></script>
-<script src="js/render.js?v=20260831a"></script>
-<script src="js/charts.js?v=20260831a"></script>
-<script src="js/data-io.js?v=20260831a"></script>
-<script src="js/fetch.js?v=20260831a"></script>
-<script src="js/sync.js?v=20260831a"></script>
-<script src="js/broker.js?v=20260831a"></script>
-<script src="js/main.js?v=20260831a"></script>
+<script src="js/constants.js?v=20260907a"></script>
+<script src="js/state.js?v=20260907a"></script>
+<script src="js/calc.js?v=20260907a"></script>
+<script src="js/render.js?v=20260907a"></script>
+<script src="js/charts.js?v=20260907a"></script>
+<script src="js/data-io.js?v=20260907a"></script>
+<script src="js/fetch.js?v=20260907a"></script>
+<script src="js/sync.js?v=20260907a"></script>
+<script src="js/broker.js?v=20260907a"></script>
+<script src="js/main.js?v=20260907a"></script>
 </body>
 </html>
