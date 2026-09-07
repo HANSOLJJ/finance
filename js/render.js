@@ -451,17 +451,18 @@ function renderTaxAnalysis() {
       <div class="tax-val">${fmtKRW(totalTax)}</div>
       <div class="tax-sub">평가손익 ${pnlSign}${fmtKRWshort(totalPnL)} · 공제 ${fmtKRWshort(totalDed)}</div>
     </div>
-    <div class="tax-card pnl-rate" style="background: linear-gradient(135deg, ${totalPnL >= 0 ? '#f0fdf4 0%, #dcfce7' : '#fef2f2 0%, #fee2e2'} 100%); border-color: ${totalPnL >= 0 ? '#86efac' : '#fca5a5'};">
+    <div class="tax-card pnl-rate ${totalPnL >= 0 ? 'pos' : 'neg'}">
       <div class="tax-lbl">평가 손익</div>
-      <div class="tax-val" style="color: ${totalPnL >= 0 ? 'var(--success)' : 'var(--danger)'}">${pnlRate !== null ? pnlSign + fmtKRWshort(totalPnL) : '—'}</div>
-      <div style="font-size: 16px; font-weight: 600; color: ${totalPnL >= 0 ? 'var(--success)' : 'var(--danger)'}; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.3px;">${pnlRate !== null ? pnlSign + (pnlRate*100).toFixed(2) + '%' : '평단가 입력 필요'}</div>
+      <div class="tax-val">${pnlRate !== null ? pnlSign + fmtKRWshort(totalPnL) : '—'}</div>
+      <div class="tax-pct">${pnlRate !== null ? pnlSign + (pnlRate*100).toFixed(2) + '%' : '평단가 입력 필요'}</div>
       <div class="tax-sub">투자원금 ${fmtKRWshort(totalCost)} → 평가 ${fmtKRWshort(totalEvalForPnL)}<span style="color:var(--text-muted);font-size:11px;"> (평단가 입력분 기준)</span></div>
     </div>
   `;
 
   tbody.innerHTML = '';
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">분석 대상 자산이 없습니다</td></tr>`;
+    // m-keep — 모바일에서 표의 나머지 열을 숨기는 CSS 규칙에 이 안내 셀이 같이 사라지지 않게 마킹.
+    tbody.innerHTML = `<tr><td colspan="7" class="m-keep" style="text-align:center;color:var(--text-muted);padding:20px;">분석 대상 자산이 없습니다</td></tr>`;
     return;
   }
   // 3단계 — 카테고리별 상세 행 생성 (과세 규칙 라벨·손익·공제·과세표준·세금·세후 금액).
@@ -470,30 +471,32 @@ function renderTaxAnalysis() {
     const pnlSign = r.pnl > 0 ? '+' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><span class="badge ${r.cls}">${r.category}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${r.rule.label}</span></td>
+      <td class="m-keep"><span class="badge ${r.cls}">${r.category}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${r.rule.label}</span></td>
       <td class="right">${fmtKRW(r.value)}</td>
-      <td class="right ${pnlCls}">${r.hasPnL ? pnlSign + fmtKRWshort(r.pnl) : '<span style="color:var(--text-muted)">평단가 미입력</span>'}</td>
+      <td class="right m-keep ${pnlCls}">${r.hasPnL ? pnlSign + fmtKRWshort(r.pnl) : '<span style="color:var(--text-muted)">평단가 미입력</span>'}</td>
       <td class="right" style="color:var(--text-muted)">${r.rule.deduction > 0 ? fmtKRWshort(r.rule.deduction) : '—'}</td>
       <td class="right">${r.taxableBase > 0 ? fmtKRWshort(r.taxableBase) : '<span style="color:var(--success)">0 (비과세)</span>'}</td>
-      <td class="right" style="color:${r.tax > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${r.tax > 0 ? fmtKRW(r.tax) : '—'}</td>
-      <td class="right" style="font-weight:600">${fmtKRW(r.afterTax)}</td>
+      <td class="right m-keep" style="color:${r.tax > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${r.tax > 0 ? fmtKRW(r.tax) : '—'}</td>
+      <td class="right m-keep" style="font-weight:600">${fmtKRW(r.afterTax)}</td>
     `;
     tbody.appendChild(tr);
   });
   // 4단계 — 합계 행을 표 맨 아래에 추가 (1단계에서 만든 합산값 재사용).
+  // m-keep 4열(분류/평가손익/세금/세후) — 모바일에서 남기는 열 마킹(index.html thead 와 동일). .tax-sum 은 모바일 sticky 첫 열 배경용.
   const sumRow = document.createElement('tr');
-  sumRow.style.background = '#f8fafc';
+  sumRow.classList.add('tax-sum');
+  sumRow.style.background = 'var(--surface)';
   sumRow.style.fontWeight = '600';
   const totalSign = totalPnL > 0 ? '+' : '';
   const totalCls = totalPnL > 0 ? 'tax-pos' : (totalPnL < 0 ? 'tax-neg' : '');
   sumRow.innerHTML = `
-    <td>합계</td>
+    <td class="m-keep">합계</td>
     <td class="right">${fmtKRW(totalValue)}</td>
-    <td class="right ${totalCls}">${totalSign}${fmtKRWshort(totalPnL)}</td>
+    <td class="right m-keep ${totalCls}">${totalSign}${fmtKRWshort(totalPnL)}</td>
     <td class="right">${fmtKRWshort(totalDed)}</td>
     <td class="right">${fmtKRWshort(totalBase)}</td>
-    <td class="right" style="color:var(--danger)">${fmtKRW(totalTax)}</td>
-    <td class="right">${fmtKRW(afterTaxTotal)}</td>
+    <td class="right m-keep" style="color:var(--danger)">${fmtKRW(totalTax)}</td>
+    <td class="right m-keep">${fmtKRW(afterTaxTotal)}</td>
   `;
   tbody.appendChild(sumRow);
 }

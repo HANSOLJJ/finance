@@ -12,6 +12,7 @@
   /* 팔레트 — 따뜻한 중립 회색(종이·먹) + 단일 강조색(짙은 청록). 프레임워크 기본값(Tailwind slate/blue)을 쓰지 않는다. */
   /* 대비(WCAG AA, 흰 카드 기준) — text 17.2 · text-muted 5.9(bg 위 5.0, surface 위 5.4) · accent 6.7(accent-soft 위 5.7) · success 4.9 · danger 4.8. */
   /* --success·--danger·--warning 은 손익·신호 관례색 — 방향(초록=이익/매수, 빨강=손실/매도)을 바꾸지 않는다. */
+  /* -soft/-line 은 그 옅은 배경·경계선 파생색 — css 안팎(js 인라인 style 포함)의 초록/빨강 틴트는 전부 이 4개를 쓴다. */
   /* --c-* 는 자산 카테고리별 대표색으로 아래 .badge 배경과 차트 계열색에서 재사용된다. */
   /* --c-krw·--c-usd·--c-commodity 는 통화노출(원화/달러/원자재) 구분색이다. */
   :root {
@@ -29,6 +30,10 @@
     --accent-line: #c5d8e1;   /* 강조색 경계선 · 옅은 배경의 호버 */
     --success: #158240;
     --danger: #dc2626;
+    --success-soft: #f0fdf4;  /* 이익·매수 신호의 옅은 배경 (리밸런싱 카드·손익 카드·동기화 ok) */
+    --success-line: #86efac;  /* 그 경계선 */
+    --danger-soft: #fef2f2;   /* 손실·매도·오류의 옅은 배경 */
+    --danger-line: #fca5a5;
     --warning: #ea580c;
     --shadow: 0 1px 2px rgba(28, 27, 24, 0.04), 0 4px 12px rgba(28, 27, 24, 0.04);
     --shadow-lg: 0 4px 20px rgba(28, 27, 24, 0.08);
@@ -1205,7 +1210,16 @@
   .tax-card.pretax .tax-val { color: var(--text); }
   .tax-card.posttax .tax-val { color: var(--accent); }
   .tax-card.tax-amt .tax-val { color: var(--danger); }
-  .tax-card.eff .tax-val { color: var(--warning); }
+  .tax-card.eff .tax-val { color: var(--warning); }  /* 호출처 없음(render.js 는 .eff 를 만들지 않음) — 보존만 */
+  /* 손익 카드 — render.js renderTaxAnalysis 가 pos/neg 상태 클래스를 붙인다. 평면 틴트(soft 배경 + line 경계), 그라디언트 없음. */
+  .tax-card.pnl-rate.pos { background: var(--success-soft); border-color: var(--success-line); }
+  .tax-card.pnl-rate.neg { background: var(--danger-soft); border-color: var(--danger-line); }
+  .tax-card.pnl-rate.pos .tax-val, .tax-card.pnl-rate.pos .tax-pct { color: var(--success); }
+  .tax-card.pnl-rate.neg .tax-val, .tax-card.pnl-rate.neg .tax-pct { color: var(--danger); }
+  .tax-card .tax-pct {
+    font-size: var(--fs-lg); font-weight: 600; margin-top: 4px;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.3px;
+  }
 
   .tax-table {
     width: 100%;
@@ -1359,4 +1373,16 @@
     .memo-modal { padding: 16px; }
     .memo-modal-foot { flex-wrap: wrap; }
     .hold-edit-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    /* 세후 표 — 남길 4열(분류·평가손익·세금·세후 평가금액)에 m-keep 마킹(index.html thead·render.js tbody), 나머지 3열 숨김. */
+    /* 4열도 375px 를 넘으므로(≈420px) .table-scroll 스크롤이 남고, 첫 열을 sticky 로 고정해 행 식별을 유지한다. */
+    /* sticky 셀은 불투명 배경 필수 — 머리글·합계(.tax-sum) 행만 surface. border-collapse:separate 는 collapse 에서 */
+    /* sticky 셀 테두리가 따라오지 않는 문제 회피. 첫 열은 nowrap+ellipsis 로 행 높이 고정(규칙 라벨이 잘리지만 섹션 설명에 같은 정보). */
+    .tax-table th:not(.m-keep), .tax-table td:not(.m-keep) { display: none; }
+    .tax-table { border-collapse: separate; border-spacing: 0; }
+    .tax-table th, .tax-table td { padding-left: 10px; padding-right: 10px; }
+    .tax-table th:first-child, .tax-table td:first-child {
+      position: sticky; left: 0; z-index: 1; background: var(--card);
+      max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tax-table thead th:first-child, .tax-table tr.tax-sum td:first-child { background: var(--surface); }
   }
