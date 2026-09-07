@@ -239,7 +239,7 @@ function openMemoModal(kind, target, displayLabel) {
       <div class="memo-modal-foot">
         <span class="memo-modal-help">Ctrl+Enter: 저장 · Esc: 닫기</span>
         <div style="display:flex;gap:8px;">
-          ${current ? '<button class="btn" id="memoModalDeleteBtn" style="color:#dc2626">삭제</button>' : ''}
+          ${current ? '<button class="btn" id="memoModalDeleteBtn" style="color:var(--danger)">삭제</button>' : ''}
           <button class="btn" id="memoModalCancelBtn">취소</button>
           <button class="btn primary" id="memoModalSaveBtn">저장</button>
         </div>

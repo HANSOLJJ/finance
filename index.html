@@ -15,7 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
 <!-- Pretendard 웹폰트(동적 서브셋 — 쓰인 글자 범위의 woff2 만 내려받는다). app.css 의 font-family 첫 항목이 이 링크에 의존한다. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/app.css?v=20260907b" />
+  <link rel="stylesheet" href="css/app.css?v=20260907c" />
 </head>
 <body>
 
@@ -81,14 +81,14 @@
         <div class="label" id="kpi-total-label">총 자산</div>
         <div class="value" id="kpi-total">₩0</div>
         <div class="sub" id="kpi-total-usd" style="font-weight:600;color:var(--c-usd);font-size:14px;font-variant-numeric:tabular-nums;">$0</div>
-        <div class="sub" id="kpi-debt-line" style="display:none;font-size:11px;color:#dc2626;"></div>
+        <div class="sub" id="kpi-debt-line" style="display:none;font-size:11px;color:var(--danger);"></div>
         <div class="sub" id="kpi-updated" style="font-size:11px;">—</div>
       </div>
-      <div class="kpi-card" id="kpi-liq-card" style="background:#ecfeff;border-color:#67e8f9;">
+      <div class="kpi-card" id="kpi-liq-card" style="background:var(--accent-soft);border-color:var(--accent-line);">
         <div class="label">💧 유동 자산<span class="help" title="즉시 매도/인출 가능한 자산. 묶임(연금/ISA/주택청약/부동산 등) 제외. 행별로 💧↔🔒 토글 가능.">?</span></div>
-        <div class="value" id="kpi-liquid" style="color:#0e7490">₩0</div>
-        <div class="sub" id="kpi-liquid-pct" style="font-weight:600;color:#0e7490;font-size:13px;">0.0%</div>
-        <div class="sub" id="kpi-locked-amt" style="font-size:11px;color:#64748b;">🔒 묶임 ₩0 (0.0%)</div>
+        <div class="value" id="kpi-liquid" style="color:var(--accent)">₩0</div>
+        <div class="sub" id="kpi-liquid-pct" style="font-weight:600;color:var(--accent);font-size:13px;">0.0%</div>
+        <div class="sub" id="kpi-locked-amt" style="font-size:11px;color:var(--text-muted);">🔒 묶임 ₩0 (0.0%)</div>
       </div>
       <div class="kpi-card success">
         <div class="label">원화 자산 비중</div>
@@ -100,7 +100,7 @@
         <div class="value" id="kpi-usd">0.0%</div>
         <div class="sub" id="kpi-usd-amt">₩0</div>
       </div>
-      <div class="kpi-card" style="background:#fefce8;border-color:#eab308;">
+      <div class="kpi-card" style="background:#fefce8;border-color:var(--c-gold);">
         <div class="label">🥇 달러헤지 비중<span class="help" title="금·실물 등 달러 가치 하락 헤지 자산. 자산타입 '금' 목표와 자동 연동됨.">?</span></div>
         <div class="value" id="kpi-hedge" style="color:#a16207;">0.0%</div>
         <div class="sub" id="kpi-hedge-amt">₩0</div>
@@ -302,7 +302,7 @@
             <th class="right">USD 자산<span class="help" title="위: 그 시점 환율로 환산한 USD 절대값 (KRW 총액 ÷ USD/KRW). 아래: 직전 스냅샷 대비, 약 30일 전 대비, 첫 스냅샷 대비 누적 % 변화. 30일 전 데이터가 ±10일 범위 내 없으면 '—' 표시.">?</span></th>
             <!-- 순입금 컬럼 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
             <th class="right" id="thNetFlow" style="display:none;">순입금<span class="help" title="직전 스냅샷 이후 기록된 입출금 합계 (KRW, 💰 입출금 기록 기반). 아래 작은 숫자는 그 구간의 실투자 수익률(TWR) — 입출금 효과를 제거한 순수 성과.">?</span></th>
-            <th class="right" style="color:#dc2626">CPI 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 CPI / 첫 CPI) — 구매력을 유지하려면 지금 있어야 할 USD 금액. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 인플레이션 이김 = 실질 구매력 증가).">?</span></th>
+            <th class="right" style="color:var(--danger)">CPI 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 CPI / 첫 CPI) — 구매력을 유지하려면 지금 있어야 할 USD 금액. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 인플레이션 이김 = 실질 구매력 증가).">?</span></th>
             <th class="right" style="color:#9333ea">M2 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 M2 / 첫 M2) — 통화공급 증가만큼 따라가려면 있어야 할 USD. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 통화확장 속도 이김 = 자산가격 인플레 헤지 성공).">?</span></th>
             <th class="right">CPI<span class="help" title="위: BLS Consumer Price Index 절대값 (1982-84=100, 시리즈 CUUR0000SA0). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) 변화율 — 뉴스에서 보는 인플레이션율과 동일.">?</span></th>
             <th class="right">M2 (B$)<span class="help" title="위: FRED M2 Money Supply 절대값 (Billions USD, SA, 시리즈 M2SL). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) M2 증가율.">?</span></th>
@@ -394,7 +394,7 @@
       <!-- ☁️ 자동 저장 안내 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담). #syncStatus 문구는 sync.js updateSyncIndicator 가 갱신한다. -->
       <div id="syncBox">
         <div class="backup-actions">
-          <button class="btn primary" onclick="savePortfolio()" style="background:#2563eb;border-color:#2563eb;">☁️ 지금 즉시 저장</button>
+          <button class="btn primary" onclick="savePortfolio()">☁️ 지금 즉시 저장</button>
         </div>
         <div class="backup-desc" style="margin-top:6px;">
           값을 수정하면 <b>몇 초 안에 서버로 자동 저장</b>됩니다 — 다른 기기에서 새로고침하면 바로 보입니다.
@@ -403,7 +403,7 @@
         </div>
       </div>
 
-      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border,#333);">
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
         <div class="backup-title">⚠️ 데이터 안전망</div>
         <div class="backup-desc">
           실수로 잘못 저장하거나 데이터가 꼬였을 때를 대비해 주기적으로 JSON 백업을 받아두세요.
@@ -448,7 +448,7 @@
     </div>
     <div style="padding: 16px 20px;">
       <button class="btn primary" onclick="openHistoricalAddModal()">+ 빼먹은 자산 추가</button>
-      <span style="margin-left: 10px; font-size: 12px; color: #dc2626;">⚠️ 적용 전에 "백업 다운로드"로 JSON 백업 받아두세요 (롤백 안 됨)</span>
+      <span style="margin-left: 10px; font-size: 12px; color: var(--danger);">⚠️ 적용 전에 "백업 다운로드"로 JSON 백업 받아두세요 (롤백 안 됨)</span>
     </div>
   </div>
 
@@ -491,15 +491,15 @@
 <!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
 <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
 <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260907b"></script>
-<script src="js/state.js?v=20260907b"></script>
-<script src="js/calc.js?v=20260907b"></script>
-<script src="js/render.js?v=20260907b"></script>
-<script src="js/charts.js?v=20260907b"></script>
-<script src="js/data-io.js?v=20260907b"></script>
-<script src="js/fetch.js?v=20260907b"></script>
-<script src="js/sync.js?v=20260907b"></script>
-<script src="js/broker.js?v=20260907b"></script>
-<script src="js/main.js?v=20260907b"></script>
+<script src="js/constants.js?v=20260907c"></script>
+<script src="js/state.js?v=20260907c"></script>
+<script src="js/calc.js?v=20260907c"></script>
+<script src="js/render.js?v=20260907c"></script>
+<script src="js/charts.js?v=20260907c"></script>
+<script src="js/data-io.js?v=20260907c"></script>
+<script src="js/fetch.js?v=20260907c"></script>
+<script src="js/sync.js?v=20260907c"></script>
+<script src="js/broker.js?v=20260907c"></script>
+<script src="js/main.js?v=20260907c"></script>
 </body>
 </html>

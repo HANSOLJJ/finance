@@ -222,9 +222,9 @@ function renderVerifyResult() {
   const atSumCls = Math.abs(atDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
-      <thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;">자산타입</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
+      <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">자산타입</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
       <tbody>${atRows}
-        <tr style="background:#f8fafc;font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.assetTypeSum)}</td><td class="right" style="${atSumCls}">${Math.abs(atDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(atDiff)}</td></tr>
+        <tr style="background:var(--surface);font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.assetTypeSum)}</td><td class="right" style="${atSumCls}">${Math.abs(atDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(atDiff)}</td></tr>
       </tbody>
     </table>
   `);
@@ -239,9 +239,9 @@ function renderVerifyResult() {
   const expSumCls = Math.abs(expDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
-      <thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;">통화노출</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
+      <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">통화노출</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
       <tbody>${expRows}
-        <tr style="background:#f8fafc;font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.exposureSum)}</td><td class="right" style="${expSumCls}">${Math.abs(expDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(expDiff)}</td></tr>
+        <tr style="background:var(--surface);font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.exposureSum)}</td><td class="right" style="${expSumCls}">${Math.abs(expDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(expDiff)}</td></tr>
       </tbody>
     </table>
   `);
@@ -251,11 +251,11 @@ function renderVerifyResult() {
   const liqSumCls = Math.abs(liqDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
-      <thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;">유동성</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
+      <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">유동성</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
       <tbody>
         <tr><td>💧 유동</td><td class="right">${fmtKRW(r.liquid)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.liquid/r.total)*100).toFixed(1) : '0.0'}%</td></tr>
         <tr><td>🔒 묶임</td><td class="right">${fmtKRW(r.locked)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.locked/r.total)*100).toFixed(1) : '0.0'}%</td></tr>
-        <tr style="background:#f8fafc;font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.liquiditySum)}</td><td class="right" style="${liqSumCls}">${Math.abs(liqDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(liqDiff)}</td></tr>
+        <tr style="background:var(--surface);font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.liquiditySum)}</td><td class="right" style="${liqSumCls}">${Math.abs(liqDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(liqDiff)}</td></tr>
       </tbody>
     </table>
   `);
@@ -269,8 +269,8 @@ function renderVerifyResult() {
       <td>${o.missingExp ? `<span style="color:var(--danger)">통화노출 '${escapeHtml(o.exposure)}' 미등록</span>` : o.exposure}</td>
     </tr>`).join('');
     rows.push(`
-      <div style="margin-top:12px;padding:10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;">
-        <div style="color:#dc2626;font-weight:600;margin-bottom:6px;">⚠️ 어느 축에도 안 잡히는 홀딩 ${r.orphans.length}개</div>
+      <div style="margin-top:12px;padding:10px;background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;">
+        <div style="color:var(--danger);font-weight:600;margin-bottom:6px;">⚠️ 어느 축에도 안 잡히는 홀딩 ${r.orphans.length}개</div>
         <table style="width:100%;font-size:12px;">
           <thead><tr><th style="text-align:left;">이름</th><th class="right">금액</th><th>자산타입</th><th>통화노출</th></tr></thead>
           <tbody>${orphanRows}</tbody>
@@ -279,12 +279,12 @@ function renderVerifyResult() {
     `);
   }
   if (r.warnings.length > 0) {
-    rows.push(`<div style="margin-top:8px;padding:10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#dc2626;">
+    rows.push(`<div style="margin-top:8px;padding:10px;background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;color:var(--danger);">
       ${r.warnings.map(w => `⚠️ ${w}`).join('<br/>')}
     </div>`);
   }
   if (r.ok) {
-    rows.push(`<div style="margin-top:8px;padding:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;color:#166534;">
+    rows.push(`<div style="margin-top:8px;padding:10px;background:var(--success-soft);border:1px solid var(--success-line);border-radius:8px;color:#166534;">
       ✓ 모든 축에서 합계 일치. 중복·누락 없음.
     </div>`);
   }

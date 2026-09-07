@@ -995,12 +995,12 @@
     transition: all 0.15s;
   }
   .rebal-card.alert-buy {
-    background: #f0fdf4;
-    border-color: #86efac;
+    background: var(--success-soft);
+    border-color: var(--success-line);
   }
   .rebal-card.alert-sell {
-    background: #fef2f2;
-    border-color: #fca5a5;
+    background: var(--danger-soft);
+    border-color: var(--danger-line);
   }
   .rebal-card.ok {
     background: var(--accent-soft);
@@ -1311,8 +1311,8 @@
     background: var(--card);
     font-variant-numeric: tabular-nums;
   }
-  .sync-indicator.ok { color: var(--success); border-color: #86efac; background: #f0fdf4; }
-  .sync-indicator.err { color: var(--danger); border-color: #fca5a5; background: #fef2f2; }
+  .sync-indicator.ok { color: var(--success); border-color: var(--success-line); background: var(--success-soft); }
+  .sync-indicator.err { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
 
   /* ==================== 모바일 (768px 이하) ==================== */
   /* 4차 개편 — 폰 대응 규칙을 이 블록 하나에 모은다 (320~768px 연속 대응, 별도 480px 분기 없음). */
@@ -1329,7 +1329,8 @@
     .row input.inp.m-keep, .row .dual-price.m-keep input { font-size: var(--fs-md) !important; pointer-events: none; }
     /* 종목 검색 칸만 직접 입력 유지(드롭다운 [data-dropdown] 이 문서 전역 조회라 모달로 못 옮김, render.js openHoldingEditModal 주석). */
     /* 평소 13px, 포커스 순간 16px 로 키워 iOS 확대를 피해 본다 — iOS 가 포커스 전 크기로 판정하면 효과 없음(감수). */
-    .row .search-cell .search-input { font-size: var(--fs-md) !important; }
+    /* transition 에서 font-size 를 빼는 이유: iOS 는 포커스 순간의 계산값으로 확대를 판정하므로 13→16 전환 애니메이션이 있으면 13px 로 읽힌다. */
+    .row .search-cell .search-input { font-size: var(--fs-md) !important; transition-property: background-color, border-color; }
     .row .search-cell .search-input:focus { font-size: 16px !important; }
     header.top { flex-wrap: wrap; gap: 10px; }
     header.top h1 { font-size: var(--fs-xl); }

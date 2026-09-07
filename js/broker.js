@@ -219,7 +219,7 @@ async function openBrokerSyncModal(debugResponse) {
       if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     } catch (err) {
       const st = document.getElementById('bkStatus');
-      if (st) { st.textContent = `⚠️ 조회 실패: ${err.message}`; st.style.borderLeftColor = '#dc2626'; st.style.background = '#fef2f2'; }
+      if (st) { st.textContent = `⚠️ 조회 실패: ${err.message}`; st.style.borderLeftColor = 'var(--danger)'; st.style.background = 'var(--danger-soft)'; }
       return;
     }
   }
@@ -243,23 +243,23 @@ async function openBrokerSyncModal(debugResponse) {
     const sa = diff.adds.filter(a => a.source.id === source.id);
     const sr = diff.removes.filter(r => r.source.id === source.id);
     const sc = diff.cashChanges.filter(c => c.source.id === source.id);
-    html += `<div style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;">
+    html += `<div style="padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;font-weight:700;">
       ${esc(source.label)} <span style="color:var(--text-muted);font-weight:400;">→ ${esc(source.category)}</span>
-      ${source.ok ? '' : `<span style="color:#dc2626;font-weight:600;margin-left:6px;">⚠️ ${esc(source.error || '실패')} — 이 계좌는 건너뜀</span>`}
+      ${source.ok ? '' : `<span style="color:var(--danger);font-weight:600;margin-left:6px;">⚠️ ${esc(source.error || '실패')} — 이 계좌는 건너뜀</span>`}
     </div>`;
     if (!source.ok) continue;
     for (const u of su) {
       const parts = u.changes.map(c => `${c.label} ${_bkFmt(c.from, c.unit === '$')} → <b>${_bkFmt(c.to, c.unit === '$')}</b>`).join(' · ');
-      html += rowLine('🔄', '#2563eb', u.row.name || _bkKey(source.category, u.row), parts);
+      html += rowLine('🔄', 'var(--accent)', u.row.name || _bkKey(source.category, u.row), parts);
     }
     for (const a of sa) {
       const f = _bkFields(a.source.category);
       const usd = f.unit === '$';
-      html += rowLine('➕', '#16a34a', `신규: ${a.newRow.name}`,
+      html += rowLine('➕', 'var(--success)', `신규: ${a.newRow.name}`,
         `수량 ${_bkFmt(num(a.newRow.quantity), false)} · 평단 ${_bkFmt(num(a.newRow[f.avg]), usd)}`);
     }
     for (const r of sr) {
-      html += rowLine('➖', '#dc2626', `삭제 예정: ${r.row.name}`, '이번 조회에 없음 (전량 매도로 판단)');
+      html += rowLine('➖', 'var(--danger)', `삭제 예정: ${r.row.name}`, '이번 조회에 없음 (전량 매도로 판단)');
     }
     for (const c of sc) {
       html += rowLine('💰', '#a16207', c.row ? `예수금: ${c.row.name}` : `예수금 신규: ${c.newRow.name}`,
@@ -277,7 +277,7 @@ async function openBrokerSyncModal(debugResponse) {
   const st = document.getElementById('bkStatus');
   st.innerHTML = total === 0
     ? '차이가 없습니다 — 앱과 실계좌가 일치합니다.'
-    : `변경 ${realUpdates.length} · 신규 ${diff.adds.length} · <span style="color:#dc2626;">삭제 ${diff.removes.length}</span> · 예수금 ${diff.cashChanges.length}건 — 내용 확인 후 적용하세요.`;
+    : `변경 ${realUpdates.length} · 신규 ${diff.adds.length} · <span style="color:var(--danger);">삭제 ${diff.removes.length}</span> · 예수금 ${diff.cashChanges.length}건 — 내용 확인 후 적용하세요.`;
   document.getElementById('bkHint').textContent = '같은 성격의 수기 행(예수금 등)이 따로 있으면 적용 후 직접 삭제하세요';
 
   // 4) 적용
@@ -357,10 +357,10 @@ async function refreshBrokerConnections() {
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <div style="flex:1;min-width:160px;">
         <div style="font-weight:600;font-size:13px;">${esc(c.label || p.label)}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${esc(p.label)} · ${chips || '<span style="color:#dc2626">계좌 미지정</span>'}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${esc(p.label)} · ${chips || '<span style="color:var(--danger)">계좌 미지정</span>'}</div>
       </div>
       <button class="btn" data-bk-edit="${esc(c.id)}" style="padding:4px 10px;font-size:12px;">수정</button>
-      <button class="btn" data-bk-del="${esc(c.id)}" style="padding:4px 10px;font-size:12px;color:#dc2626;">삭제</button>
+      <button class="btn" data-bk-del="${esc(c.id)}" style="padding:4px 10px;font-size:12px;color:var(--danger);">삭제</button>
     </div>`;
   }).join('');
   box.querySelectorAll('[data-bk-edit]').forEach(b => {
@@ -422,8 +422,8 @@ function openBrokerConnModal(connId) {
   const showMsg = (text, isError) => {
     msgEl.style.display = 'block';
     msgEl.textContent = text;
-    msgEl.style.borderLeftColor = isError ? '#dc2626' : '#0e7490';
-    msgEl.style.background = isError ? '#fef2f2' : '#ecfeff';
+    msgEl.style.borderLeftColor = isError ? 'var(--danger)' : 'var(--accent)';
+    msgEl.style.background = isError ? 'var(--danger-soft)' : 'var(--accent-soft)';
   };
 
   const collectCreds = (p) => {
@@ -517,7 +517,7 @@ function openBrokerConnModal(connId) {
     if (!p) return;
     document.getElementById('bkConnCreds').innerHTML = p.credFields.map(f => `
       <label style="font-size:12px;">
-        <div style="color:var(--text-muted);margin-bottom:4px;">${esc(f.label)}${conn && conn.credsMasked && conn.credsMasked[f.key] ? ` <span style="color:#16a34a;">(등록됨)</span>` : ''}</div>
+        <div style="color:var(--text-muted);margin-bottom:4px;">${esc(f.label)}${conn && conn.credsMasked && conn.credsMasked[f.key] ? ` <span style="color:var(--success);">(등록됨)</span>` : ''}</div>
         <input id="bkc_${esc(f.key)}" type="password" class="inp" autocomplete="off"
           placeholder="${conn ? '변경 시에만 입력' : esc(f.hint || '')}" style="border:1px solid var(--border);padding:6px 8px;width:100%;" />
       </label>`).join('');

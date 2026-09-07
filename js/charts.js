@@ -13,11 +13,23 @@
 // Chart.js 는 같은 canvas 에 인스턴스를 중복 생성하면 에러가 나므로, 재렌더 전 반드시 여기서 destroy 한다.
 let charts = {};
 
+// CSS 팔레트 토큰을 canvas 색으로 읽는다 — Chart.js 는 var() 를 못 그리므로 :root 의 계산값을 가져온다.
+// 차트 생성 함수 안에서(부팅 후 CSSOM 준비된 뒤) 호출할 것. 토큰이 없으면 폴백 hex(구 팔레트 값).
+const cssVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback);
+
 // 모든 차트를 destroy 후 재생성하는 메인 렌더 진입점 (도넛 2종·막대 2종·트리맵·이력 라인).
 // 부분 업데이트 없이 항상 전체를 다시 만드는 단순 전략 — state 가 바뀔 때마다 render.js/calc.js/fetch.js 에서 호출된다.
 // 이력 차트의 legend 가시성만은 renderCharts._histPrevVis 에 라벨 기준으로 저장해 재생성 후 복원 (모드 토글 시 유지 목적).
 // 도넛/막대는 대시보드의 viewScope(유동만/전체)에 따라 calc.js 의 scoped* 계열 합계 함수로 전환된다.
 function renderCharts() {
+  // 축 눈금·범례 글자, 격자 기본선, 툴팁 배경을 팔레트에 맞춘다. 이 함수가 모든 차트를 destroy 후 재생성하므로
+  // 여기서 defaults 를 바꾸면 전 차트에 반영된다(이미 만들어진 인스턴스엔 소급되지 않음 — 그래서 재생성 앞에 둔다).
+  Chart.defaults.color = cssVar('--text-muted', '#67645c');
+  Chart.defaults.borderColor = cssVar('--border', '#e3e0d9');
+  Chart.defaults.plugins.tooltip.backgroundColor = cssVar('--text', '#1c1b18');
+  Chart.defaults.plugins.tooltip.titleColor = cssVar('--card', '#ffffff');
+  Chart.defaults.plugins.tooltip.bodyColor = cssVar('--card', '#ffffff');
+  Chart.defaults.plugins.tooltip.footerColor = cssVar('--card', '#ffffff');
   // 이력 차트의 legend 보이기/숨기기 상태를 라벨 기준으로 저장 (모드 토글 시 보존)
   const histPrevVis = {};
   if (charts.hist) {
@@ -50,7 +62,7 @@ function renderCharts() {
   ASSET_TYPES.forEach(t => {
     if (t === '현금') {
       // 최대한 비슷한 초록 계열, 명도만 다르게 하여 구별
-      atData.push({ key: '현금(원화)', value: _cashKRW, color: '#16a34a' });
+      atData.push({ key: '현금(원화)', value: _cashKRW, color: cssVar('--c-cash', '#16a34a') });
       atData.push({ key: '현금($)',   value: _cashUSD, color: '#2dd4bf' });
     } else {
       atData.push({ key: t, value: at_total_fn(t), color: ASSET_TYPE_COLORS[t] });
@@ -63,8 +75,8 @@ function renderCharts() {
       labels: visibleAt.length ? visibleAt.map(d => d.key) : ['데이터 없음'],
       datasets: [{
         data: visibleAt.length ? visibleAt.map(d => d.value) : [1],
-        backgroundColor: visibleAt.length ? visibleAt.map(d => d.color) : ['#e2e8f0'],
-        borderWidth: 2, borderColor: '#fff',
+        backgroundColor: visibleAt.length ? visibleAt.map(d => d.color) : [cssVar('--border', '#e2e8f0')],
+        borderWidth: 2, borderColor: cssVar('--card', '#fff'),
       }]
     },
     options: doughnutOpts(visibleAt.length > 0)
@@ -79,8 +91,8 @@ function renderCharts() {
       labels: visibleExp.length ? visibleExp.map(d => d.key) : ['데이터 없음'],
       datasets: [{
         data: visibleExp.length ? visibleExp.map(d => d.value) : [1],
-        backgroundColor: visibleExp.length ? visibleExp.map(d => d.color) : ['#e2e8f0'],
-        borderWidth: 2, borderColor: '#fff',
+        backgroundColor: visibleExp.length ? visibleExp.map(d => d.color) : [cssVar('--border', '#e2e8f0')],
+        borderWidth: 2, borderColor: cssVar('--card', '#fff'),
       }]
     },
     options: doughnutOpts(visibleExp.length > 0)
@@ -96,12 +108,12 @@ function renderCharts() {
         {
           label: '현재 비중' + (scoped ? ' (유동)' : ''),
           data: ASSET_TYPES.map(t => barBase ? (at_total_fn(t) / barBase * 100) : 0),
-          backgroundColor: '#2563eb', borderRadius: 4,
+          backgroundColor: cssVar('--accent', '#2563eb'), borderRadius: 4,
         },
         {
           label: '목표 비중',
           data: ASSET_TYPES.map(t => (state.assetTypeTargets[t] || 0) * 100),
-          backgroundColor: '#cbd5e1', borderRadius: 4,
+          backgroundColor: cssVar('--border-strong', '#cbd5e1'), borderRadius: 4,
         }
       ]
     },
@@ -117,12 +129,12 @@ function renderCharts() {
         {
           label: '현재 비중' + (scoped ? ' (유동)' : ''),
           data: EXPOSURES.map(e => barBase ? (exp_total_fn(e) / barBase * 100) : 0),
-          backgroundColor: '#2563eb', borderRadius: 4,
+          backgroundColor: cssVar('--accent', '#2563eb'), borderRadius: 4,
         },
         {
           label: '목표 비중',
           data: EXPOSURES.map(e => (state.expTargets[e] || 0) * 100),
-          backgroundColor: '#cbd5e1', borderRadius: 4,
+          backgroundColor: cssVar('--border-strong', '#cbd5e1'), borderRadius: 4,
         }
       ]
     },
@@ -241,9 +253,9 @@ function renderCharts() {
     {
       label: '총자산 (명목 USD)',
       data: dataTotal,
-      borderColor: '#0f172a', backgroundColor: isNorm ? 'transparent' : 'rgba(15,23,42,0.06)',
+      borderColor: cssVar('--text', '#0f172a'), backgroundColor: isNorm ? 'transparent' : cssVar('--text', '#1c1b18') + '0f',
       tension: 0.25, borderWidth: 3, fill: !isNorm,
-      pointBackgroundColor: '#0f172a', pointRadius: 5,
+      pointBackgroundColor: cssVar('--text', '#0f172a'), pointRadius: 5,
       spanGaps: true,
       hidden: visFor('총자산 (명목 USD)', false),
     },
@@ -259,9 +271,9 @@ function renderCharts() {
     {
       label: '인플레이션 기준선 (CPI)',
       data: dataInflation,
-      borderColor: '#dc2626', backgroundColor: 'transparent',
+      borderColor: cssVar('--danger', '#dc2626'), backgroundColor: 'transparent',
       tension: 0.25, borderWidth: 2, borderDash: [6, 4], pointRadius: 3,
-      pointBackgroundColor: '#dc2626',
+      pointBackgroundColor: cssVar('--danger', '#dc2626'),
       spanGaps: true,
       hidden: visFor('인플레이션 기준선 (CPI)', false),
     },
@@ -292,9 +304,9 @@ function renderCharts() {
     datasets.push({
       label: 'S&P500',
       data: isNorm ? toPct(spxLine) : [],
-      borderColor: '#64748b', backgroundColor: 'transparent',
+      borderColor: cssVar('--text-muted', '#64748b'), backgroundColor: 'transparent',
       tension: 0.25, borderWidth: 2, borderDash: [4, 4], pointRadius: 2,
-      pointBackgroundColor: '#64748b',
+      pointBackgroundColor: cssVar('--text-muted', '#64748b'),
       spanGaps: true,
       // 지수 포인트 단위라 절대값(USD) 모드에선 숨김. 정규화 모드는 이전 상태 보존
       hidden: !isNorm ? true : visFor('S&P500', false),
@@ -304,9 +316,9 @@ function renderCharts() {
     datasets.push({
       label: '나스닥',
       data: isNorm ? toPct(ndxLine) : [],
-      borderColor: '#0ea5e9', backgroundColor: 'transparent',
+      borderColor: cssVar('--c-fstock', '#0ea5e9'), backgroundColor: 'transparent',
       tension: 0.25, borderWidth: 2, borderDash: [4, 4], pointRadius: 2,
-      pointBackgroundColor: '#0ea5e9',
+      pointBackgroundColor: cssVar('--c-fstock', '#0ea5e9'),
       spanGaps: true,
       hidden: !isNorm ? true : visFor('나스닥', false),
     });
@@ -318,9 +330,9 @@ function renderCharts() {
     datasets.push({
       label: '실투자 수익률 (TWR·KRW)',
       data: isNorm ? twrLine : [],
-      borderColor: '#16a34a', backgroundColor: 'transparent',
+      borderColor: cssVar('--success', '#158240'), backgroundColor: 'transparent',
       tension: 0.25, borderWidth: 2, borderDash: [8, 3], pointRadius: 3,
-      pointBackgroundColor: '#16a34a',
+      pointBackgroundColor: cssVar('--success', '#158240'),
       spanGaps: true,
       // % 시계열이라 절대값(USD) 모드에선 숨김. 정규화 모드는 이전 상태 보존, 기본 visible
       hidden: !isNorm ? true : visFor('실투자 수익률 (TWR·KRW)', false),
@@ -391,7 +403,7 @@ function usdLineOpts(rawMap) {
           callback: v => '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v.toFixed(0)),
           font: { size: 10 }
         },
-        grid: { color: '#f1f5f9' }
+        grid: { color: cssVar('--border', '#f1f5f9') }
       },
       x: {
         ticks: { font: { size: 10 } },
@@ -449,7 +461,7 @@ function normLineOpts(rawMap) {
           font: { size: 10 }
         },
         grid: {
-          color: (ctx) => ctx.tick.value === 0 ? '#94a3b8' : '#f1f5f9',
+          color: (ctx) => ctx.tick.value === 0 ? cssVar('--border-strong', '#94a3b8') : cssVar('--border', '#f1f5f9'),
           lineWidth: (ctx) => ctx.tick.value === 0 ? 1.5 : 1
         }
       },
@@ -503,7 +515,7 @@ function barOpts() {
       x: {
         beginAtZero: true,
         ticks: { callback: v => v + '%', font: { size: 10 } },
-        grid: { color: '#f1f5f9' }
+        grid: { color: cssVar('--border', '#f1f5f9') }
       },
       y: {
         ticks: { font: { size: 11 } },
@@ -528,7 +540,7 @@ function lineOpts() {
       y: {
         beginAtZero: false,
         ticks: { callback: v => fmtKRWshort(v), font: { size: 10 } },
-        grid: { color: '#f1f5f9' }
+        grid: { color: cssVar('--border', '#f1f5f9') }
       },
       x: {
         ticks: { font: { size: 10 } },
@@ -737,7 +749,7 @@ function renderTreemap() {
     if (h.exposure === '달러(노출)') _cashUSD += v; else _cashKRW += v;
   });
   // 비현금은 개별 종목 leaf. 현금은 아래 통화별 net 2타일로만 표시.
-  const CASH_KRW_COLOR = '#16a34a', CASH_USD_COLOR = '#2dd4bf';
+  const CASH_KRW_COLOR = cssVar('--c-cash', '#16a34a'), CASH_USD_COLOR = '#2dd4bf';
   const rawItems = sourceHoldings
     .filter(h => assetTypeOf(h) !== '현금')
     .map(h => ({
@@ -899,7 +911,7 @@ function renderTreemap() {
   // === 레전드 ===
   if (_treemapDrill) {
     // drill 모드: 들어간 자산타입 색상 안내 + 종목 수
-    const baseColor = ASSET_TYPE_COLORS[_treemapDrill] || '#94a3b8';
+    const baseColor = ASSET_TYPE_COLORS[_treemapDrill] || cssVar('--c-pension-fund', '#94a3b8');
     legendEl.innerHTML = `
       <span class="lg-item"><span class="lg-swatch" style="background:${baseColor}"></span>${_treemapDrill} (${items.length}개 종목)</span>
       <span class="lg-item" style="color:var(--text-muted)">종목마다 다른 색상 · 큰 사각형일수록 비중 높음</span>
@@ -911,7 +923,7 @@ function renderTreemap() {
     const visibleCount = allTypesPresent.length - _treemapHidden.size;
     const buttons = allTypesPresent.map(t => {
       const isHidden = _treemapHidden.has(t);
-      const color = ASSET_TYPE_COLORS[t] || '#94a3b8';
+      const color = ASSET_TYPE_COLORS[t] || cssVar('--c-pension-fund', '#94a3b8');
       return `<button class="lg-toggle ${isHidden ? 'hidden' : ''}" data-toggle-type="${escapeHtml(t)}" title="${isHidden ? '클릭해 다시 표시' : '클릭해 숨기기'}">
         <span class="lg-swatch" style="background:${color}"></span>
         <span class="lg-name">${escapeHtml(t)}</span>
@@ -954,7 +966,7 @@ function renderTreemap() {
   //   - flat 모드 (전체 펼침): 모든 종목을 leaf로, 같은 자산타입끼리 색상 클러스터링. groups: ['_atype', '_uid']
   //   - drill 모드: 그룹 없이 한 자산타입의 종목만 (다채로운 팔레트). groups 없음
   const useGroups = !_treemapDrill;
-  const drillBaseColor = _treemapDrill ? (ASSET_TYPE_COLORS[_treemapDrill] || '#94a3b8') : null;
+  const drillBaseColor = _treemapDrill ? (ASSET_TYPE_COLORS[_treemapDrill] || cssVar('--c-pension-fund', '#94a3b8')) : null;
   // 그룹 설정: default/flat 모두 2레벨(자산타입 > leaf), drill=없음
   // default에서도 2레벨을 쓰는 이유: 현금 그룹 안에 원화/달러 두 leaf를 인접 배치하기 위함
   const groupsConfig = _treemapDrill ? undefined : ['_atype', '_uid'];
@@ -979,7 +991,7 @@ function renderTreemap() {
     const visibleAtypes = new Set(items.map(i => i._atype));
     if (visibleAtypes.size === 1) {
       const onlyAtype = [...visibleAtypes][0];
-      const baseColor = ASSET_TYPE_COLORS[onlyAtype] || '#94a3b8';
+      const baseColor = ASSET_TYPE_COLORS[onlyAtype] || cssVar('--c-pension-fund', '#94a3b8');
       const sorted = [...sortedItems].sort((a, b) => b._value - a._value);
       const palette = generateDrillPalette(baseColor, sorted.length);
       sortedItems = sorted.map((it, idx) => ({ ...it, _drillColor: palette[idx] }));
@@ -1024,14 +1036,14 @@ function renderTreemap() {
         captions: { display: false },
         spacing: 1,
         borderWidth: 1,
-        borderColor: '#fff',
+        borderColor: cssVar('--card', '#fff'),
         backgroundColor: (ctx) => {
           if (ctx.type !== 'data') return 'transparent';
           const r = ctx.raw;
           // === 손익 히트맵 모드: 모든 leaf 색상 = 통합 수익률 ===
           if (_treemapHeat) {
             // 그룹 밴드(l=0)는 자산타입 색 유지 (spacing 틈으로 살짝 보이는 정도)
-            if (!_treemapDrill && r.l === 0) return ASSET_TYPE_COLORS[r.g] || '#94a3b8';
+            if (!_treemapDrill && r.l === 0) return ASSET_TYPE_COLORS[r.g] || cssVar('--c-pension-fund', '#94a3b8');
             let hItem = r._data;
             if ((!hItem || hItem._heatPct === undefined) && r.g) {
               hItem = sortedItems.find(it => it._uid === r.g);
@@ -1040,12 +1052,12 @@ function renderTreemap() {
           }
           if (_treemapDrill) {
             // drill: 종목별 팔레트 색상
-            return r._data?._drillColor || drillBaseColor || '#94a3b8';
+            return r._data?._drillColor || drillBaseColor || cssVar('--c-pension-fund', '#94a3b8');
           }
           // default(단일 그룹) 또는 flat(2레벨)
           if (r.l === 0) {
             // l=0: 자산타입 그룹 → r.g = atype 문자열
-            return ASSET_TYPE_COLORS[r.g] || '#94a3b8';
+            return ASSET_TYPE_COLORS[r.g] || cssVar('--c-pension-fund', '#94a3b8');
           }
           // l>=1 leaf: _uid(=r.g) 직접 매핑 우선 (현금 원화/달러 구분색 확실 적용)
           if (_leafColorByUid[r.g]) return _leafColorByUid[r.g];
@@ -1058,11 +1070,11 @@ function renderTreemap() {
           if (item?._drillColor) return item._drillColor;
           // _leafColor: 현금 원화/달러 구분색
           if (item?._leafColor) return item._leafColor;
-          return ASSET_TYPE_COLORS[item?._atype] || '#94a3b8';
+          return ASSET_TYPE_COLORS[item?._atype] || cssVar('--c-pension-fund', '#94a3b8');
         },
         labels: {
           display: true,
-          color: '#fff',
+          color: cssVar('--card', '#fff'),
           font: { size: _treemapDrill ? 13 : 11, weight: '600' },
           formatter(ctx) {
             if (ctx.type !== 'data') return '';

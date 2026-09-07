@@ -201,7 +201,7 @@ function renderRebalancing() {
   grid.innerHTML = cards;
   const scopeLabel = scoped ? '💧 유동 자산' : '총 자산';
   summary.innerHTML = `
-    <span class="chip" style="${scoped ? 'background:#ecfeff;color:#0e7490;border-color:#67e8f9;' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
+    <span class="chip" style="${scoped ? 'background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
     <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 자산타입이 ±${(REBAL_THRESHOLD*100).toFixed(0)}%p 초과` : '✓ 모든 자산타입이 ±2%p 이내'}</span>
     <span class="chip">총 조정 필요 금액 (절대값 합) ${fmtKRWshort(totalGap)}</span>
   `;
@@ -224,9 +224,9 @@ function renderRebalancingExposure() {
   }
   // 통화노출별 스타일 매핑
   const EXP_STYLE = {
-    '원화':      { emoji: '🇰🇷', bg: '#dcfce7', color: '#166534', border: '#16a34a' },
-    '달러(노출)':{ emoji: '🇺🇸', bg: '#dbeafe', color: '#1e40af', border: '#2563eb' },
-    '달러헤지':  { emoji: '🥇', bg: '#fef9c3', color: '#854d0e', border: '#eab308' },
+    '원화':      { emoji: '🇰🇷', bg: '#dcfce7', color: '#166534', border: 'var(--c-krw)' },
+    '달러(노출)':{ emoji: '🇺🇸', bg: '#dbeafe', color: '#1e40af', border: 'var(--c-usd)' },
+    '달러헤지':  { emoji: '🥇', bg: '#fef9c3', color: '#854d0e', border: 'var(--c-gold)' },
   };
   let alertCount = 0;
   let totalGap = 0;
@@ -273,7 +273,7 @@ function renderRebalancingExposure() {
   grid.innerHTML = cards;
   const scopeLabel = scoped ? '💧 유동 자산' : '총 자산';
   summary.innerHTML = `
-    <span class="chip" style="${scoped ? 'background:#ecfeff;color:#0e7490;border-color:#67e8f9;' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
+    <span class="chip" style="${scoped ? 'background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
     <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 통화노출이 ±${(REBAL_THRESHOLD*100).toFixed(0)}%p 초과` : '✓ 모든 통화노출이 ±2%p 이내'}</span>
     <span class="chip">총 조정 필요 금액 (절대값 합) ${fmtKRWshort(totalGap)}</span>
   `;
@@ -393,7 +393,7 @@ function _removed_renderHedgePerformance() {
     const totalPnL = (totalCurrent - totalCost) / totalCost;
     const totalVsCpi = cpiCum !== null ? totalPnL - cpiCum : null;
     const sumRow = document.createElement('tr');
-    sumRow.style.background = '#f8fafc';
+    sumRow.style.background = 'var(--surface)';
     sumRow.style.fontWeight = '600';
     sumRow.innerHTML = `
       <td>합계 (평단가 입력 분만)</td>
@@ -516,10 +516,10 @@ function renderSettings() {
       const hh = String(dt.getHours()).padStart(2, '0');
       const mi = String(dt.getMinutes()).padStart(2, '0');
       const ageDays = Math.floor((Date.now() - dt.getTime()) / 86400000);
-      const ageWarn = ageDays >= 14 ? ` <span style="color:#dc2626;font-weight:600">⚠️ ${ageDays}일 경과 - 백업 권장</span>` : ` (${ageDays}일 전)`;
+      const ageWarn = ageDays >= 14 ? ` <span style="color:var(--danger);font-weight:600">⚠️ ${ageDays}일 경과 - 백업 권장</span>` : ` (${ageDays}일 전)`;
       meta.innerHTML = `📁 마지막 JSON 백업: ${yy}-${mm}-${dd} ${hh}:${mi}${ageWarn}`;
     } else {
-      meta.innerHTML = `📁 <span style="color:#dc2626;font-weight:600">⚠️ 백업 이력 없음 - 지금 한번 다운로드해 두세요</span>`;
+      meta.innerHTML = `📁 <span style="color:var(--danger);font-weight:600">⚠️ 백업 이력 없음 - 지금 한번 다운로드해 두세요</span>`;
     }
   }
 }
@@ -674,14 +674,14 @@ function renderHoldings() {
     header.className = 'cat-header';
     const exchangeSelector = c.isCrypto ? `
       <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">시세:</span>
-      <select class="crypto-exchange-select" data-stop-collapse="1" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:white;cursor:pointer;">
+      <select class="crypto-exchange-select" data-stop-collapse="1" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--card);cursor:pointer;">
         <option value="bithumb" ${state.cryptoExchange === 'bithumb' ? 'selected' : ''}>Bithumb</option>
         <option value="upbit" ${state.cryptoExchange === 'upbit' ? 'selected' : ''}>Upbit</option>
         <option value="coingecko" ${state.cryptoExchange === 'coingecko' ? 'selected' : ''}>CoinGecko</option>
       </select>
     ` : '';
     const goldRefreshBtn = c.key === '금' ? `
-      <button class="gold-refresh-btn" data-stop-collapse="1" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid #e0a800;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#78350f;cursor:pointer;margin-left:8px;font-weight:500;">
+      <button class="gold-refresh-btn" data-stop-collapse="1" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid #e0a800;background:#fef3c7;color:#78350f;cursor:pointer;margin-left:8px;font-weight:500;">
         🥇 시세 자동 갱신
       </button>
     ` : '';
@@ -1131,7 +1131,7 @@ function openHoldingEditModal(holdingId) {
           ${c.hasTicker ? '<button class="btn" id="holdEditRefreshBtn">🔄 시세</button>' : ''}
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn" id="holdEditDeleteBtn" style="color:#dc2626">삭제</button>
+          <button class="btn" id="holdEditDeleteBtn" style="color:var(--danger)">삭제</button>
           <button class="btn primary" id="holdEditCloseBtn">닫기</button>
         </div>
       </div>
@@ -1334,7 +1334,7 @@ function renderAssetTypeTargets() {
   });
 
   const sumRow = document.createElement('tr');
-  sumRow.style.background = '#f8fafc';
+  sumRow.style.background = 'var(--surface)';
   sumRow.style.fontWeight = '600';
   const sumOk = Math.abs(sumTarget - 1) < 0.001;
   sumRow.innerHTML = `
@@ -1399,7 +1399,7 @@ function renderExpTargets() {
   });
 
   const sumRow = document.createElement('tr');
-  sumRow.style.background = '#f8fafc';
+  sumRow.style.background = 'var(--surface)';
   sumRow.style.fontWeight = '600';
   const sumOk = Math.abs(sumTarget - 1) < 0.001;
   sumRow.innerHTML = `
@@ -1493,7 +1493,7 @@ function renderHistory() {
   function fmtSignedPctSmall(p, label) {
     if (p === null || !isFinite(p)) return '—';
     const sign = p >= 0 ? '+' : '';
-    const color = p > 0.0001 ? '#16a34a' : (p < -0.0001 ? '#dc2626' : 'var(--text-muted)');
+    const color = p > 0.0001 ? 'var(--success)' : (p < -0.0001 ? 'var(--danger)' : 'var(--text-muted)');
     return `<span style="color:${color}">${sign}${(p*100).toFixed(2)}%</span>${label ? `<span style="color:var(--text-muted)">(${label})</span>` : ''}`;
   }
 
@@ -1561,7 +1561,7 @@ function renderHistory() {
       ${i === 0 ? '<div style="font-size:10px;color:var(--text-muted)">기준</div>' : `
         <div style="font-size:10px;line-height:1.4;">
           ${usdPrevPct !== null ? `<div title="직전 스냅샷 대비 USD 자산 변화율">직전 ${fmtSignedPctSmall(usdPrevPct)}</div>` : ''}
-          ${usd30Pct !== null ? `<div title="약 30일 전 스냅샷 대비 USD 자산 변화율 (실제 ${close30.actualDaysAgo}일 전 데이터 사용)">30일경 ${fmtSignedPctSmall(usd30Pct, close30.actualDaysAgo+'일전')}</div>` : `<div style="color:#9ca3af" title="±10일 범위에 비교할 스냅샷 없음 (스냅샷이 너무 자주/드물게 찍힘)">30일경 —</div>`}
+          ${usd30Pct !== null ? `<div title="약 30일 전 스냅샷 대비 USD 자산 변화율 (실제 ${close30.actualDaysAgo}일 전 데이터 사용)">30일경 ${fmtSignedPctSmall(usd30Pct, close30.actualDaysAgo+'일전')}</div>` : `<div style="color:var(--text-muted)" title="±10일 범위에 비교할 스냅샷 없음 (스냅샷이 너무 자주/드물게 찍힘)">30일경 —</div>`}
           ${usdCumPct !== null ? `<div title="첫 스냅샷 대비 누적 USD 자산 변화율">누적 ${fmtSignedPctSmall(usdCumPct)}</div>` : ''}
         </div>`}
     `;
@@ -1586,25 +1586,25 @@ function renderHistory() {
     const twr = twrByDate[s.date];
     const flowCellContent = i === 0
       ? '<span style="font-size:10px;color:var(--text-muted)">기준</span>'
-      : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? '#16a34a' : '#dc2626'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:#9ca3af">—</span>'}
+      : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
          ${twr ? `<div style="font-size:10px;color:var(--text-muted)" title="이 구간의 실투자 수익률 (입출금 효과 제거, KRW 기준)">TWR ${fmtSignedPctSmall(twr.r)}</div>` : ''}`;
 
     // 벤치마크 지수 셀 — 절대값 + 첫 기록 대비 누적 % (지수 데이터가 있는 스냅샷부터).
     const fmtIdxNum = v => v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const spxCell = s.spx
-      ? `${fmtIdxNum(s.spx)}${firstSpx ? `<div style="font-size:10px;color:#64748b;font-weight:500">${s.id === firstSpx.id ? '기준' : fmtSignedPct(s.spx / firstSpx.spx - 1)}</div>` : ''}`
+      ? `${fmtIdxNum(s.spx)}${firstSpx ? `<div style="font-size:10px;color:var(--text-muted);font-weight:500">${s.id === firstSpx.id ? '기준' : fmtSignedPct(s.spx / firstSpx.spx - 1)}</div>` : ''}`
       : '—';
     const ndxCell = s.ndx
-      ? `${fmtIdxNum(s.ndx)}${firstNdx ? `<div style="font-size:10px;color:#0ea5e9;font-weight:500">${s.id === firstNdx.id ? '기준' : fmtSignedPct(s.ndx / firstNdx.ndx - 1)}</div>` : ''}`
+      ? `${fmtIdxNum(s.ndx)}${firstNdx ? `<div style="font-size:10px;color:var(--c-fstock);font-weight:500">${s.id === firstNdx.id ? '기준' : fmtSignedPct(s.ndx / firstNdx.ndx - 1)}</div>` : ''}`
       : '—';
 
     tr.innerHTML = `
       <td style="white-space:nowrap">${s.date}${memoDotHtml}</td>
       <td class="right">${usdCellContent}</td>
       ${hasFlows ? `<td class="right">${flowCellContent}</td>` : ''}
-      <td class="right" style="color:#dc2626">${fmtUSD(cpiBaseline)}${cpiBaseline > 0 ? `<div class="${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 CPI 기준선 대비 차이 — 양수면 인플레이션을 이긴 것">vs ${fmtSignedPct(realDiffCPI)}</div>` : ''}</td>
+      <td class="right" style="color:var(--danger)">${fmtUSD(cpiBaseline)}${cpiBaseline > 0 ? `<div class="${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 CPI 기준선 대비 차이 — 양수면 인플레이션을 이긴 것">vs ${fmtSignedPct(realDiffCPI)}</div>` : ''}</td>
       <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}${realDiffM2 !== null ? `<div class="${realDiffM2 > 0 ? 'mom-pos' : (realDiffM2 < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 M2 기준선 대비 차이 — 양수면 통화확장 속도를 이긴 것">vs ${fmtSignedPct(realDiffM2)}</div>` : ''}</td>
-      <td class="right">${s.cpiIndex ? s.cpiIndex.toFixed(2) : '—'}${cpiCumPct !== null ? `<div style="font-size:10px;color:#dc2626;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(cpiCumPct)}</div>` : (s.cpiLabel ? `<div style="font-size:10px;color:var(--text-muted)">${s.cpiLabel}</div>` : '')}${cpiYoYPct !== null ? `<div style="font-size:10px;color:#dc2626;opacity:0.8" title="전년 대비 (뉴스에서 보는 인플레이션율). ${yoy ? yoy.actualDaysAgo + '일 전 스냅샷 사용' : ''}">YoY ${fmtSignedPct(cpiYoYPct)}</div>` : ''}</td>
+      <td class="right">${s.cpiIndex ? s.cpiIndex.toFixed(2) : '—'}${cpiCumPct !== null ? `<div style="font-size:10px;color:var(--danger);font-weight:500">${i === 0 ? '기준' : fmtSignedPct(cpiCumPct)}</div>` : (s.cpiLabel ? `<div style="font-size:10px;color:var(--text-muted)">${s.cpiLabel}</div>` : '')}${cpiYoYPct !== null ? `<div style="font-size:10px;color:var(--danger);opacity:0.8" title="전년 대비 (뉴스에서 보는 인플레이션율). ${yoy ? yoy.actualDaysAgo + '일 전 스냅샷 사용' : ''}">YoY ${fmtSignedPct(cpiYoYPct)}</div>` : ''}</td>
       <td class="right">${s.m2 ? s.m2.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '—'}${m2CumPct !== null ? `<div style="font-size:10px;color:#9333ea;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(m2CumPct)}</div>` : (s.m2Label ? `<div style="font-size:10px;color:var(--text-muted)">${s.m2Label}</div>` : '')}${m2YoYPct !== null ? `<div style="font-size:10px;color:#9333ea;opacity:0.8" title="전년 대비 M2 통화공급 증가율">YoY ${fmtSignedPct(m2YoYPct)}</div>` : ''}</td>
       <td class="right">${fxCellContent}</td>
       ${hasBench ? `<td class="right">${spxCell}</td><td class="right">${ndxCell}</td>` : ''}
@@ -1634,26 +1634,26 @@ function renderHistory() {
     document.getElementById('m-nominal-return').textContent = fmtSignedPct(nominalRet);
     document.getElementById('m-nominal-return').style.color = nominalRet >= 0 ? 'var(--success)' : 'var(--danger)';
     document.getElementById('m-inflation').textContent = fmtSignedPct(inflation);
-    document.getElementById('m-inflation').style.color = '#dc2626';
+    document.getElementById('m-inflation').style.color = 'var(--danger)';
     document.getElementById('m-m2growth').textContent = m2Growth !== null ? fmtSignedPct(m2Growth) : '—';
     document.getElementById('m-m2growth').style.color = '#9333ea';
     document.getElementById('m-real-return').textContent = fmtSignedPct(realRet);
     document.getElementById('m-real-return').style.color = realRet >= 0 ? 'var(--success)' : 'var(--danger)';
     document.getElementById('m-m2-real').textContent = m2Real !== null ? fmtSignedPct(m2Real) : '—';
-    document.getElementById('m-m2-real').style.color = m2Real !== null ? (m2Real >= 0 ? 'var(--success)' : 'var(--danger)') : '#9ca3af';
+    document.getElementById('m-m2-real').style.color = m2Real !== null ? (m2Real >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)';
     // 누적 TWR — 입출금을 제거한 실투자 수익률 (KRW 기준). 스냅샷 2개부터 의미가 있다.
     const twrEl = document.getElementById('m-twr');
     if (twrEl && hasFlows) {
       const twrLast = twrSeries.length >= 2 ? twrSeries[twrSeries.length - 1].cum : null;
       twrEl.textContent = twrLast !== null ? fmtSignedPct(twrLast) : '—';
-      twrEl.style.color = twrLast !== null ? (twrLast >= 0 ? 'var(--success)' : 'var(--danger)') : '#9ca3af';
+      twrEl.style.color = twrLast !== null ? (twrLast >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)';
     }
     // MDD·변동성 — 스냅샷 이력만으로 계산되는 참고용 리스크 지표 (calc.js computeRiskStats).
     const risk = computeRiskStats();
     const mddEl = document.getElementById('m-mdd');
     if (mddEl) {
       mddEl.textContent = risk ? '-' + (risk.mdd * 100).toFixed(1) + '%' : '—';
-      mddEl.style.color = risk && risk.mdd > 0 ? 'var(--danger)' : '#9ca3af';
+      mddEl.style.color = risk && risk.mdd > 0 ? 'var(--danger)' : 'var(--text-muted)';
     }
     const volEl = document.getElementById('m-vol');
     if (volEl) {
@@ -1669,10 +1669,10 @@ function renderHistory() {
           sub = '최근 1년 기준';
         }
         volEl.innerHTML = `${(risk.vol * 100).toFixed(1)}%<div style="font-size:10px;font-weight:400;color:var(--text-muted);margin-top:2px">${sub}</div>`;
-        volEl.style.color = '#64748b';
+        volEl.style.color = 'var(--text-muted)';
       } else {
         volEl.textContent = '—';
-        volEl.style.color = '#9ca3af';
+        volEl.style.color = 'var(--text-muted)';
       }
     }
     box.style.display = 'grid';

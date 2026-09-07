@@ -37,7 +37,7 @@ function openHistoricalAddModal() {
         </div>
         <button class="memo-modal-x" id="histAddCloseBtn" title="닫기">×</button>
       </div>
-      <div class="memo-modal-hint" style="border-left-color:#dc2626;background:#fef2f2;">
+      <div class="memo-modal-hint" style="border-left-color:var(--danger);background:var(--danger-soft);">
         ⚠️ 이 작업은 과거 스냅샷을 수정합니다. 적용 전에 설정 탭에서 "백업 다운로드"로 JSON 백업을 받아두세요. 롤백 안 됩니다.
       </div>
       <div class="hist-form-grid">
@@ -73,7 +73,7 @@ function openHistoricalAddModal() {
           </select>
         </label>
       </div>
-      <div class="memo-modal-hint" id="histAddPreview" style="border-left-color:#0e7490;background:#ecfeff;">
+      <div class="memo-modal-hint" id="histAddPreview" style="border-left-color:var(--accent);background:var(--accent-soft);">
         금액을 입력하면 적용 결과 미리보기가 표시됩니다.
       </div>
       <div class="memo-modal-foot">
@@ -320,10 +320,10 @@ function openCashflowModal() {
       return '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">아직 기록이 없습니다 — 월급 이체·큰 입출금이 있을 때 적어두면 실투자 수익률(TWR)이 정확해집니다.</div>';
     }
     return `<table style="width:100%;font-size:12px;">
-      <thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:4px 8px;">날짜</th><th class="right" style="padding:4px 8px;">금액</th><th style="text-align:left;padding:4px 8px;">메모</th><th></th></tr></thead>
+      <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">날짜</th><th class="right" style="padding:4px 8px;">금액</th><th style="text-align:left;padding:4px 8px;">메모</th><th></th></tr></thead>
       <tbody>${flows.map(f => `<tr>
         <td style="padding:3px 8px;white-space:nowrap;">${f.date}</td>
-        <td class="right" style="padding:3px 8px;color:${num(f.amount) >= 0 ? '#16a34a' : '#dc2626'};font-variant-numeric:tabular-nums;">${num(f.amount) >= 0 ? '+' : ''}${fmtKRW(num(f.amount))}</td>
+        <td class="right" style="padding:3px 8px;color:${num(f.amount) >= 0 ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums;">${num(f.amount) >= 0 ? '+' : ''}${fmtKRW(num(f.amount))}</td>
         <td style="padding:3px 8px;">${escapeHtml(f.memo || '')}</td>
         <td style="padding:3px 4px;"><button class="icon-btn" data-del-flow="${f.id}" title="삭제">×</button></td>
       </tr>`).join('')}</tbody>
