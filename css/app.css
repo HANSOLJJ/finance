@@ -934,6 +934,7 @@
   /* ==================== 탭 네비게이션 ==================== */
   /* 상단 5개 탭 버튼(#tabNav)과 탭 패널 전환 스타일 (render.js initTabs/switchTab 연동). */
   /* .tab-btn.active 가 선택된 탭이고, .tab-panel.active 만 표시되며 fadeIn 애니메이션이 걸린다. */
+  /* 버튼 안은 .tab-ico(이모지)+.tab-txt(글자) 두 span — 데스크톱은 한 줄(gap 6px), 폰(768px 이하)은 파일 끝 블록에서 2줄로 세운다. */
   .tab-nav {
     display: flex; gap: 4px;
     background: var(--card);
@@ -1318,7 +1319,13 @@
     .rebal-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: 12px 14px; }
     .metrics-box, .metrics-box.metrics-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 14px; }
     .section-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
-    .tab-btn { min-width: fit-content; flex: 1 0 auto; padding: 8px 10px; font-size: var(--fs-sm); }
+    /* 탭 바 — 폰에서는 아이콘 위·글자 아래 2줄, 5칸 균등(하단 탭 스타일). 320px 에서도 한 줄에 들어간다: */
+    /* 296(app) − 2(border) − 8(padding) − 8(gap) = 278px ÷ 5 = 55.6px ≥ "자산 입력" 11px 글자폭 ≈ 47px. */
+    /* 이전 flex:1 0 auto(shrink 0)+nowrap 은 5개 합 368px 이 321px 를 넘어 가로 스크롤을 만들었다. overflow-x:auto 는 폴백으로 남긴다. */
+    .tab-nav { gap: 2px; padding: 4px; }
+    .tab-btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; flex-direction: column; gap: 2px; }
+    .tab-ico { font-size: var(--fs-lg); line-height: 1; }
+    .tab-txt { font-size: var(--fs-xs); line-height: 1.2; }
     .tax-grid { grid-template-columns: 1fr; }
     .cat-header .left { flex-wrap: wrap; }
     /* 320px 에서 우측 합계 묶음($·₩·%·화살표)이 헤더 폭을 넘어 .section overflow 에 잘리므로 다음 줄로 내린다. */
