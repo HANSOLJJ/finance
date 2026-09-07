@@ -15,7 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
 <!-- Pretendard 웹폰트(동적 서브셋 — 쓰인 글자 범위의 woff2 만 내려받는다). app.css 의 font-family 첫 항목이 이 링크에 의존한다. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/app.css?v=20260907a" />
+  <link rel="stylesheet" href="css/app.css?v=20260907b" />
 </head>
 <body>
 
@@ -84,7 +84,7 @@
         <div class="sub" id="kpi-debt-line" style="display:none;font-size:11px;color:#dc2626;"></div>
         <div class="sub" id="kpi-updated" style="font-size:11px;">—</div>
       </div>
-      <div class="kpi-card" id="kpi-liq-card" style="background:linear-gradient(135deg,#ecfeff 0%,#f0fdfa 100%);border-color:#67e8f9;">
+      <div class="kpi-card" id="kpi-liq-card" style="background:#ecfeff;border-color:#67e8f9;">
         <div class="label">💧 유동 자산<span class="help" title="즉시 매도/인출 가능한 자산. 묶임(연금/ISA/주택청약/부동산 등) 제외. 행별로 💧↔🔒 토글 가능.">?</span></div>
         <div class="value" id="kpi-liquid" style="color:#0e7490">₩0</div>
         <div class="sub" id="kpi-liquid-pct" style="font-weight:600;color:#0e7490;font-size:13px;">0.0%</div>
@@ -100,7 +100,7 @@
         <div class="value" id="kpi-usd">0.0%</div>
         <div class="sub" id="kpi-usd-amt">₩0</div>
       </div>
-      <div class="kpi-card" style="background:linear-gradient(135deg,#fefce8 0%,#fef9c3 100%);border-color:#eab308;">
+      <div class="kpi-card" style="background:#fefce8;border-color:#eab308;">
         <div class="label">🥇 달러헤지 비중<span class="help" title="금·실물 등 달러 가치 하락 헤지 자산. 자산타입 '금' 목표와 자동 연동됨.">?</span></div>
         <div class="value" id="kpi-hedge" style="color:#a16207;">0.0%</div>
         <div class="sub" id="kpi-hedge-amt">₩0</div>
@@ -491,15 +491,15 @@
 <!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
 <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
 <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260907a"></script>
-<script src="js/state.js?v=20260907a"></script>
-<script src="js/calc.js?v=20260907a"></script>
-<script src="js/render.js?v=20260907a"></script>
-<script src="js/charts.js?v=20260907a"></script>
-<script src="js/data-io.js?v=20260907a"></script>
-<script src="js/fetch.js?v=20260907a"></script>
-<script src="js/sync.js?v=20260907a"></script>
-<script src="js/broker.js?v=20260907a"></script>
-<script src="js/main.js?v=20260907a"></script>
+<script src="js/constants.js?v=20260907b"></script>
+<script src="js/state.js?v=20260907b"></script>
+<script src="js/calc.js?v=20260907b"></script>
+<script src="js/render.js?v=20260907b"></script>
+<script src="js/charts.js?v=20260907b"></script>
+<script src="js/data-io.js?v=20260907b"></script>
+<script src="js/fetch.js?v=20260907b"></script>
+<script src="js/sync.js?v=20260907b"></script>
+<script src="js/broker.js?v=20260907b"></script>
+<script src="js/main.js?v=20260907b"></script>
 </body>
 </html>
