@@ -40,6 +40,7 @@
 
   /* 기본 리셋 · 전역 폰트 */
   /* Pretendard 우선의 폰트 스택, 기준 글자 크기 14px. 버튼·입력 요소는 본문 폰트를 상속받는다. */
+  /* Pretendard 는 index.html 의 jsDelivr 동적 서브셋 <link> 가 로드한다 — 링크가 없으면 이 선언은 어느 기기에서도 폴백만 쓰인다(2026-09-07 까지 실제 그 상태였음). */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, '맑은 고딕', 'Malgun Gothic', sans-serif;
@@ -293,7 +294,7 @@
   /* 리밸런싱 신호 표시용 알약 — buy(초록)·sell(빨강)·ok(파랑)·dash(중립 회색) 네 가지 상태. */
   .pill {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 3px 10px;  /* 세로 3px — 12px 글자 기준 높이 24px(탭 대상 하한, WCAG 2.5.8) */
     border-radius: 999px;
     font-size: 12px;
     font-weight: 500;
@@ -358,14 +359,16 @@
     color: var(--text-muted);
     padding: 4px 8px;
   }
-  .row .icon-btn {
+  /* × 삭제 버튼 — 자산 행뿐 아니라 이력 표·입출금 모달·증권사 계좌 목록에서도 같은 클래스를 쓴다. */
+  /* 선택자를 .row 밖으로 넓힌 이유: 이력 표의 버튼이 스타일 없이 8×16px 로 렌더돼 탭 대상 24px 하한에 미달했다. */
+  .icon-btn {
     width: 24px; height: 24px;
     border-radius: 6px;
     color: var(--text-muted);
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 14px;
   }
-  .row .icon-btn:hover { background: #fee2e2; color: var(--danger); }
+  .icon-btn:hover { background: #fee2e2; color: var(--danger); }
 
   .add-row {
     margin: 4px 8px 0;
@@ -529,6 +532,8 @@
     position: relative;
   }
   .help:hover { background: #cbd5e1; color: #1e293b; }
+  /* 탭 대상 24px 하한(WCAG 2.5.8) — 원은 14px 그대로 두고 투명 ::before 로 터치 영역만 24px 로 넓힌다 (툴팁은 ::after). */
+  .help::before { content: ''; position: absolute; inset: -5px; }
   th .help { background: #f1f5f9; }
   .metric-cell .lbl .help { background: #ffffff; }
   /* 즉시 뜨는 커스텀 툴팁 (native title 딜레이 회피). 툴팁 텍스트는 title 속성 재사용 */
@@ -564,7 +569,7 @@
   /* 행별 자산타입 표시 칩 — asset-* 클래스마다 배경·글자·테두리 색이 다르고, .locked 는 타입이 고정된 카테고리용이다. */
   .asset-chip {
     display: inline-flex; align-items: center; justify-content: center;
-    padding: 2px 8px;
+    padding: 3px 8px;  /* 높이 25px — 탭 대상 24px 하한 */
     border-radius: 999px;
     font-size: 11px; font-weight: 500;
     border: 1px solid transparent;
@@ -589,7 +594,7 @@
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    padding: 2px 18px 2px 8px;
+    padding: 3px 18px 3px 8px;
     font-size: 11px; font-weight: 500;
     border-radius: 999px;
     cursor: pointer;
@@ -611,7 +616,7 @@
   }
   .liq-chip {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px;
+    width: 24px; height: 24px;  /* 탭 대상 24px 하한 */
     border-radius: 50%;
     font-size: 12px; line-height: 1;
     border: 1px solid var(--border);
@@ -1062,7 +1067,7 @@
   .treemap-legend .lg-toggle {
     cursor: pointer;
     border: 1px solid transparent;
-    padding: 3px 8px;
+    padding: 5px 8px;  /* 높이 25px — 탭 대상 24px 하한 */
     border-radius: 6px;
     background: transparent;
     font-size: 11px;
@@ -1281,6 +1286,12 @@
   /* 넓은 테이블은 전역 .table-scroll 래퍼가, 자산 입력 행은 컴팩트 모드가 담당한다. */
   @media (max-width: 768px) {
     .app { padding: 12px; }
+    /* iOS Safari 는 16px 미만 입력에 포커스하면 페이지를 확대한다 — 입력 요소만 16px 로 올린다(모달 포함). */
+    /* !important 인 이유: .inp(13px)·모달 인라인 style(11~14px)이 이 미디어쿼리를 이기기 때문. */
+    input, select, textarea { font-size: 16px !important; }
+    /* 예외 — 컴팩트 행의 평가금액 인라인 입력(원화 .inp.right.m-keep·달러 .dual-price input)은 3트랙 폭에 16px 숫자가 잘려 13px 유지. */
+    /* 이 두 칸만 iOS 포커스 확대가 남는다. 근본 해결은 행 탭 → 편집 모달로 편집 경로 단일화(docs/TODO.md). min-height 는 탭 대상 24px 하한. */
+    .row .inp.right.m-keep, .dual-price .usd input { font-size: 13px !important; min-height: 24px; }
     header.top { flex-wrap: wrap; gap: 10px; }
     header.top h1 { font-size: 20px; }
     .actions { flex-wrap: wrap; }
@@ -1293,12 +1304,17 @@
     .tab-btn { min-width: fit-content; flex: 1 0 auto; padding: 8px 10px; font-size: 12px; }
     .tax-grid { grid-template-columns: 1fr; }
     .cat-header .left { flex-wrap: wrap; }
+    /* 320px 에서 우측 합계 묶음($·₩·%·화살표)이 헤더 폭을 넘어 .section overflow 에 잘리므로 다음 줄로 내린다. */
+    .cat-header { flex-wrap: wrap; row-gap: 4px; }
     .chart-wrap { height: 260px; padding: 12px; }
     .chart-wrap.tall { height: 320px; }
     .treemap-wrap { height: 340px; padding: 12px; }
     /* 자산 입력 컴팩트 모드 — render.js 가 마킹한 m-keep 3칸(이름/평가금액/손익)만 3트랙 그리드로 표시. */
     /* 나머지 필드는 행을 탭하면 열리는 편집 모달(openHoldingEditModal)에서 수정한다. */
-    .row, .row.pnl { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, 0.9fr); }
+    /* 트랙 비율 1.2/1.5/0.9 + 입력 좌우 패딩 4px — 320px 에서 평가금액 칸(≈107px)에 13px 숫자 12자리(1,234,567,890)까지 잘리지 않는다. */
+    /* 이전 1.6/1.1/0.9 는 평가금액 칸이 ≈82px 라 285,000,000 조차 앞자리만 보였다(2026-09-07 실측). */
+    .row, .row.pnl { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.9fr); }
+    .row .inp { padding-left: 4px; padding-right: 4px; }
     .row > *:not(.m-keep) { display: none; }
     .row .span-2, .row.pnl.has-ticker .search-cell { grid-column: auto; }
     .row .computed { font-size: 12px; }

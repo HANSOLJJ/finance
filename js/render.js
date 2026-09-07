@@ -678,7 +678,7 @@ function renderHoldings() {
       </select>
     ` : '';
     const goldRefreshBtn = c.key === '금' ? `
-      <button class="gold-refresh-btn" data-stop-collapse="1" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid #e0a800;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#78350f;cursor:pointer;margin-left:8px;font-weight:500;">
+      <button class="gold-refresh-btn" data-stop-collapse="1" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid #e0a800;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#78350f;cursor:pointer;margin-left:8px;font-weight:500;">
         🥇 시세 자동 갱신
       </button>
     ` : '';
