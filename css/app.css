@@ -34,6 +34,7 @@
     --shadow-lg: 0 4px 20px rgba(28, 27, 24, 0.08);
 
     /* 타입 스케일 6단 — 밀집 표 하한 11px, 본문·표·입력 13px. 모바일 입력 16px 은 768px 블록의 리터럴(iOS 플랫폼 상수, 스케일과 무관). */
+    /* 예외: 컴팩트 행의 표시 전용 입력(이름·평가금액)과 종목 검색 칸은 13px — 768px 블록 참조. */
     --fs-xs: 11px;   /* 입력 행 머리글·메타·힌트·수익률 보조 */
     --fs-sm: 12px;   /* 라벨·배지·pill·표 머리글·설명 */
     --fs-md: 13px;   /* 본문·표·입력·버튼 (html 기준 크기) */
@@ -854,6 +855,7 @@
     width: min(560px, 92vw);
     padding: 20px 22px;
     max-height: 90vh;
+    max-height: 90dvh;  /* 모바일 주소창 표시/숨김에 따른 뷰포트 변동 대응 — 미지원 브라우저는 윗줄 vh 폴백 */
     overflow-y: auto;  /* 내용이 90vh를 넘으면(소급 추가·편집 모달 등) 모달 안에서 스크롤 */
     display: flex; flex-direction: column;
     gap: 12px;
@@ -1307,9 +1309,14 @@
     /* iOS Safari 는 16px 미만 입력에 포커스하면 페이지를 확대한다 — 입력 요소만 16px 로 올린다(모달 포함). */
     /* !important 인 이유: .inp(13px)·모달 인라인 style(11~14px)이 이 미디어쿼리를 이기기 때문. */
     input, select, textarea { font-size: 16px !important; }
-    /* 예외 — 컴팩트 행의 평가금액 인라인 입력(원화 .inp.right.m-keep·달러 .dual-price input)은 3트랙 폭에 16px 숫자가 잘려 13px 유지. */
-    /* 이 두 칸만 iOS 포커스 확대가 남는다. 근본 해결은 행 탭 → 편집 모달로 편집 경로 단일화(docs/TODO.md). min-height 는 탭 대상 24px 하한. */
-    .row .inp.right.m-keep, .dual-price .usd input { font-size: var(--fs-md) !important; min-height: 24px; }
+    /* 컴팩트 행의 이름·평가금액 칸은 표시 전용 — 행 어디를 탭해도 클릭 핸들러(render.js openHoldingEditModal 바인딩)가 편집 모달을 연다. */
+    /* pointer-events:none 이면 e.target 이 행/셀이 돼 핸들러의 closest('input') 가드를 통과한다. 16px 전역 규칙에서 빼서 13px 로 되돌린다 */
+    /* (포커스가 안 가므로 iOS 확대 무관). 키보드 Tab 으로는 여전히 편집 가능 — 접근성 경로로 남긴다. 16px 이면 3트랙 폭에 글자가 크고 잘렸다. */
+    .row input.inp.m-keep, .row .dual-price.m-keep input { font-size: var(--fs-md) !important; pointer-events: none; }
+    /* 종목 검색 칸만 직접 입력 유지(드롭다운 [data-dropdown] 이 문서 전역 조회라 모달로 못 옮김, render.js openHoldingEditModal 주석). */
+    /* 평소 13px, 포커스 순간 16px 로 키워 iOS 확대를 피해 본다 — iOS 가 포커스 전 크기로 판정하면 효과 없음(감수). */
+    .row .search-cell .search-input { font-size: var(--fs-md) !important; }
+    .row .search-cell .search-input:focus { font-size: 16px !important; }
     header.top { flex-wrap: wrap; gap: 10px; }
     header.top h1 { font-size: var(--fs-xl); }
     .actions { flex-wrap: wrap; }
@@ -1334,7 +1341,7 @@
     .chart-wrap.tall { height: 320px; }
     .treemap-wrap { height: 340px; padding: 12px; }
     /* 자산 입력 컴팩트 모드 — render.js 가 마킹한 m-keep 3칸(이름/평가금액/손익)만 3트랙 그리드로 표시. */
-    /* 나머지 필드는 행을 탭하면 열리는 편집 모달(openHoldingEditModal)에서 수정한다. */
+    /* 이름·평가금액 입력은 표시 전용(블록 상단 pointer-events 규칙)이고, 종목 검색 칸을 뺀 모든 편집은 행 탭 → 편집 모달(openHoldingEditModal). */
     /* 트랙 비율 1.2/1.5/0.9 + 입력 좌우 패딩 4px — 320px 에서 평가금액 칸(≈107px)에 13px 숫자 12자리(1,234,567,890)까지 잘리지 않는다. */
     /* 이전 1.6/1.1/0.9 는 평가금액 칸이 ≈82px 라 285,000,000 조차 앞자리만 보였다(2026-09-07 실측). */
     .row, .row.pnl { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.9fr); }
@@ -1347,4 +1354,9 @@
     /* 모달 폼 그리드 축소 — 입출금은 날짜+금액 / 메모+추가버튼 2줄, 소급 추가는 1열 */
     .cf-form-grid { grid-template-columns: 1fr 1fr; }
     .hist-form-grid { grid-template-columns: 1fr; }
+    /* 모달 공통 — 320px 에서 안쪽 폭 ≈250px. 푸터 버튼(편집 모달은 4개)은 줄바꿈, 편집 폼 그리드는 열이 140px 미만이면 1열로 접힌다 */
+    /* (375px 는 2열, 320px 는 1열). 모달 입력은 16px 전역 규칙 그대로(포커스 대상이라 iOS 확대 방지 필요). */
+    .memo-modal { padding: 16px; }
+    .memo-modal-foot { flex-wrap: wrap; }
+    .hold-edit-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   }
