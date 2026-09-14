@@ -39,8 +39,8 @@
 | `js/charts.js`                          | 시각화 — Chart.js(CDN 전역)로 도넛·라인 차트, 자체 구현 트리맵. 재렌더 시 기존 차트 인스턴스 destroy 후 재생성                                                                                                                                                                                                  |
 | `js/data-io.js`                         | 데이터 입출력 — JSON 백업 다운로드(`exportJSON`)/복원(`importJSON`), 일별 스냅샷(`snapshot`)과 이력 보정. 서버와 무관한 파일 기반 안전망                                                                                                                                                                        |
 | `js/fetch.js`                           | 외부 데이터 수집 — 국내·해외 주식 시세(네이버/야후), 코인(업비트/빗썸), 환율(frankfurter), 매크로 지표(FRED/BLS). 브라우저 CORS 제한 때문에 전부 같은 도메인의 `/api/proxy` 경유                                                                                                                                |
-| `js/sync.js`                            | 서버 자동 저장 — 변경 시 2초 디바운스 업로드(`scheduleServerSave`), 즉시 저장(`flushServerSave`/`savePortfolio`), 헤더 ☁️ 인디케이터. 부트 성공 전엔 저장 잠금. 누구 데이터로 저장되는지는 서버가 Access 로그인으로 판단                                                                                        |
-| `js/broker.js`                          | 증권사 잔고 동기화 — 자산 입력 탭 🏦 버튼이 `/api/broker` 조회 후 `computeBrokerDiff`로 변경/신규/삭제/예수금 미리보기를 띄우고, [적용] 시에만 반영. 동기화가 만든 행(`h.source` 마커)만 갱신·삭제하고 수동 입력 행은 건드리지 않는다. 설정 탭 🔗 증권사 연결 관리(추가/수정/삭제·계좌 찾기)도 담당             |
+| `js/sync.js`                            | 서버 자동 저장 — 변경 시 2초 디바운스 업로드(`scheduleServerSave`), 즉시 저장(`flushServerSave`/`savePortfolio`), 헤더 ☁️ 인디케이터. 부트 성공 전엔 저장 잠금. 누구 데이터로 저장되는지는 서버가 Access 로그인으로 판단                                                                                         |
+| `js/broker.js`                          | 증권사 잔고 동기화 — 자산 입력 탭 🏦 버튼이 `/api/broker` 조회 후 `computeBrokerDiff`로 변경/신규/삭제/예수금 미리보기를 띄우고, [적용] 시에만 반영. 동기화가 만든 행(`h.source` 마커)만 갱신·삭제하고 수동 입력 행은 건드리지 않는다. 설정 탭 🔗 증권사 연결 관리(추가/수정/삭제·계좌 찾기)도 담당               |
 | `js/main.js`                            | 시작점 — 인라인 onclick용 window 노출, `bootstrap`(서버 로드 단일 경로 — 404는 신규, 실패 시 저장 잠금+재시도 배너) 후 `boot`(첫 렌더·환율 자동 갱신)                                                                                                                                                           |
 | `server/index.js`                       | **Node 서버 진입점**(Express 5, ESM) — 정적 3개(`/`·`/css`·`/js`)만 명시 서빙(루트 통째 서빙 금지), `/api/*` 라우팅, 본문은 `express.text({type: () => true})`로 원문 수신(클라이언트가 Content-Type 없이 보내므로), 에러 미들웨어(본문 로깅 금지), 127.0.0.1:8787 바인드, SIGINT/SIGTERM 시 DB 닫기            |
 | `server/lib/db.js`                      | SQLite(`node:sqlite`, 의존성 0) — WAL, 테이블 3개(`portfolio`·`broker_connection`·`broker_token`), 질의 함수. 연결의 creds 는 여기서 암·복호화하며 복호 실패 행은 `credsError`로 돌려줘 서버가 죽지 않는다                                                                                                      |
@@ -49,8 +49,24 @@
 | `server/lib/providers.js`               | 증권사 어댑터 레지스트리 — 증권사마다 다른 것(자격증명 필드·계좌 모드·호출 방법)만 선언. **새 증권사 지원 = 여기 항목 1개 + 정규화 함수 1개**. 접근 토큰은 연결 단위로 DB에 23시간 캐시                                                                                                                         |
 | `server/lib/brokers.js`                 | 증권사 응답 정규화(네트워크 없는 순수 함수) — 키움 A접두사·zero-pad, 한투 D+2 예수금, 빗썸 KRW 분리 등                                                                                                                                                                                                          |
 | `server/routes/*.js`                    | `portfolio` `whoami` `proxy` `broker` `broker-connections` `broker-discover` — 구 Pages Functions 응답 계약과 1:1(코드·헤더·문구). 프록시는 화이트리스트 도메인만 통과·FRED 키 서버 주입·upstream 바디 스트림 패스스루(EUC-KR 응답 보존). broker 계열은 조회 전용 API만 호출·소스별 에러 격리·creds 마스킹 반환 |
-| `ecosystem.config.cjs` · `package.json` | pm2 설정(`~/.finance/env`를 `--env-file`로, 비밀 없음) · 스크립트 `dev`(`.env` 사용)/`start`. 의존성은 express 하나                                                                                                                                                                                             |
+| `ecosystem.config.cjs` · `package.json` | pm2 설정(`~/.finance/env`를 `--env-file`로, 비밀 없음) · 스크립트 `dev`(`.env` 사용)/`start`. 런타임 의존성은 express 하나                                                                                                                                                                                      |
 | `backups/`                              | 평문 JSON 백업 (**git 제외** — .gitignore)                                                                                                                                                                                                                                                                      |
+
+## 코드 포맷 · 린트
+
+모양(들여쓰기·따옴표·줄바꿈)은 **Prettier**, 코드 문제(안 쓰는 변수·빈 블록 등)는 **ESLint** 가 맡는다. 두 도구 모두 프로젝트에 버전을 고정해 설치하므로(`devDependencies`) 어느 기기·에디터에서 돌려도 결과가 같다. 서버 실행과는 무관하다.
+
+| 파일               | 역할                                                                                                                                                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.prettierrc`      | Prettier 규칙 — 기본값(80자·세미콜론·끝 쉼표)에 `singleQuote: true` 하나만 바꾼다                                                                                                                                                                                                                   |
+| `.prettierignore`  | 포맷 제외 — `node_modules/`·`data/`·`backups/`·`ref/`·`references/`·`config/`·`package-lock.json`                                                                                                                                                                                                   |
+| `eslint.config.js` | ESLint 규칙 — 권장 규칙(`@eslint/js`)에 실행 환경만 나눠 지정. `js/` 는 클래식 스크립트라 파일끼리 전역을 공유하므로 `no-undef` 끔·최상위 함수는 미사용 검사 제외, `server/` 는 Node ESM, `*.cjs` 는 CommonJS. 맨 끝 `eslint-config-prettier` 가 ESLint 의 모양 규칙을 꺼 Prettier 와 충돌을 막는다 |
+| `package.json`     | `devDependencies` — `eslint` `@eslint/js` `globals`(브라우저·Node 전역 목록) `prettier` `eslint-config-prettier`. 스크립트 `lint`·`format:check`                                                                                                                                                    |
+
+- `npm run lint` — ESLint 검사 (0건 유지)
+- `npm run format:check` — 포맷이 어긋난 파일 목록. 고칠 때는 `npx prettier --write .`
+- `.vscode/` 는 두지 않는다 — 저장 시 Prettier 포맷과 ESLint 자동 수정(`editor.formatOnSave`·기본 포맷터 `esbenp.prettier-vscode`·`editor.codeActionsOnSave: source.fixAll.eslint`)은 VS Code **사용자 프로필 설정**에서 켠다. 확장은 Prettier(`esbenp.prettier-vscode`)·ESLint(`dbaeumer.vscode-eslint`) 필요. 두 확장 모두 위 프로젝트 설정 파일과 `node_modules` 의 도구를 우선 사용한다
+- 빈 `catch` 는 `catch { // 무시하는 이유 }` 로 쓴다 — 에러 변수를 받지 않고, 비워둔 이유를 주석으로 남긴다
 
 ## 일상 사용
 
