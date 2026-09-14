@@ -13,7 +13,11 @@
 // 증권사 응답의 숫자 파싱 — 키움은 zero-pad 문자열('000000000000010'),
 // 한투는 소수 문자열('19368.9174')로 온다. 콤마·공백까지 안전 처리.
 export function n(v) {
-  const x = parseFloat(String(v ?? '').replace(/,/g, '').trim());
+  const x = parseFloat(
+    String(v ?? '')
+      .replace(/,/g, '')
+      .trim(),
+  );
   return Number.isFinite(x) ? x : 0;
 }
 
@@ -22,8 +26,8 @@ export function n(v) {
 // output2[0].prvs_rcdl_excc_amt = D+2 예수금. 잔량 0 행(전량 매도 후 잔재)은 제외.
 export function normalizeKis(output1, output2) {
   const holdings = (Array.isArray(output1) ? output1 : [])
-    .filter(o => n(o.hldg_qty) > 0)
-    .map(o => ({
+    .filter((o) => n(o.hldg_qty) > 0)
+    .map((o) => ({
       symbol: String(o.pdno || '').trim(),
       name: String(o.prdt_name || '').trim(),
       quantity: n(o.hldg_qty),
@@ -32,41 +36,63 @@ export function normalizeKis(output1, output2) {
       currency: 'KRW',
     }));
   const o2 = Array.isArray(output2) ? output2[0] : output2;
-  return { holdings, cash: { amount: n(o2 && o2.prvs_rcdl_excc_amt), currency: 'KRW' } };
+  return {
+    holdings,
+    cash: { amount: n(o2 && o2.prvs_rcdl_excc_amt), currency: 'KRW' },
+  };
 }
 
 // 키움 국내주식 정규화 — 계좌평가잔고내역(kt00018) + 계좌평가현황(kt00004, D+2 예수금).
 // 종목코드의 'A' 접두사(A000660)를 제거해 앱 6자리 코드와 맞춘다.
 export function normalizeKwDomestic(balanceBody, statusBody) {
-  const holdings = (Array.isArray(balanceBody && balanceBody.acnt_evlt_remn_indv_tot)
-    ? balanceBody.acnt_evlt_remn_indv_tot : [])
-    .filter(o => n(o.rmnd_qty) > 0)
-    .map(o => ({
-      symbol: String(o.stk_cd || '').trim().replace(/^A/, ''),
+  const holdings = (
+    Array.isArray(balanceBody && balanceBody.acnt_evlt_remn_indv_tot)
+      ? balanceBody.acnt_evlt_remn_indv_tot
+      : []
+  )
+    .filter((o) => n(o.rmnd_qty) > 0)
+    .map((o) => ({
+      symbol: String(o.stk_cd || '')
+        .trim()
+        .replace(/^A/, ''),
       name: String(o.stk_nm || '').trim(),
       quantity: n(o.rmnd_qty),
       avgPrice: n(o.pur_pric),
       price: n(o.cur_prc),
       currency: 'KRW',
     }));
-  return { holdings, cash: { amount: n(statusBody && statusBody.d2_entra), currency: 'KRW' } };
+  return {
+    holdings,
+    cash: { amount: n(statusBody && statusBody.d2_entra), currency: 'KRW' },
+  };
 }
 
 // 키움 미국주식 정규화 — 원장잔고확인(ust21070) + 예수금 상세(ust21160, D+2 USD).
 // 미국 종목코드는 티커 그대로(접두사 없음), 단가는 전부 USD.
 export function normalizeKwUs(ledgerBody, depositBody) {
-  const holdings = (Array.isArray(ledgerBody && ledgerBody.result_list)
-    ? ledgerBody.result_list : [])
-    .filter(o => n(o.poss_qty) > 0)
-    .map(o => ({
-      symbol: String(o.stk_cd || '').trim().toUpperCase(),
+  const holdings = (
+    Array.isArray(ledgerBody && ledgerBody.result_list)
+      ? ledgerBody.result_list
+      : []
+  )
+    .filter((o) => n(o.poss_qty) > 0)
+    .map((o) => ({
+      symbol: String(o.stk_cd || '')
+        .trim()
+        .toUpperCase(),
       name: String(o.frgn_stk_nm || '').trim(),
       quantity: n(o.poss_qty),
       avgPrice: n(o.frgn_stk_book_uv),
       price: n(o.now_pric),
       currency: 'USD',
     }));
-  return { holdings, cash: { amount: n(depositBody && depositBody.d2_usd_fx_entr), currency: 'USD' } };
+  return {
+    holdings,
+    cash: {
+      amount: n(depositBody && depositBody.d2_usd_fx_entr),
+      currency: 'USD',
+    },
+  };
 }
 
 // 빗썸 자산 조회(/v1/accounts) 정규화 — KRW 항목은 예수금(cash)으로 분리하고
@@ -76,8 +102,8 @@ export function normalizeKwUs(ledgerBody, depositBody) {
 export function normalizeBithumb(accounts) {
   const list = Array.isArray(accounts) ? accounts : [];
   const holdings = list
-    .filter(a => String(a.currency || '').toUpperCase() !== 'KRW')
-    .map(a => ({
+    .filter((a) => String(a.currency || '').toUpperCase() !== 'KRW')
+    .map((a) => ({
       symbol: String(a.currency || '').toUpperCase(),
       name: String(a.currency || '').toUpperCase(),
       quantity: n(a.balance) + n(a.locked),
@@ -85,7 +111,12 @@ export function normalizeBithumb(accounts) {
       price: 0,
       currency: 'KRW',
     }))
-    .filter(a => a.quantity > 0);
-  const krw = list.find(a => String(a.currency || '').toUpperCase() === 'KRW');
-  return { holdings, cash: { amount: krw ? n(krw.balance) + n(krw.locked) : 0, currency: 'KRW' } };
+    .filter((a) => a.quantity > 0);
+  const krw = list.find(
+    (a) => String(a.currency || '').toUpperCase() === 'KRW',
+  );
+  return {
+    holdings,
+    cash: { amount: krw ? n(krw.balance) + n(krw.locked) : 0, currency: 'KRW' },
+  };
 }

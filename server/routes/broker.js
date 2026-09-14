@@ -27,21 +27,39 @@ async function fetchConnection(db, email, conn) {
   const provider = PROVIDERS[conn.provider];
   const sources = [];
   if (!provider) {
-    return [{
-      id: `${conn.id}:?`, label: conn.label || conn.provider, category: '',
-      ok: false, error: `알 수 없는 증권사(${conn.provider})`, holdings: [], cash: null,
-    }];
+    return [
+      {
+        id: `${conn.id}:?`,
+        label: conn.label || conn.provider,
+        category: '',
+        ok: false,
+        error: `알 수 없는 증권사(${conn.provider})`,
+        holdings: [],
+        cash: null,
+      },
+    ];
   }
   // 복호화 실패(키 교체·파일 손상) — provider 를 호출하지 않고 이 연결만 실패로. 다른 연결은 정상 조회된다.
   if (conn.credsError) {
-    return [{
-      id: `${conn.id}:?`, label: conn.label || provider.label, category: '', cashCategory: '',
-      ok: false, error: conn.credsError, holdings: [], cash: null,
-    }];
+    return [
+      {
+        id: `${conn.id}:?`,
+        label: conn.label || provider.label,
+        category: '',
+        cashCategory: '',
+        ok: false,
+        error: conn.credsError,
+        holdings: [],
+        cash: null,
+      },
+    ];
   }
-  const accounts = provider.accountMode === 'fixed'
-    ? provider.accounts
-    : (Array.isArray(conn.accounts) ? conn.accounts : []);
+  const accounts =
+    provider.accountMode === 'fixed'
+      ? provider.accounts
+      : Array.isArray(conn.accounts)
+        ? conn.accounts
+        : [];
   const ctx = { creds: conn.creds || {}, db, email, connId: conn.id };
 
   for (let i = 0; i < accounts.length; i++) {
@@ -55,16 +73,34 @@ async function fetchConnection(db, email, conn) {
       cashCategory: provider.cashCategory || category,
     };
     if (!category) {
-      sources.push({ ...base, ok: false, error: '카테고리 미지정 (설정에서 연결을 수정하세요)', holdings: [], cash: null });
+      sources.push({
+        ...base,
+        ok: false,
+        error: '카테고리 미지정 (설정에서 연결을 수정하세요)',
+        holdings: [],
+        cash: null,
+      });
       continue;
     }
     try {
       const data = await provider.fetchAccount(ctx, acc.code);
-      sources.push({ ...base, ok: true, holdings: data.holdings, cash: data.cash });
+      sources.push({
+        ...base,
+        ok: true,
+        holdings: data.holdings,
+        cash: data.cash,
+      });
     } catch (err) {
-      sources.push({ ...base, ok: false, error: err.message || String(err), holdings: [], cash: null });
+      sources.push({
+        ...base,
+        ok: false,
+        error: err.message || String(err),
+        holdings: [],
+        cash: null,
+      });
     }
-    if (i < accounts.length - 1 && provider.rateDelayMs) await sleep(provider.rateDelayMs);
+    if (i < accounts.length - 1 && provider.rateDelayMs)
+      await sleep(provider.rateDelayMs);
   }
   return sources;
 }
@@ -76,20 +112,32 @@ export default function brokerRoutes(db) {
   r.get('/', async (req, res) => {
     const connections = db.getConnections(req.email);
     if (!connections.length) {
-      return res.json({ ok: true, fetchedAt: new Date().toISOString(), sources: [],
-        note: '등록된 증권사 연결이 없습니다. 설정 탭에서 연결을 추가하세요.' });
+      return res.json({
+        ok: true,
+        fetchedAt: new Date().toISOString(),
+        sources: [],
+        note: '등록된 증권사 연결이 없습니다. 설정 탭에서 연결을 추가하세요.',
+      });
     }
 
     // 연결 단위로는 병렬(서로 다른 증권사라 rate limit 이 독립적), 연결 안에서는 순차.
-    const settled = await Promise.allSettled(connections.map(c => fetchConnection(db, req.email, c)));
+    const settled = await Promise.allSettled(
+      connections.map((c) => fetchConnection(db, req.email, c)),
+    );
     const sources = [];
     settled.forEach((r, i) => {
       if (r.status === 'fulfilled') sources.push(...r.value);
       else {
         const conn = connections[i];
         sources.push({
-          id: `${conn.id}:?`, label: conn.label || conn.provider, category: '', cashCategory: '',
-          ok: false, error: (r.reason && r.reason.message) || String(r.reason), holdings: [], cash: null,
+          id: `${conn.id}:?`,
+          label: conn.label || conn.provider,
+          category: '',
+          cashCategory: '',
+          ok: false,
+          error: (r.reason && r.reason.message) || String(r.reason),
+          holdings: [],
+          cash: null,
         });
       }
     });

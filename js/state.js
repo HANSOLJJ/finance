@@ -18,31 +18,43 @@
 // main.js bootstrap()이 서버 데이터를 { ...defaultState(), ...data }로 합칠 때도 사용.
 function defaultState() {
   return {
-    holdings: CATEGORIES.flatMap(c => [{
-      id: uid(), category: c.key, name: '', account: '', ticker: '', symbol: '',
-      quantity: c.amountOnly ? '1' : '', price: '', priceUSD: '',
-      avgPrice: '', avgPriceUSD: '',  // 평단가 (P&L 계산용)
-      exposure: DEFAULT_EXPOSURE_BY_CAT[c.key], memo: '',
-      assetType: c.assetTypeFixed || '주식',
-      liquidity: DEFAULT_LIQUIDITY_BY_CAT[c.key] || 'liquid',
-      lastFetched: '',
-      source: '', syncedAt: ''  // 증권사 동기화 마커 ('' = 수동 입력, broker.js 참조)
-    }]),
+    holdings: CATEGORIES.flatMap((c) => [
+      {
+        id: uid(),
+        category: c.key,
+        name: '',
+        account: '',
+        ticker: '',
+        symbol: '',
+        quantity: c.amountOnly ? '1' : '',
+        price: '',
+        priceUSD: '',
+        avgPrice: '',
+        avgPriceUSD: '', // 평단가 (P&L 계산용)
+        exposure: DEFAULT_EXPOSURE_BY_CAT[c.key],
+        memo: '',
+        assetType: c.assetTypeFixed || '주식',
+        liquidity: DEFAULT_LIQUIDITY_BY_CAT[c.key] || 'liquid',
+        lastFetched: '',
+        source: '',
+        syncedAt: '', // 증권사 동기화 마커 ('' = 수동 입력, broker.js 참조)
+      },
+    ]),
     assetTypeTargets: { ...DEFAULT_ASSET_TYPE_TARGETS },
     expTargets: { ...DEFAULT_EXP_TARGETS },
     history: [],
-    cashflows: [],  // 입출금 원장 [{id, date, amount(KRW, 입금 +/출금 -), memo}] — TWR 계산의 원천
+    cashflows: [], // 입출금 원장 [{id, date, amount(KRW, 입금 +/출금 -), memo}] — TWR 계산의 원천
     collapsed: {},
     usdKrwRate: 1380, // 임시 기본값. 첫 로드시 자동 갱신
     rateUpdatedAt: '',
-    cryptoExchange: 'bithumb',  // 'bithumb' | 'upbit' | 'coingecko'
-    usCpiAnnual: 0.035,  // 미국 CPI 연율 (인플레이션 기준선용, default 3.5%)
-    lastBackupAt: '',  // 마지막 JSON 백업 시점
-    lastServerSaveAt: '',  // 마지막 서버(KV) 저장 시점
-    activeTab: 'dashboard',  // 마지막 활성 탭
-    historyChartMode: 'normalized',  // 'absolute' | 'normalized' (이력 차트 표시 모드) — 기본: 정규화
-    holdingMemos: {},  // { [normalizedName]: memoText } - 종목명 기준 멀티라인 메모 (자산 입력의 짧은 라벨 memo와 별개)
-    viewScope: 'all',  // 'all' | 'liquid' — 대시보드/분석탭 표시 기준 (전체 자산 vs 유동만)
+    cryptoExchange: 'bithumb', // 'bithumb' | 'upbit' | 'coingecko'
+    usCpiAnnual: 0.035, // 미국 CPI 연율 (인플레이션 기준선용, default 3.5%)
+    lastBackupAt: '', // 마지막 JSON 백업 시점
+    lastServerSaveAt: '', // 마지막 서버(KV) 저장 시점
+    activeTab: 'dashboard', // 마지막 활성 탭
+    historyChartMode: 'normalized', // 'absolute' | 'normalized' (이력 차트 표시 모드) — 기본: 정규화
+    holdingMemos: {}, // { [normalizedName]: memoText } - 종목명 기준 멀티라인 메모 (자산 입력의 짧은 라벨 memo와 별개)
+    viewScope: 'all', // 'all' | 'liquid' — 대시보드/분석탭 표시 기준 (전체 자산 vs 유동만)
     lastUpdated: localDateStr(),
   };
 }
@@ -59,20 +71,26 @@ let state = defaultState();
 // 이 함수를 통과시켜야 undefined 필드로 인한 렌더/계산 오류를 막을 수 있다.
 // 인자 s 를 제자리(in-place)에서 수정한 뒤 그대로 반환한다.
 function migrateState(s) {
-  const RENAMES = { 'ETF': '국내주식', 'KRX 금현물': '금' };
+  const RENAMES = { ETF: '국내주식', 'KRX 금현물': '금' };
   const EXPOSURE_RENAMES = {
     '원자재(달러노출)': '달러(노출)',
-    '달러노출': '달러(노출)',
-    '달러': '달러(노출)',
+    달러노출: '달러(노출)',
+    달러: '달러(노출)',
   };
   // 카테고리 마이그레이션
   if (s.holdings) {
-    s.holdings.forEach(h => {
+    s.holdings.forEach((h) => {
       if (RENAMES[h.category]) h.category = RENAMES[h.category];
-      if (EXPOSURE_RENAMES[h.exposure]) h.exposure = EXPOSURE_RENAMES[h.exposure];
+      if (EXPOSURE_RENAMES[h.exposure])
+        h.exposure = EXPOSURE_RENAMES[h.exposure];
       // 금 카테고리는 통화노출을 '달러헤지'로 이관 (달러노출과 role이 다름).
       // 사용자가 원화 등 다른 값으로 명시 설정한 경우는 존중.
-      if (h.category === '금' && (h.exposure === '달러(노출)' || h.exposure === '달러노출' || h.exposure === '달러')) {
+      if (
+        h.category === '금' &&
+        (h.exposure === '달러(노출)' ||
+          h.exposure === '달러노출' ||
+          h.exposure === '달러')
+      ) {
         h.exposure = '달러헤지';
       }
       // 신규 필드 기본값 채우기
@@ -101,25 +119,30 @@ function migrateState(s) {
   if (s.expTargets) {
     Object.entries(EXPOSURE_RENAMES).forEach(([oldKey, newKey]) => {
       if (s.expTargets[oldKey] !== undefined) {
-        s.expTargets[newKey] = (s.expTargets[newKey] || 0) + s.expTargets[oldKey];
+        s.expTargets[newKey] =
+          (s.expTargets[newKey] || 0) + s.expTargets[oldKey];
         delete s.expTargets[oldKey];
       }
     });
   }
   // 자산타입 목표 비중 신규 필드
-  if (!s.assetTypeTargets) s.assetTypeTargets = { ...DEFAULT_ASSET_TYPE_TARGETS };
+  if (!s.assetTypeTargets)
+    s.assetTypeTargets = { ...DEFAULT_ASSET_TYPE_TARGETS };
   // 새로 추가된 자산타입 키 보정 (부동산 등)
-  ASSET_TYPES.forEach(t => {
+  ASSET_TYPES.forEach((t) => {
     if (s.assetTypeTargets[t] === undefined) s.assetTypeTargets[t] = 0;
   });
   // 통화노출 목표 키 보정 (달러헤지 신규 추가)
   if (!s.expTargets) s.expTargets = { ...DEFAULT_EXP_TARGETS };
-  EXPOSURES.forEach(e => {
+  EXPOSURES.forEach((e) => {
     if (s.expTargets[e] === undefined) s.expTargets[e] = 0;
   });
   // 자산타입 금 목표와 달러헤지가 desync 되어있으면 자산타입 금 값으로 sync (한 번만)
-  if (s.assetTypeTargets['금'] !== undefined && s.expTargets['달러헤지'] === 0
-      && s.assetTypeTargets['금'] > 0) {
+  if (
+    s.assetTypeTargets['금'] !== undefined &&
+    s.expTargets['달러헤지'] === 0 &&
+    s.assetTypeTargets['금'] > 0
+  ) {
     s.expTargets['달러헤지'] = s.assetTypeTargets['금'];
   }
   if (s.usdKrwRate === undefined) s.usdKrwRate = 1380;
@@ -130,13 +153,18 @@ function migrateState(s) {
   if (s.lastServerSaveAt === undefined) s.lastServerSaveAt = '';
   if (s.activeTab === undefined) s.activeTab = 'dashboard';
   if (s.historyChartMode === undefined) s.historyChartMode = 'normalized';
-  if (s.holdingMemos === undefined || s.holdingMemos === null) s.holdingMemos = {};
+  if (s.holdingMemos === undefined || s.holdingMemos === null)
+    s.holdingMemos = {};
   if (!Array.isArray(s.cashflows)) s.cashflows = [];
   if (s.viewScope === undefined) s.viewScope = 'all';
   // 과거 스냅샷에 totalUSD 누락 보정
   if (s.history && s.usdKrwRate) {
-    s.history.forEach(snap => {
-      if (snap.totalUSD === undefined && snap.total && (snap.fxRate || s.usdKrwRate)) {
+    s.history.forEach((snap) => {
+      if (
+        snap.totalUSD === undefined &&
+        snap.total &&
+        (snap.fxRate || s.usdKrwRate)
+      ) {
         snap.totalUSD = snap.total / (snap.fxRate || s.usdKrwRate);
       }
     });
@@ -156,7 +184,9 @@ function saveState() {
 
 // 홀딩/스냅샷 식별용 랜덤 8자리 id 생성.
 // 세션 내 DOM 바인딩·삭제 대상 식별이 목적이라 암호학적 고유성은 필요 없다.
-function uid() { return Math.random().toString(36).slice(2, 10); }
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 // ==================== 메모 헬퍼 ====================
 // 메모는 두 종류 — 종목명 기준 멀티라인 메모(state.holdingMemos)와
@@ -184,13 +214,13 @@ function setHoldingMemo(name, text) {
 // 스냅샷 id 기준 메모 조회.
 // 스냅샷 메모는 holdingMemos 와 달리 history 항목의 memo 필드에 직접 저장돼 있다.
 function getSnapshotMemo(id) {
-  const s = state.history.find(h => h.id === id);
-  return (s && s.memo) ? s.memo : '';
+  const s = state.history.find((h) => h.id === id);
+  return s && s.memo ? s.memo : '';
 }
 // 스냅샷 id 기준 메모 저장 (빈 값이면 삭제).
 // 대상 스냅샷이 없으면 조용히 무시하며, 영속화는 호출부의 saveState() 몫이다.
 function setSnapshotMemo(id, text) {
-  const s = state.history.find(h => h.id === id);
+  const s = state.history.find((h) => h.id === id);
   if (!s) return;
   const v = (text || '').trim();
   if (v) s.memo = v;
@@ -214,13 +244,15 @@ function openMemoModal(kind, target, displayLabel) {
   const existing = document.getElementById('memoModalBackdrop');
   if (existing) existing.remove();
 
-  const current = kind === 'snapshot' ? getSnapshotMemo(target) : getHoldingMemo(target);
+  const current =
+    kind === 'snapshot' ? getSnapshotMemo(target) : getHoldingMemo(target);
   const titleEmoji = kind === 'snapshot' ? '📅' : '📝';
   const titleText = kind === 'snapshot' ? '스냅샷 메모' : '종목 메모';
   const subtitle = displayLabel || target;
-  const hint = kind === 'snapshot'
-    ? '이 시점의 시장 상황 / 의사결정 / 리밸런싱 메모 등'
-    : '이 종목 관련 메모 (목표가, 손절선, 보유 이유 등) · 같은 종목 다계좌에 공유됨';
+  const hint =
+    kind === 'snapshot'
+      ? '이 시점의 시장 상황 / 의사결정 / 리밸런싱 메모 등'
+      : '이 종목 관련 메모 (목표가, 손절선, 보유 이유 등) · 같은 종목 다계좌에 공유됨';
 
   const backdrop = document.createElement('div');
   backdrop.id = 'memoModalBackdrop';
@@ -271,11 +303,18 @@ function openMemoModal(kind, target, displayLabel) {
   document.getElementById('memoModalSaveBtn').onclick = save;
   const delBtn = document.getElementById('memoModalDeleteBtn');
   if (delBtn) delBtn.onclick = del;
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
   textarea.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      save();
+    }
   });
   setTimeout(() => textarea.focus(), 30);
 }
-

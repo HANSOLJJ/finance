@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <!-- 자산 포트폴리오 웹앱의 단일 페이지 뼈대 HTML — 정적 마크업만 담고 모든 동적 내용은 js 가 채운다. -->
 <!-- 화면은 탭 5개(대시보드 · 자산 입력 · 분석 · 이력 · 설정)로 구성되며 탭 전환은 render.js initTabs 가 처리한다. -->
 <!-- 스타일은 css/app.css 1개, 로직은 body 하단의 자체 js 9개 파일이 전담한다. -->
@@ -6,500 +6,880 @@
 <!-- 비어 있는 동적 영역(#holdingsContainer, 각 canvas, 각 tbody 등)은 render.js·charts.js 가 렌더링 시점에 채운다. -->
 <!-- 경고 — body 하단 script 태그의 나열 순서가 곧 의존성 순서다. 순서를 바꾸면 정의 전 참조로 앱이 깨진다. -->
 <html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>자산 포트폴리오</title>
-<!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
-<!-- Pretendard 웹폰트(동적 서브셋 — 쓰인 글자 범위의 woff2 만 내려받는다). app.css 의 font-family 첫 항목이 이 링크에 의존한다. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/app.css?v=20260907c" />
-</head>
-<body>
-
-<div class="app">
-  <!-- file:// 로 직접 열었을 때 표시되는 경고 배너. 평소엔 숨김이며 main.js 가 프로토콜을 검사해 표시를 결정한다. -->
-  <div id="fileWarn" class="file-warn" style="display:none;">
-    ⚠️ <b>file:// 으로 열림 — 이 앱은 서버 접속이 필요합니다</b><br />
-    데이터 로드·저장과 시세 조회가 모두 서버(fin.hansoljj.com)를 통하므로, 로컬 파일로 열면 동작하지 않습니다.
-  </div>
-
-  <!-- 부트(서버 로드) 실패 배너 — main.js showBootFail 이 표시한다. 이 상태에서는 -->
-  <!-- 빈 화면이 서버를 덮지 않도록 자동 저장이 잠긴다(sync.js syncEnabled). -->
-  <div id="bootFailBanner" class="file-warn" style="display:none;">
-    ⚠️ <b>서버에서 데이터를 불러오지 못했습니다</b> — <span id="bootFailMsg"></span><br />
-    지금 보이는 것은 빈 화면이며, 데이터 보호를 위해 저장이 잠겨 있습니다.
-    <button class="btn" onclick="location.reload()" style="margin-left:8px;">🔄 다시 시도</button>
-  </div>
-
-  <!-- 상단 헤더 — 타이틀 · 환율 배지 · 시세 갱신 · 자동 저장 인디케이터. -->
-  <!-- #fxBadge(환율 표시)는 fetch.js updateFxBadge 가 갱신하고 클릭 시 fetchExchangeRate 를 부른다. -->
-  <!-- 백업/복원·초기화는 설정 탭, 수동 스냅샷은 이력 탭으로 이동함 (3차 개편 — 헤더 정리). -->
-  <header class="top">
-    <h1><span class="dot"></span> 자산 포트폴리오</h1>
-    <div class="actions">
-      <span class="fx-badge" id="fxBadge" onclick="fetchExchangeRate(true)" title="클릭해서 환율 즉시 갱신">
-        <span style="font-size:11px;">USD/KRW</span>
-        <span class="fx-rate" id="fxRate">—</span>
-        <span class="fx-meta" id="fxMeta">로딩 중...</span>
-      </span>
-      <button class="btn primary" onclick="refreshAllPrices()" id="refreshAllBtn">🔄 전체 시세 갱신</button>
-      <!-- 자동 저장 상태 표시 — sync.js updateSyncIndicator 가 문구·색을 갱신하고, 클릭하면 즉시 저장한다. -->
-      <span class="sync-indicator" id="syncIndicator" onclick="savePortfolio()" title="자동 저장 상태 — 클릭하면 즉시 서버에 저장">☁️ …</span>
-    </div>
-  </header>
-
-  <!-- ==================== 탭 네비게이션 ==================== -->
-  <!-- 탭 버튼 5개. data-tab 값이 아래 .tab-panel 의 data-panel 과 1:1 대응하며, 클릭 처리는 render.js initTabs 가 바인딩한다. -->
-  <nav class="tab-nav" id="tabNav">
-    <button class="tab-btn active" data-tab="dashboard"><span class="tab-ico">📊</span><span class="tab-txt">대시보드</span></button>
-    <button class="tab-btn" data-tab="holdings"><span class="tab-ico">📝</span><span class="tab-txt">자산 입력</span></button>
-    <button class="tab-btn" data-tab="analysis"><span class="tab-ico">📈</span><span class="tab-txt">분석</span></button>
-    <button class="tab-btn" data-tab="history"><span class="tab-ico">📅</span><span class="tab-txt">이력</span></button>
-    <button class="tab-btn" data-tab="settings"><span class="tab-ico">⚙️</span><span class="tab-txt">설정</span></button>
-  </nav>
-
-  <!-- ==================== 탭: 대시보드 ==================== -->
-  <!-- 총자산 KPI 카드 · 자산타입/통화노출 도넛 차트 · 리밸런싱 제안 카드를 모아 보여주는 기본 탭. -->
-  <div class="tab-panel active" data-panel="dashboard">
-    <!-- View Scope Toggle — "전체 자산 ↔ 💧 유동만" 분석 기준 전환. calc.js setViewScope 가 처리하며 분석 탭의 토글과 상태를 공유한다. -->
-    <div class="scope-toggle-row">
-      <span class="scope-label">분석 기준:</span>
-      <div class="scope-toggle">
-        <button class="scope-btn primary" id="scopeAllBtn" onclick="setViewScope('all')" title="모든 자산 (부동산·연금·청약 포함). 분산/리스크 분석용">전체 자산</button>
-        <button class="scope-btn" id="scopeLiquidBtn" onclick="setViewScope('liquid')" title="💧 표시된 자산만. 즉시 매매·리밸런싱 가능한 자산 기준. 실질 의사결정용">💧 유동만</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>자산 포트폴리오</title>
+    <!-- 차트 라이브러리(CDN) — Chart.js 본체와 트리맵 플러그인. charts.js 보다 먼저, 이 순서로 로드돼야 한다. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
+    <!-- Pretendard 웹폰트(동적 서브셋 — 쓰인 글자 범위의 woff2 만 내려받는다). app.css 의 font-family 첫 항목이 이 링크에 의존한다. -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"
+    />
+    <link rel="stylesheet" href="css/app.css?v=20260907c" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- file:// 로 직접 열었을 때 표시되는 경고 배너. 평소엔 숨김이며 main.js 가 프로토콜을 검사해 표시를 결정한다. -->
+      <div id="fileWarn" class="file-warn" style="display: none">
+        ⚠️ <b>file:// 으로 열림 — 이 앱은 서버 접속이 필요합니다</b><br />
+        데이터 로드·저장과 시세 조회가 모두 서버(fin.hansoljj.com)를 통하므로,
+        로컬 파일로 열면 동작하지 않습니다.
       </div>
-      <span class="scope-hint" id="scopeHint">전체 자산 기준 — 부동산·연금·청약 등 묶인 자산 모두 포함</span>
-    </div>
 
-    <!-- KPI Cards — 총자산·유동자산·원화/달러/헤지 비중·인플레 대비 6장. 값은 render.js renderKPIs·renderInflationKPI 가 채운다. -->
-    <section class="kpi-grid">
-      <div class="kpi-card">
-        <!-- 부채가 있으면 render.js renderKPIs 가 라벨을 "순 자산"으로 바꾸고 자산−부채 내역 줄을 노출한다. -->
-        <div class="label" id="kpi-total-label">총 자산</div>
-        <div class="value" id="kpi-total">₩0</div>
-        <div class="sub" id="kpi-total-usd" style="font-weight:600;color:var(--c-usd);font-size:14px;font-variant-numeric:tabular-nums;">$0</div>
-        <div class="sub" id="kpi-debt-line" style="display:none;font-size:11px;color:var(--danger);"></div>
-        <div class="sub" id="kpi-updated" style="font-size:11px;">—</div>
+      <!-- 부트(서버 로드) 실패 배너 — main.js showBootFail 이 표시한다. 이 상태에서는 -->
+      <!-- 빈 화면이 서버를 덮지 않도록 자동 저장이 잠긴다(sync.js syncEnabled). -->
+      <div id="bootFailBanner" class="file-warn" style="display: none">
+        ⚠️ <b>서버에서 데이터를 불러오지 못했습니다</b> —
+        <span id="bootFailMsg"></span><br />
+        지금 보이는 것은 빈 화면이며, 데이터 보호를 위해 저장이 잠겨 있습니다.
+        <button
+          class="btn"
+          onclick="location.reload()"
+          style="margin-left: 8px"
+        >
+          🔄 다시 시도
+        </button>
       </div>
-      <div class="kpi-card" id="kpi-liq-card" style="background:var(--accent-soft);border-color:var(--accent-line);">
-        <div class="label">💧 유동 자산<span class="help" title="즉시 매도/인출 가능한 자산. 묶임(연금/ISA/주택청약/부동산 등) 제외. 행별로 💧↔🔒 토글 가능.">?</span></div>
-        <div class="value" id="kpi-liquid" style="color:var(--accent)">₩0</div>
-        <div class="sub" id="kpi-liquid-pct" style="font-weight:600;color:var(--accent);font-size:13px;">0.0%</div>
-        <div class="sub" id="kpi-locked-amt" style="font-size:11px;color:var(--text-muted);">🔒 묶임 ₩0 (0.0%)</div>
-      </div>
-      <div class="kpi-card success">
-        <div class="label">원화 자산 비중</div>
-        <div class="value" id="kpi-krw">0.0%</div>
-        <div class="sub" id="kpi-krw-amt">₩0</div>
-      </div>
-      <div class="kpi-card warning">
-        <div class="label">달러(노출) 비중</div>
-        <div class="value" id="kpi-usd">0.0%</div>
-        <div class="sub" id="kpi-usd-amt">₩0</div>
-      </div>
-      <div class="kpi-card" style="background:#fefce8;border-color:var(--c-gold);">
-        <div class="label">🥇 달러헤지 비중<span class="help" title="금·실물 등 달러 가치 하락 헤지 자산. 자산타입 '금' 목표와 자동 연동됨.">?</span></div>
-        <div class="value" id="kpi-hedge" style="color:#a16207;">0.0%</div>
-        <div class="sub" id="kpi-hedge-amt">₩0</div>
-      </div>
-      <div class="kpi-card inflation flat" id="kpi-inflation">
-        <div class="label">총 자산 vs 인플레<span class="help" title="맨 처음 이력 대비 (노동소득 + 자산 운용수익) 총합 변화율 - CPI 누적 인플레. 입출금 보정 안 됨이라 노동소득(월급/적금)이 들어가면 자연히 양수가 정상. 음수가 나오면 자산 운용 점검 필요. 정확한 운용 성과는 별도 추적 필요.">?</span></div>
-        <div class="value" id="kpi-inflation-gap">—</div>
-        <div class="breakdown" id="kpi-inflation-breakdown">
-          <span>이력 저장 후 자동 표시</span>
+
+      <!-- 상단 헤더 — 타이틀 · 환율 배지 · 시세 갱신 · 자동 저장 인디케이터. -->
+      <!-- #fxBadge(환율 표시)는 fetch.js updateFxBadge 가 갱신하고 클릭 시 fetchExchangeRate 를 부른다. -->
+      <!-- 백업/복원·초기화는 설정 탭, 수동 스냅샷은 이력 탭으로 이동함 (3차 개편 — 헤더 정리). -->
+      <header class="top">
+        <h1><span class="dot"></span> 자산 포트폴리오</h1>
+        <div class="actions">
+          <span
+            class="fx-badge"
+            id="fxBadge"
+            onclick="fetchExchangeRate(true)"
+            title="클릭해서 환율 즉시 갱신"
+          >
+            <span style="font-size: 11px">USD/KRW</span>
+            <span class="fx-rate" id="fxRate">—</span>
+            <span class="fx-meta" id="fxMeta">로딩 중...</span>
+          </span>
+          <button
+            class="btn primary"
+            onclick="refreshAllPrices()"
+            id="refreshAllBtn"
+          >
+            🔄 전체 시세 갱신
+          </button>
+          <!-- 자동 저장 상태 표시 — sync.js updateSyncIndicator 가 문구·색을 갱신하고, 클릭하면 즉시 저장한다. -->
+          <span
+            class="sync-indicator"
+            id="syncIndicator"
+            onclick="savePortfolio()"
+            title="자동 저장 상태 — 클릭하면 즉시 서버에 저장"
+            >☁️ …</span
+          >
         </div>
-      </div>
-    </section>
+      </header>
 
-    <!-- Charts Row: 자산타입 + 통화노출 도넛 차트 2개. charts.js renderCharts 가 두 canvas 에 그린다. -->
-    <div class="grid-2">
-      <div class="section">
-        <div class="section-header">
-          <h2>자산타입 비중 (현금 / 주식 / 원자재 / 암호화폐)</h2>
-        </div>
-        <div class="chart-wrap"><canvas id="assetTypeChart"></canvas></div>
-      </div>
-      <div class="section">
-        <div class="section-header">
-          <h2>통화노출 비중 (원화 vs 달러 노출)</h2>
-        </div>
-        <div class="chart-wrap"><canvas id="exposureChart"></canvas></div>
-      </div>
-    </div>
+      <!-- ==================== 탭 네비게이션 ==================== -->
+      <!-- 탭 버튼 5개. data-tab 값이 아래 .tab-panel 의 data-panel 과 1:1 대응하며, 클릭 처리는 render.js initTabs 가 바인딩한다. -->
+      <nav class="tab-nav" id="tabNav">
+        <button class="tab-btn active" data-tab="dashboard">
+          <span class="tab-ico">📊</span><span class="tab-txt">대시보드</span>
+        </button>
+        <button class="tab-btn" data-tab="holdings">
+          <span class="tab-ico">📝</span><span class="tab-txt">자산 입력</span>
+        </button>
+        <button class="tab-btn" data-tab="analysis">
+          <span class="tab-ico">📈</span><span class="tab-txt">분석</span>
+        </button>
+        <button class="tab-btn" data-tab="history">
+          <span class="tab-ico">📅</span><span class="tab-txt">이력</span>
+        </button>
+        <button class="tab-btn" data-tab="settings">
+          <span class="tab-ico">⚙️</span><span class="tab-txt">설정</span>
+        </button>
+      </nav>
 
-    <!-- 리밸런싱 제안: 자산타입 단위 — 요약 칩(#rebal-summary)과 제안 카드(#rebal-grid)는 render.js renderRebalancing 이 채운다. -->
-    <div class="section">
-      <div class="section-header">
-        <h2>⚖️ 리밸런싱 제안 (자산타입 단위)</h2>
-        <div class="desc" id="rebal-desc">현재 비중과 목표 비중의 차이를 금액으로 표시. ±2%p 이상이면 강조</div>
-      </div>
-      <div class="rebal-summary" id="rebal-summary"></div>
-      <div class="rebal-grid" id="rebal-grid"></div>
-    </div>
+      <!-- ==================== 탭: 대시보드 ==================== -->
+      <!-- 총자산 KPI 카드 · 자산타입/통화노출 도넛 차트 · 리밸런싱 제안 카드를 모아 보여주는 기본 탭. -->
+      <div class="tab-panel active" data-panel="dashboard">
+        <!-- View Scope Toggle — "전체 자산 ↔ 💧 유동만" 분석 기준 전환. calc.js setViewScope 가 처리하며 분석 탭의 토글과 상태를 공유한다. -->
+        <div class="scope-toggle-row">
+          <span class="scope-label">분석 기준:</span>
+          <div class="scope-toggle">
+            <button
+              class="scope-btn primary"
+              id="scopeAllBtn"
+              onclick="setViewScope('all')"
+              title="모든 자산 (부동산·연금·청약 포함). 분산/리스크 분석용"
+            >
+              전체 자산
+            </button>
+            <button
+              class="scope-btn"
+              id="scopeLiquidBtn"
+              onclick="setViewScope('liquid')"
+              title="💧 표시된 자산만. 즉시 매매·리밸런싱 가능한 자산 기준. 실질 의사결정용"
+            >
+              💧 유동만
+            </button>
+          </div>
+          <span class="scope-hint" id="scopeHint"
+            >전체 자산 기준 — 부동산·연금·청약 등 묶인 자산 모두 포함</span
+          >
+        </div>
 
-    <!-- 리밸런싱 제안: 통화노출 단위 — 원화/달러노출/달러헤지 비교. render.js renderRebalancingExposure 가 채운다. -->
-    <div class="section">
-      <div class="section-header">
-        <h2>💱 리밸런싱 제안 (통화노출 단위)</h2>
-        <div class="desc" id="rebal-exp-desc">원화·달러노출·달러헤지 목표 비중과 현재 비중 비교</div>
-      </div>
-      <div class="rebal-summary" id="rebal-exp-summary"></div>
-      <div class="rebal-grid" id="rebal-exp-grid"></div>
-    </div>
-  </div>
+        <!-- KPI Cards — 총자산·유동자산·원화/달러/헤지 비중·인플레 대비 6장. 값은 render.js renderKPIs·renderInflationKPI 가 채운다. -->
+        <section class="kpi-grid">
+          <div class="kpi-card">
+            <!-- 부채가 있으면 render.js renderKPIs 가 라벨을 "순 자산"으로 바꾸고 자산−부채 내역 줄을 노출한다. -->
+            <div class="label" id="kpi-total-label">총 자산</div>
+            <div class="value" id="kpi-total">₩0</div>
+            <div
+              class="sub"
+              id="kpi-total-usd"
+              style="
+                font-weight: 600;
+                color: var(--c-usd);
+                font-size: 14px;
+                font-variant-numeric: tabular-nums;
+              "
+            >
+              $0
+            </div>
+            <div
+              class="sub"
+              id="kpi-debt-line"
+              style="display: none; font-size: 11px; color: var(--danger)"
+            ></div>
+            <div class="sub" id="kpi-updated" style="font-size: 11px">—</div>
+          </div>
+          <div
+            class="kpi-card"
+            id="kpi-liq-card"
+            style="
+              background: var(--accent-soft);
+              border-color: var(--accent-line);
+            "
+          >
+            <div class="label">
+              💧 유동 자산<span
+                class="help"
+                title="즉시 매도/인출 가능한 자산. 묶임(연금/ISA/주택청약/부동산 등) 제외. 행별로 💧↔🔒 토글 가능."
+                >?</span
+              >
+            </div>
+            <div class="value" id="kpi-liquid" style="color: var(--accent)">
+              ₩0
+            </div>
+            <div
+              class="sub"
+              id="kpi-liquid-pct"
+              style="font-weight: 600; color: var(--accent); font-size: 13px"
+            >
+              0.0%
+            </div>
+            <div
+              class="sub"
+              id="kpi-locked-amt"
+              style="font-size: 11px; color: var(--text-muted)"
+            >
+              🔒 묶임 ₩0 (0.0%)
+            </div>
+          </div>
+          <div class="kpi-card success">
+            <div class="label">원화 자산 비중</div>
+            <div class="value" id="kpi-krw">0.0%</div>
+            <div class="sub" id="kpi-krw-amt">₩0</div>
+          </div>
+          <div class="kpi-card warning">
+            <div class="label">달러(노출) 비중</div>
+            <div class="value" id="kpi-usd">0.0%</div>
+            <div class="sub" id="kpi-usd-amt">₩0</div>
+          </div>
+          <div
+            class="kpi-card"
+            style="background: #fefce8; border-color: var(--c-gold)"
+          >
+            <div class="label">
+              🥇 달러헤지 비중<span
+                class="help"
+                title="금·실물 등 달러 가치 하락 헤지 자산. 자산타입 '금' 목표와 자동 연동됨."
+                >?</span
+              >
+            </div>
+            <div class="value" id="kpi-hedge" style="color: #a16207">0.0%</div>
+            <div class="sub" id="kpi-hedge-amt">₩0</div>
+          </div>
+          <div class="kpi-card inflation flat" id="kpi-inflation">
+            <div class="label">
+              총 자산 vs 인플레<span
+                class="help"
+                title="맨 처음 이력 대비 (노동소득 + 자산 운용수익) 총합 변화율 - CPI 누적 인플레. 입출금 보정 안 됨이라 노동소득(월급/적금)이 들어가면 자연히 양수가 정상. 음수가 나오면 자산 운용 점검 필요. 정확한 운용 성과는 별도 추적 필요."
+                >?</span
+              >
+            </div>
+            <div class="value" id="kpi-inflation-gap">—</div>
+            <div class="breakdown" id="kpi-inflation-breakdown">
+              <span>이력 저장 후 자동 표시</span>
+            </div>
+          </div>
+        </section>
 
-  <!-- ==================== 탭: 자산 입력 ==================== -->
-  <!-- 카테고리별 보유 자산을 행 단위로 입력·편집하는 탭. #holdingsContainer 내부 전체를 render.js renderHoldings 가 생성한다. -->
-  <div class="tab-panel" data-panel="holdings">
-    <div class="section">
-      <div class="section-header">
-        <h2>📝 자산 내역</h2>
-        <div class="desc">노란 셀 = 입력 · 평단가 입력 시 평가손익/수익률 자동 계산</div>
-        <!-- 증권사 잔고 동기화 — broker.js openBrokerSyncModal. 미리보기 확인 후 적용되는 조회 전용 기능. -->
-        <button class="btn primary" onclick="openBrokerSyncModal()" style="flex-shrink:0;">🏦 증권사 동기화</button>
-      </div>
-      <div id="holdingsContainer"></div>
-    </div>
-  </div>
+        <!-- Charts Row: 자산타입 + 통화노출 도넛 차트 2개. charts.js renderCharts 가 두 canvas 에 그린다. -->
+        <div class="grid-2">
+          <div class="section">
+            <div class="section-header">
+              <h2>자산타입 비중 (현금 / 주식 / 원자재 / 암호화폐)</h2>
+            </div>
+            <div class="chart-wrap"><canvas id="assetTypeChart"></canvas></div>
+          </div>
+          <div class="section">
+            <div class="section-header">
+              <h2>통화노출 비중 (원화 vs 달러 노출)</h2>
+            </div>
+            <div class="chart-wrap"><canvas id="exposureChart"></canvas></div>
+          </div>
+        </div>
 
-  <!-- ==================== 탭: 분석 ==================== -->
-  <!-- 현재 vs 목표 비교 막대 차트 · 종목 트리맵 · 세후 평가를 모은 분석 탭. -->
-  <div class="tab-panel" data-panel="analysis">
-    <!-- View Scope Toggle (대시보드와 공유) -->
-    <div class="scope-toggle-row">
-      <span class="scope-label">분석 기준:</span>
-      <div class="scope-toggle">
-        <button class="scope-btn primary" id="scopeAllBtn2" onclick="setViewScope('all')">전체 자산</button>
-        <button class="scope-btn" id="scopeLiquidBtn2" onclick="setViewScope('liquid')">💧 유동만</button>
-      </div>
-      <span class="scope-hint" id="scopeHint2">전체 자산 기준</span>
-    </div>
-    <!-- Comparison Bar Charts — 자산타입·통화노출의 현재 vs 목표 막대 차트 2개. charts.js renderCharts 가 그린다. -->
-    <div class="grid-2">
-      <div class="section">
-        <div class="section-header">
-          <h2>자산타입: 현재 vs 목표</h2>
+        <!-- 리밸런싱 제안: 자산타입 단위 — 요약 칩(#rebal-summary)과 제안 카드(#rebal-grid)는 render.js renderRebalancing 이 채운다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>⚖️ 리밸런싱 제안 (자산타입 단위)</h2>
+            <div class="desc" id="rebal-desc">
+              현재 비중과 목표 비중의 차이를 금액으로 표시. ±2%p 이상이면 강조
+            </div>
+          </div>
+          <div class="rebal-summary" id="rebal-summary"></div>
+          <div class="rebal-grid" id="rebal-grid"></div>
         </div>
-        <div class="chart-wrap tall"><canvas id="assetTypeBarChart"></canvas></div>
-      </div>
-      <div class="section">
-        <div class="section-header">
-          <h2>통화노출: 현재 vs 목표</h2>
-        </div>
-        <div class="chart-wrap tall"><canvas id="expBarChart"></canvas></div>
-      </div>
-    </div>
 
-    <!-- 종목별 트리맵 — 캔버스·레전드·브레드크럼 모두 charts.js renderTreemap 이 채운다. -->
-    <!-- 헤더의 두 버튼(🌡 손익 색상 / ⊟ 전체 종목 펼치기)의 클릭 핸들러도 renderTreemap 안에서 바인딩된다. -->
-    <div class="section">
-      <div class="section-header" style="flex-wrap:wrap;gap:8px;">
-        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-          <h2 id="treemap-title">🗺️ 종목별 비중 (트리맵)</h2>
-          <div class="desc" id="treemap-desc">자산타입을 클릭하면 그 안의 종목만 펼쳐 볼 수 있어요 · 같은 종목은 자동 합산</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
-          <button class="btn" id="treemap-toggle-heat" style="font-size:12.5px;padding:8px 14px;flex-shrink:0;" title="색상을 자산타입 대신 손익률(빨강=손실, 초록=수익)로 표시 · 여러 계좌에 흩어진 같은 종목은 통합 수익률 기준">🌡 손익 색상</button>
-          <button class="btn primary" id="treemap-toggle-flat" style="font-size:12.5px;padding:8px 14px;flex-shrink:0;" title="자산타입 그룹 없이 모든 종목을 한 화면에 flat 표시">⊟ 전체 종목 펼치기</button>
-        </div>
-      </div>
-      <div class="treemap-breadcrumb" id="treemap-breadcrumb" style="display:none;"></div>
-      <div class="treemap-legend" id="treemap-legend"></div>
-      <div class="treemap-wrap"><canvas id="treemapChart"></canvas></div>
-    </div>
-
-    <!-- 세후 수익 상세 — 요약 카드(#tax-summary)와 분류별 테이블(#taxTable tbody)을 render.js renderTaxAnalysis 가 채운다. -->
-    <div class="section">
-      <div class="section-header">
-        <h2>💰 세후 평가 (양도세/공제/손익통산 반영)</h2>
-        <div class="desc">국내주식 비과세 · 해외주식 22% (250만 기본공제) · 암호화폐 22% (250만) · 금(KRX 금현물) 비과세 · ISA·연금 비과세</div>
-      </div>
-      <div class="tax-grid" id="tax-summary"></div>
-      <div class="table-scroll">
-      <table class="tax-table" id="taxTable">
-        <thead>
-          <tr>
-            <th class="m-keep">분류</th>
-            <th class="right">평가금액</th>
-            <th class="right m-keep">평가손익</th>
-            <th class="right">기본공제</th>
-            <th class="right">과표</th>
-            <th class="right m-keep">세금</th>
-            <th class="right m-keep">세후 평가금액</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== 탭: 이력 ==================== -->
-  <!-- 스냅샷 이력 라인 차트와 CPI·M2 기준선 비교 테이블 탭. 테이블(#historyTbody)은 render.js renderHistory, 차트는 charts.js renderCharts 가 채운다. -->
-  <div class="tab-panel" data-panel="history">
-    <div class="section">
-      <div class="section-header">
-        <h2>📈 자산 이력 (USD 구매력 기준)</h2>
-        <div class="desc">🔄 전체 시세 갱신 시 오늘 스냅샷이 자동 기록됨 · 미국 CPI/M2도 함께 수집 → 인플레이션 대비 실질 자산 변화 추적</div>
-        <!-- 수동 스냅샷 버튼 — 시세 갱신 없이 지금 상태를 그대로 기록하고 싶을 때 (data-io.js snapshot). -->
-        <button class="btn" onclick="snapshot()" style="flex-shrink:0;">📸 지금 스냅샷 저장</button>
-        <!-- 입출금 원장 모달 — 월급·이체 기록으로 TWR(실투자 수익률)을 계산 (data-io.js openCashflowModal). -->
-        <button class="btn" onclick="openCashflowModal()" style="flex-shrink:0;">💰 입출금 기록</button>
-      </div>
-      <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시). 값 채움과 표시 여부 모두 render.js renderHistory 가 결정한다. -->
-      <div class="metrics-box" id="realReturnBox" style="display:none;">
-        <div class="metric-cell">
-          <div class="lbl">명목 USD 수익률<span class="help" title="첫 스냅샷 대비 현재 USD 자산 변화율. 인플레이션이나 통화확장 보정 안 함. 그냥 절대 USD 금액의 변화.">?</span></div>
-          <div class="val" id="m-nominal-return">—</div>
-        </div>
-        <div class="metric-cell">
-          <div class="lbl">누적 CPI 인플레<span class="help" title="첫 스냅샷 시점부터 현재까지 미국 CPI 누적 상승률. 같은 물건 사려면 얼마나 더 많은 돈이 필요한지.">?</span></div>
-          <div class="val" id="m-inflation">—</div>
-        </div>
-        <div class="metric-cell">
-          <div class="lbl">누적 M2 증가<span class="help" title="첫 스냅샷 시점부터 현재까지 미국 M2 통화공급 누적 증가율. 시중 유동성이 얼마나 늘었는지.">?</span></div>
-          <div class="val" id="m-m2growth">—</div>
-        </div>
-        <div class="metric-cell">
-          <div class="lbl">실질 (vs CPI)<span class="help" title="명목 수익률 - CPI 누적 = 구매력 기준 실질 수익률. 양수면 소비물가 인플레 이김. 일반적인 '실질 수익률' 정의.">?</span></div>
-          <div class="val" id="m-real-return">—</div>
-        </div>
-        <div class="metric-cell">
-          <div class="lbl">M2 대비<span class="help" title="명목 수익률 - M2 누적 = 통화공급 대비 상대적 부 변화. 양수면 시중 유동성 증가보다 빨리 늘어남 = 자산가격 인플레 헤지 성공. 음수면 사회적으로 부 비중이 줄어듦.">?</span></div>
-          <div class="val" id="m-m2-real">—</div>
-        </div>
-        <!-- TWR 지표 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
-        <div class="metric-cell" id="m-twr-cell" style="display:none;">
-          <div class="lbl">실투자 수익률 (TWR)<span class="help" title="입출금(월급·이체)의 효과를 제거한 순수 투자 성과. 💰 입출금 기록 기반, KRW 자산 기준. 스냅샷 구간별 수익률(Modified Dietz)을 복리로 연결.">?</span></div>
-          <div class="val" id="m-twr">—</div>
-        </div>
-        <!-- 리스크 지표 2종 — calc.js computeRiskStats 로 계산, render.js renderHistory 가 채운다. -->
-        <div class="metric-cell">
-          <div class="lbl">MDD (최대 낙폭)<span class="help" title="이력상 이전 고점 대비 가장 깊었던 하락률 (USD 자산 기준). 최악의 시기에 고점에서 몇 %까지 내려갔었는지 — 포트폴리오 리스크의 체감 크기.">?</span></div>
-          <div class="val" id="m-mdd">—</div>
-        </div>
-        <div class="metric-cell">
-          <div class="lbl">변동성 (연환산)<span class="help" title="최근 1년(이력이 1년 미만이면 전체 기간) 스냅샷 간 수익률의 출렁임을 연 단위로 환산한 값 (USD 자산 기준). 위아래 모든 움직임이 포함되고 1년으로 스케일업된 값이라 MDD보다 크게 나오는 게 정상. 아래 보조줄은 실제 관측 기간으로 되돌린 출렁임 폭.">?</span></div>
-          <div class="val" id="m-vol">—</div>
-        </div>
-      </div>
-      <!-- 이력 차트 표시 모드 전환 — 절대값(USD) / 정규화(%). charts.js setChartMode 가 처리한다. -->
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-size:12px;color:var(--text-muted)">표시 모드:</span>
-        <button class="btn" id="chartModeAbsBtn" onclick="setChartMode('absolute')" style="padding:4px 10px;font-size:12px;">절대값 (USD)</button>
-        <button class="btn primary" id="chartModeNormBtn" onclick="setChartMode('normalized')" style="padding:4px 10px;font-size:12px;">정규화 (%) <span class="help" title="모든 라인이 첫 스냅샷=0%에서 시작. 비중 무관하게 성과 비교 가능. 환율(USD/KRW) 변화도 함께 표시.">?</span></button>
-      </div>
-      <div class="chart-wrap tall"><canvas id="historyChart"></canvas></div>
-      <!-- 스냅샷 이력 테이블 (CPI·M2 기준선 비교) -->
-      <div class="table-scroll">
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>기준일</th>
-            <th class="right">USD 자산<span class="help" title="위: 그 시점 환율로 환산한 USD 절대값 (KRW 총액 ÷ USD/KRW). 아래: 직전 스냅샷 대비, 약 30일 전 대비, 첫 스냅샷 대비 누적 % 변화. 30일 전 데이터가 ±10일 범위 내 없으면 '—' 표시.">?</span></th>
-            <!-- 순입금 컬럼 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
-            <th class="right" id="thNetFlow" style="display:none;">순입금<span class="help" title="직전 스냅샷 이후 기록된 입출금 합계 (KRW, 💰 입출금 기록 기반). 아래 작은 숫자는 그 구간의 실투자 수익률(TWR) — 입출금 효과를 제거한 순수 성과.">?</span></th>
-            <th class="right" style="color:var(--danger)">CPI 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 CPI / 첫 CPI) — 구매력을 유지하려면 지금 있어야 할 USD 금액. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 인플레이션 이김 = 실질 구매력 증가).">?</span></th>
-            <th class="right" style="color:#9333ea">M2 기준선<span class="help" title="위: 첫 스냅샷 USD 자산 × (현재 M2 / 첫 M2) — 통화공급 증가만큼 따라가려면 있어야 할 USD. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 통화확장 속도 이김 = 자산가격 인플레 헤지 성공).">?</span></th>
-            <th class="right">CPI<span class="help" title="위: BLS Consumer Price Index 절대값 (1982-84=100, 시리즈 CUUR0000SA0). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) 변화율 — 뉴스에서 보는 인플레이션율과 동일.">?</span></th>
-            <th class="right">M2 (B$)<span class="help" title="위: FRED M2 Money Supply 절대값 (Billions USD, SA, 시리즈 M2SL). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) M2 증가율.">?</span></th>
-            <th class="right">환율<span class="help" title="위: 그 시점 USD/KRW 환율 (자산을 USD 환산 시 사용된 값). 아래: 직전 스냅샷 대비, 첫 스냅샷 대비 누적 % 변화. 양수 = 원화 약세 (USD 비쌈), 음수 = 원화 강세.">?</span></th>
-            <!-- 벤치마크 컬럼 2개 — 지수 데이터가 있는 스냅샷이 생기면 render.js renderHistory 가 표시한다. -->
-            <th class="right" id="thSpx" style="display:none;">S&P500<span class="help" title="위: 그 시점 S&P500 종가 (스냅샷에 기록, 주말이면 직전 영업일). 아래: 첫 기록 대비 누적 변화율 — 내 USD 자산 누적과 비교하면 시장 대비 성과가 보임.">?</span></th>
-            <th class="right" id="thNdx" style="display:none;">나스닥<span class="help" title="위: 그 시점 나스닥 종합지수 종가 (스냅샷에 기록). 아래: 첫 기록 대비 누적 변화율.">?</span></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="historyTbody"></tbody>
-      </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== 탭: 설정 ==================== -->
-  <!-- 목표 비중 편집 · 백업/서버 저장 · 환율/CPI 수동 설정 · 과거 이력 보정 · 합계 검산 · 초기화를 모은 탭. -->
-  <div class="tab-panel" data-panel="settings">
-  <!-- Asset Category Targets — 자산타입별 목표 비중 편집 테이블. tbody 는 render.js renderAssetTypeTargets 가 채운다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>🎯 자산타입별 목표 비중</h2>
-      <div class="desc">자산타입 단위 목표 비중 · <span style="color:#b45309">🔗 "금" 값은 통화노출 "달러헤지"와 자동 연동됨</span></div>
-    </div>
-    <div class="table-scroll">
-    <table id="assetTypeTargetsTable">
-      <thead>
-        <tr>
-          <th>자산타입</th>
-          <th class="right">현재 금액</th>
-          <th class="right">현재 비중</th>
-          <th class="right">목표 비중</th>
-          <th class="right">목표 금액</th>
-          <th class="right">차이</th>
-          <th class="center">신호</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
-  </div>
-
-  <!-- Currency Exposure Analysis — 통화노출 요약 지표(m-krw 등)는 render.js renderKPIs, 목표 비중 테이블 tbody 는 renderExpTargets 가 채운다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>💱 통화노출 분석</h2>
-      <div class="desc">자산내역의 통화노출 태그 기준 자동 집계 · <span style="color:#b45309">🔗 "달러헤지" 값은 자산타입 "금"과 자동 연동됨</span></div>
-    </div>
-    <div class="metrics-box metrics-3">
-      <div class="metric-cell krw">
-        <div class="lbl">원화 비중</div>
-        <div class="val" id="m-krw">0.0%</div>
-      </div>
-      <div class="metric-cell usd">
-        <div class="lbl">달러(노출) 비중</div>
-        <div class="val" id="m-usd">0.0%</div>
-      </div>
-      <div class="metric-cell hedge">
-        <div class="lbl">달러헤지 비중</div>
-        <div class="val" id="m-hedge">0.0%</div>
-      </div>
-    </div>
-    <div class="table-scroll">
-    <table id="expTargetsTable">
-      <thead>
-        <tr>
-          <th>통화 노출</th>
-          <th class="right">현재 금액</th>
-          <th class="right">현재 비중</th>
-          <th class="right">목표 비중</th>
-          <th class="right">목표 금액</th>
-          <th class="right">차이</th>
-          <th class="center">신호</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
-  </div>
-
-  <!-- 데이터 백업/복원 — 자동 저장 상태(sync.js)와 JSON 백업/복원(data-io.js exportJSON/importJSON)을 모은 카드. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>💾 데이터 백업 / 저장</h2>
-      <div class="desc">수정하면 서버에 자동 저장됨 · JSON 백업은 사고 대비 안전망</div>
-    </div>
-    <div class="backup-card">
-      <!-- ☁️ 자동 저장 안내 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담). #syncStatus 문구는 sync.js updateSyncIndicator 가 갱신한다. -->
-      <div id="syncBox">
-        <div class="backup-actions">
-          <button class="btn primary" onclick="savePortfolio()">☁️ 지금 즉시 저장</button>
-        </div>
-        <div class="backup-desc" style="margin-top:6px;">
-          값을 수정하면 <b>몇 초 안에 서버로 자동 저장</b>됩니다 — 다른 기기에서 새로고침하면 바로 보입니다.
-          데이터는 로그인 계정별로 분리 저장되며, 위 버튼은 기다리지 않고 즉시 저장하고 싶을 때만 쓰면 됩니다.<br>
-          <span id="syncStatus"></span>
+        <!-- 리밸런싱 제안: 통화노출 단위 — 원화/달러노출/달러헤지 비교. render.js renderRebalancingExposure 가 채운다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>💱 리밸런싱 제안 (통화노출 단위)</h2>
+            <div class="desc" id="rebal-exp-desc">
+              원화·달러노출·달러헤지 목표 비중과 현재 비중 비교
+            </div>
+          </div>
+          <div class="rebal-summary" id="rebal-exp-summary"></div>
+          <div class="rebal-grid" id="rebal-exp-grid"></div>
         </div>
       </div>
 
-      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
-        <div class="backup-title">⚠️ 데이터 안전망</div>
-        <div class="backup-desc">
-          실수로 잘못 저장하거나 데이터가 꼬였을 때를 대비해 주기적으로 JSON 백업을 받아두세요.
-          다운로드는 <b>서버에 실제 저장된 진본</b>을 그대로 받습니다.
-          (서버에도 날짜별 버전이 90일 보관되지만, 내 손에 있는 백업이 최후의 안전망입니다.)
+      <!-- ==================== 탭: 자산 입력 ==================== -->
+      <!-- 카테고리별 보유 자산을 행 단위로 입력·편집하는 탭. #holdingsContainer 내부 전체를 render.js renderHoldings 가 생성한다. -->
+      <div class="tab-panel" data-panel="holdings">
+        <div class="section">
+          <div class="section-header">
+            <h2>📝 자산 내역</h2>
+            <div class="desc">
+              노란 셀 = 입력 · 평단가 입력 시 평가손익/수익률 자동 계산
+            </div>
+            <!-- 증권사 잔고 동기화 — broker.js openBrokerSyncModal. 미리보기 확인 후 적용되는 조회 전용 기능. -->
+            <button
+              class="btn primary"
+              onclick="openBrokerSyncModal()"
+              style="flex-shrink: 0"
+            >
+              🏦 증권사 동기화
+            </button>
+          </div>
+          <div id="holdingsContainer"></div>
         </div>
-        <div class="backup-actions">
-          <button class="btn primary" onclick="exportJSON()">💾 JSON 백업 다운로드</button>
-          <button class="btn" onclick="document.getElementById('fileInputSettings').click()">📂 JSON에서 복원</button>
-          <input type="file" id="fileInputSettings" accept=".json" style="display:none;" onchange="importJSON(event)" />
+      </div>
+
+      <!-- ==================== 탭: 분석 ==================== -->
+      <!-- 현재 vs 목표 비교 막대 차트 · 종목 트리맵 · 세후 평가를 모은 분석 탭. -->
+      <div class="tab-panel" data-panel="analysis">
+        <!-- View Scope Toggle (대시보드와 공유) -->
+        <div class="scope-toggle-row">
+          <span class="scope-label">분석 기준:</span>
+          <div class="scope-toggle">
+            <button
+              class="scope-btn primary"
+              id="scopeAllBtn2"
+              onclick="setViewScope('all')"
+            >
+              전체 자산
+            </button>
+            <button
+              class="scope-btn"
+              id="scopeLiquidBtn2"
+              onclick="setViewScope('liquid')"
+            >
+              💧 유동만
+            </button>
+          </div>
+          <span class="scope-hint" id="scopeHint2">전체 자산 기준</span>
+        </div>
+        <!-- Comparison Bar Charts — 자산타입·통화노출의 현재 vs 목표 막대 차트 2개. charts.js renderCharts 가 그린다. -->
+        <div class="grid-2">
+          <div class="section">
+            <div class="section-header">
+              <h2>자산타입: 현재 vs 목표</h2>
+            </div>
+            <div class="chart-wrap tall">
+              <canvas id="assetTypeBarChart"></canvas>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-header">
+              <h2>통화노출: 현재 vs 목표</h2>
+            </div>
+            <div class="chart-wrap tall">
+              <canvas id="expBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 종목별 트리맵 — 캔버스·레전드·브레드크럼 모두 charts.js renderTreemap 이 채운다. -->
+        <!-- 헤더의 두 버튼(🌡 손익 색상 / ⊟ 전체 종목 펼치기)의 클릭 핸들러도 renderTreemap 안에서 바인딩된다. -->
+        <div class="section">
+          <div class="section-header" style="flex-wrap: wrap; gap: 8px">
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+              "
+            >
+              <h2 id="treemap-title">🗺️ 종목별 비중 (트리맵)</h2>
+              <div class="desc" id="treemap-desc">
+                자산타입을 클릭하면 그 안의 종목만 펼쳐 볼 수 있어요 · 같은
+                종목은 자동 합산
+              </div>
+            </div>
+            <div
+              style="display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap"
+            >
+              <button
+                class="btn"
+                id="treemap-toggle-heat"
+                style="font-size: 12.5px; padding: 8px 14px; flex-shrink: 0"
+                title="색상을 자산타입 대신 손익률(빨강=손실, 초록=수익)로 표시 · 여러 계좌에 흩어진 같은 종목은 통합 수익률 기준"
+              >
+                🌡 손익 색상
+              </button>
+              <button
+                class="btn primary"
+                id="treemap-toggle-flat"
+                style="font-size: 12.5px; padding: 8px 14px; flex-shrink: 0"
+                title="자산타입 그룹 없이 모든 종목을 한 화면에 flat 표시"
+              >
+                ⊟ 전체 종목 펼치기
+              </button>
+            </div>
+          </div>
+          <div
+            class="treemap-breadcrumb"
+            id="treemap-breadcrumb"
+            style="display: none"
+          ></div>
+          <div class="treemap-legend" id="treemap-legend"></div>
+          <div class="treemap-wrap"><canvas id="treemapChart"></canvas></div>
+        </div>
+
+        <!-- 세후 수익 상세 — 요약 카드(#tax-summary)와 분류별 테이블(#taxTable tbody)을 render.js renderTaxAnalysis 가 채운다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>💰 세후 평가 (양도세/공제/손익통산 반영)</h2>
+            <div class="desc">
+              국내주식 비과세 · 해외주식 22% (250만 기본공제) · 암호화폐 22%
+              (250만) · 금(KRX 금현물) 비과세 · ISA·연금 비과세
+            </div>
+          </div>
+          <div class="tax-grid" id="tax-summary"></div>
+          <div class="table-scroll">
+            <table class="tax-table" id="taxTable">
+              <thead>
+                <tr>
+                  <th class="m-keep">분류</th>
+                  <th class="right">평가금액</th>
+                  <th class="right m-keep">평가손익</th>
+                  <th class="right">기본공제</th>
+                  <th class="right">과표</th>
+                  <th class="right m-keep">세금</th>
+                  <th class="right m-keep">세후 평가금액</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div class="backup-meta" id="backupMeta"></div>
-    </div>
-  </div>
-
-  <!-- 증권사 연결 — broker.js가 /api/broker-connections로 로그인 계정 귀속 KV에 저장한다 (portfolio와 동일 규약). -->
-  <!-- 목록·입력 폼은 서버가 주는 provider 메타로 자동 생성되므로 증권사가 늘어도 이 HTML은 그대로다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>🔗 증권사 연결 (잔고 동기화)</h2>
-      <div class="desc">한투·키움·빗썸 조회 전용 API 키 등록 — 자산 입력 탭의 🏦 동기화에 사용 · 계정별 분리 저장</div>
-    </div>
-    <div class="backup-card">
-      <div id="brokerConnList">확인 중…</div>
-      <div class="backup-actions" style="margin-top:10px;">
-        <button class="btn primary" onclick="openBrokerConnModal()">+ 증권사 연결 추가</button>
+      <!-- ==================== 탭: 이력 ==================== -->
+      <!-- 스냅샷 이력 라인 차트와 CPI·M2 기준선 비교 테이블 탭. 테이블(#historyTbody)은 render.js renderHistory, 차트는 charts.js renderCharts 가 채운다. -->
+      <div class="tab-panel" data-panel="history">
+        <div class="section">
+          <div class="section-header">
+            <h2>📈 자산 이력 (USD 구매력 기준)</h2>
+            <div class="desc">
+              🔄 전체 시세 갱신 시 오늘 스냅샷이 자동 기록됨 · 미국 CPI/M2도
+              함께 수집 → 인플레이션 대비 실질 자산 변화 추적
+            </div>
+            <!-- 수동 스냅샷 버튼 — 시세 갱신 없이 지금 상태를 그대로 기록하고 싶을 때 (data-io.js snapshot). -->
+            <button class="btn" onclick="snapshot()" style="flex-shrink: 0">
+              📸 지금 스냅샷 저장
+            </button>
+            <!-- 입출금 원장 모달 — 월급·이체 기록으로 TWR(실투자 수익률)을 계산 (data-io.js openCashflowModal). -->
+            <button
+              class="btn"
+              onclick="openCashflowModal()"
+              style="flex-shrink: 0"
+            >
+              💰 입출금 기록
+            </button>
+          </div>
+          <!-- 실질 수익률 요약 지표 (첫 스냅샷 대비, 이력 있을 때 표시). 값 채움과 표시 여부 모두 render.js renderHistory 가 결정한다. -->
+          <div class="metrics-box" id="realReturnBox" style="display: none">
+            <div class="metric-cell">
+              <div class="lbl">
+                명목 USD 수익률<span
+                  class="help"
+                  title="첫 스냅샷 대비 현재 USD 자산 변화율. 인플레이션이나 통화확장 보정 안 함. 그냥 절대 USD 금액의 변화."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-nominal-return">—</div>
+            </div>
+            <div class="metric-cell">
+              <div class="lbl">
+                누적 CPI 인플레<span
+                  class="help"
+                  title="첫 스냅샷 시점부터 현재까지 미국 CPI 누적 상승률. 같은 물건 사려면 얼마나 더 많은 돈이 필요한지."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-inflation">—</div>
+            </div>
+            <div class="metric-cell">
+              <div class="lbl">
+                누적 M2 증가<span
+                  class="help"
+                  title="첫 스냅샷 시점부터 현재까지 미국 M2 통화공급 누적 증가율. 시중 유동성이 얼마나 늘었는지."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-m2growth">—</div>
+            </div>
+            <div class="metric-cell">
+              <div class="lbl">
+                실질 (vs CPI)<span
+                  class="help"
+                  title="명목 수익률 - CPI 누적 = 구매력 기준 실질 수익률. 양수면 소비물가 인플레 이김. 일반적인 '실질 수익률' 정의."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-real-return">—</div>
+            </div>
+            <div class="metric-cell">
+              <div class="lbl">
+                M2 대비<span
+                  class="help"
+                  title="명목 수익률 - M2 누적 = 통화공급 대비 상대적 부 변화. 양수면 시중 유동성 증가보다 빨리 늘어남 = 자산가격 인플레 헤지 성공. 음수면 사회적으로 부 비중이 줄어듦."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-m2-real">—</div>
+            </div>
+            <!-- TWR 지표 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
+            <div class="metric-cell" id="m-twr-cell" style="display: none">
+              <div class="lbl">
+                실투자 수익률 (TWR)<span
+                  class="help"
+                  title="입출금(월급·이체)의 효과를 제거한 순수 투자 성과. 💰 입출금 기록 기반, KRW 자산 기준. 스냅샷 구간별 수익률(Modified Dietz)을 복리로 연결."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-twr">—</div>
+            </div>
+            <!-- 리스크 지표 2종 — calc.js computeRiskStats 로 계산, render.js renderHistory 가 채운다. -->
+            <div class="metric-cell">
+              <div class="lbl">
+                MDD (최대 낙폭)<span
+                  class="help"
+                  title="이력상 이전 고점 대비 가장 깊었던 하락률 (USD 자산 기준). 최악의 시기에 고점에서 몇 %까지 내려갔었는지 — 포트폴리오 리스크의 체감 크기."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-mdd">—</div>
+            </div>
+            <div class="metric-cell">
+              <div class="lbl">
+                변동성 (연환산)<span
+                  class="help"
+                  title="최근 1년(이력이 1년 미만이면 전체 기간) 스냅샷 간 수익률의 출렁임을 연 단위로 환산한 값 (USD 자산 기준). 위아래 모든 움직임이 포함되고 1년으로 스케일업된 값이라 MDD보다 크게 나오는 게 정상. 아래 보조줄은 실제 관측 기간으로 되돌린 출렁임 폭."
+                  >?</span
+                >
+              </div>
+              <div class="val" id="m-vol">—</div>
+            </div>
+          </div>
+          <!-- 이력 차트 표시 모드 전환 — 절대값(USD) / 정규화(%). charts.js setChartMode 가 처리한다. -->
+          <div
+            style="
+              display: flex;
+              justify-content: flex-end;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+            "
+          >
+            <span style="font-size: 12px; color: var(--text-muted)"
+              >표시 모드:</span
+            >
+            <button
+              class="btn"
+              id="chartModeAbsBtn"
+              onclick="setChartMode('absolute')"
+              style="padding: 4px 10px; font-size: 12px"
+            >
+              절대값 (USD)
+            </button>
+            <button
+              class="btn primary"
+              id="chartModeNormBtn"
+              onclick="setChartMode('normalized')"
+              style="padding: 4px 10px; font-size: 12px"
+            >
+              정규화 (%)
+              <span
+                class="help"
+                title="모든 라인이 첫 스냅샷=0%에서 시작. 비중 무관하게 성과 비교 가능. 환율(USD/KRW) 변화도 함께 표시."
+                >?</span
+              >
+            </button>
+          </div>
+          <div class="chart-wrap tall"><canvas id="historyChart"></canvas></div>
+          <!-- 스냅샷 이력 테이블 (CPI·M2 기준선 비교) -->
+          <div class="table-scroll">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>기준일</th>
+                  <th class="right">
+                    USD 자산<span
+                      class="help"
+                      title="위: 그 시점 환율로 환산한 USD 절대값 (KRW 총액 ÷ USD/KRW). 아래: 직전 스냅샷 대비, 약 30일 전 대비, 첫 스냅샷 대비 누적 % 변화. 30일 전 데이터가 ±10일 범위 내 없으면 '—' 표시."
+                      >?</span
+                    >
+                  </th>
+                  <!-- 순입금 컬럼 — 입출금 기록이 1건 이상일 때만 render.js renderHistory 가 표시한다. -->
+                  <th class="right" id="thNetFlow" style="display: none">
+                    순입금<span
+                      class="help"
+                      title="직전 스냅샷 이후 기록된 입출금 합계 (KRW, 💰 입출금 기록 기반). 아래 작은 숫자는 그 구간의 실투자 수익률(TWR) — 입출금 효과를 제거한 순수 성과."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right" style="color: var(--danger)">
+                    CPI 기준선<span
+                      class="help"
+                      title="위: 첫 스냅샷 USD 자산 × (현재 CPI / 첫 CPI) — 구매력을 유지하려면 지금 있어야 할 USD 금액. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 인플레이션 이김 = 실질 구매력 증가)."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right" style="color: #9333ea">
+                    M2 기준선<span
+                      class="help"
+                      title="위: 첫 스냅샷 USD 자산 × (현재 M2 / 첫 M2) — 통화공급 증가만큼 따라가려면 있어야 할 USD. 아래: 내 USD 자산이 이 기준선 대비 ±% (양수 = 통화확장 속도 이김 = 자산가격 인플레 헤지 성공)."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right">
+                    CPI<span
+                      class="help"
+                      title="위: BLS Consumer Price Index 절대값 (1982-84=100, 시리즈 CUUR0000SA0). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) 변화율 — 뉴스에서 보는 인플레이션율과 동일."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right">
+                    M2 (B$)<span
+                      class="help"
+                      title="위: FRED M2 Money Supply 절대값 (Billions USD, SA, 시리즈 M2SL). 가운데: 첫 스냅샷 대비 누적 변화율 %. 아래: 전년 대비(YoY) M2 증가율."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right">
+                    환율<span
+                      class="help"
+                      title="위: 그 시점 USD/KRW 환율 (자산을 USD 환산 시 사용된 값). 아래: 직전 스냅샷 대비, 첫 스냅샷 대비 누적 % 변화. 양수 = 원화 약세 (USD 비쌈), 음수 = 원화 강세."
+                      >?</span
+                    >
+                  </th>
+                  <!-- 벤치마크 컬럼 2개 — 지수 데이터가 있는 스냅샷이 생기면 render.js renderHistory 가 표시한다. -->
+                  <th class="right" id="thSpx" style="display: none">
+                    S&P500<span
+                      class="help"
+                      title="위: 그 시점 S&P500 종가 (스냅샷에 기록, 주말이면 직전 영업일). 아래: 첫 기록 대비 누적 변화율 — 내 USD 자산 누적과 비교하면 시장 대비 성과가 보임."
+                      >?</span
+                    >
+                  </th>
+                  <th class="right" id="thNdx" style="display: none">
+                    나스닥<span
+                      class="help"
+                      title="위: 그 시점 나스닥 종합지수 종가 (스냅샷에 기록). 아래: 첫 기록 대비 누적 변화율."
+                      >?</span
+                    >
+                  </th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="historyTbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div class="backup-desc" style="margin-top:8px;">
-        연결마다 계좌를 따로 등록할 수 있습니다 (같은 증권사의 계좌가 여러 개여도 OK).
-        키 발급처와 등록 방법은 <b>docs/SETUP.md 5절</b> 참고.
+
+      <!-- ==================== 탭: 설정 ==================== -->
+      <!-- 목표 비중 편집 · 백업/서버 저장 · 환율/CPI 수동 설정 · 과거 이력 보정 · 합계 검산 · 초기화를 모은 탭. -->
+      <div class="tab-panel" data-panel="settings">
+        <!-- Asset Category Targets — 자산타입별 목표 비중 편집 테이블. tbody 는 render.js renderAssetTypeTargets 가 채운다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>🎯 자산타입별 목표 비중</h2>
+            <div class="desc">
+              자산타입 단위 목표 비중 ·
+              <span style="color: #b45309"
+                >🔗 "금" 값은 통화노출 "달러헤지"와 자동 연동됨</span
+              >
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table id="assetTypeTargetsTable">
+              <thead>
+                <tr>
+                  <th>자산타입</th>
+                  <th class="right">현재 금액</th>
+                  <th class="right">현재 비중</th>
+                  <th class="right">목표 비중</th>
+                  <th class="right">목표 금액</th>
+                  <th class="right">차이</th>
+                  <th class="center">신호</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Currency Exposure Analysis — 통화노출 요약 지표(m-krw 등)는 render.js renderKPIs, 목표 비중 테이블 tbody 는 renderExpTargets 가 채운다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>💱 통화노출 분석</h2>
+            <div class="desc">
+              자산내역의 통화노출 태그 기준 자동 집계 ·
+              <span style="color: #b45309"
+                >🔗 "달러헤지" 값은 자산타입 "금"과 자동 연동됨</span
+              >
+            </div>
+          </div>
+          <div class="metrics-box metrics-3">
+            <div class="metric-cell krw">
+              <div class="lbl">원화 비중</div>
+              <div class="val" id="m-krw">0.0%</div>
+            </div>
+            <div class="metric-cell usd">
+              <div class="lbl">달러(노출) 비중</div>
+              <div class="val" id="m-usd">0.0%</div>
+            </div>
+            <div class="metric-cell hedge">
+              <div class="lbl">달러헤지 비중</div>
+              <div class="val" id="m-hedge">0.0%</div>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table id="expTargetsTable">
+              <thead>
+                <tr>
+                  <th>통화 노출</th>
+                  <th class="right">현재 금액</th>
+                  <th class="right">현재 비중</th>
+                  <th class="right">목표 비중</th>
+                  <th class="right">목표 금액</th>
+                  <th class="right">차이</th>
+                  <th class="center">신호</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 데이터 백업/복원 — 자동 저장 상태(sync.js)와 JSON 백업/복원(data-io.js exportJSON/importJSON)을 모은 카드. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>💾 데이터 백업 / 저장</h2>
+            <div class="desc">
+              수정하면 서버에 자동 저장됨 · JSON 백업은 사고 대비 안전망
+            </div>
+          </div>
+          <div class="backup-card">
+            <!-- ☁️ 자동 저장 안내 (Cloudflare KV — 인증·사용자 구분은 Access 로그인이 전담). #syncStatus 문구는 sync.js updateSyncIndicator 가 갱신한다. -->
+            <div id="syncBox">
+              <div class="backup-actions">
+                <button class="btn primary" onclick="savePortfolio()">
+                  ☁️ 지금 즉시 저장
+                </button>
+              </div>
+              <div class="backup-desc" style="margin-top: 6px">
+                값을 수정하면 <b>몇 초 안에 서버로 자동 저장</b>됩니다 — 다른
+                기기에서 새로고침하면 바로 보입니다. 데이터는 로그인 계정별로
+                분리 저장되며, 위 버튼은 기다리지 않고 즉시 저장하고 싶을 때만
+                쓰면 됩니다.<br />
+                <span id="syncStatus"></span>
+              </div>
+            </div>
+
+            <div
+              style="
+                margin-top: 14px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
+              "
+            >
+              <div class="backup-title">⚠️ 데이터 안전망</div>
+              <div class="backup-desc">
+                실수로 잘못 저장하거나 데이터가 꼬였을 때를 대비해 주기적으로
+                JSON 백업을 받아두세요. 다운로드는
+                <b>서버에 실제 저장된 진본</b>을 그대로 받습니다. (서버에도
+                날짜별 버전이 90일 보관되지만, 내 손에 있는 백업이 최후의
+                안전망입니다.)
+              </div>
+              <div class="backup-actions">
+                <button class="btn primary" onclick="exportJSON()">
+                  💾 JSON 백업 다운로드
+                </button>
+                <button
+                  class="btn"
+                  onclick="document.getElementById('fileInputSettings').click()"
+                >
+                  📂 JSON에서 복원
+                </button>
+                <input
+                  type="file"
+                  id="fileInputSettings"
+                  accept=".json"
+                  style="display: none"
+                  onchange="importJSON(event)"
+                />
+              </div>
+            </div>
+
+            <div class="backup-meta" id="backupMeta"></div>
+          </div>
+        </div>
+
+        <!-- 증권사 연결 — broker.js가 /api/broker-connections로 로그인 계정 귀속 KV에 저장한다 (portfolio와 동일 규약). -->
+        <!-- 목록·입력 폼은 서버가 주는 provider 메타로 자동 생성되므로 증권사가 늘어도 이 HTML은 그대로다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>🔗 증권사 연결 (잔고 동기화)</h2>
+            <div class="desc">
+              한투·키움·빗썸 조회 전용 API 키 등록 — 자산 입력 탭의 🏦 동기화에
+              사용 · 계정별 분리 저장
+            </div>
+          </div>
+          <div class="backup-card">
+            <div id="brokerConnList">확인 중…</div>
+            <div class="backup-actions" style="margin-top: 10px">
+              <button class="btn primary" onclick="openBrokerConnModal()">
+                + 증권사 연결 추가
+              </button>
+            </div>
+            <div class="backup-desc" style="margin-top: 8px">
+              연결마다 계좌를 따로 등록할 수 있습니다 (같은 증권사의 계좌가 여러
+              개여도 OK). 키 발급처와 등록 방법은 <b>docs/SETUP.md 5절</b> 참고.
+            </div>
+          </div>
+        </div>
+
+        <!-- 과거 이력 보정 — 빼먹은 자산을 과거 스냅샷에 소급 반영. 버튼이 data-io.js openHistoricalAddModal 모달을 연다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>📋 빠진 자산 과거 이력 보정</h2>
+            <div class="desc">
+              실수로 빼먹은 자산(청약/퇴직금/보험 등)을 과거 스냅샷에 소급 반영.
+              시간에 따라 늘어난 자산은 선형 보간으로 자동 계산.
+            </div>
+          </div>
+          <div style="padding: 16px 20px">
+            <button class="btn primary" onclick="openHistoricalAddModal()">
+              + 빼먹은 자산 추가
+            </button>
+            <span
+              style="margin-left: 10px; font-size: 12px; color: var(--danger)"
+              >⚠️ 적용 전에 "백업 다운로드"로 JSON 백업 받아두세요 (롤백 안
+              됨)</span
+            >
+          </div>
+        </div>
+
+        <!-- 합계 검산 — 버튼이 calc.js renderVerifyResult 를 호출해 #verifyResult 영역에 결과를 출력한다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>🧮 합계 검산 (중복·누락 체크)</h2>
+            <div class="desc">
+              자산타입 / 통화노출 / 유동성 세 축이 각각 총자산과 정확히
+              일치하는지, 어디에도 안 잡히는 orphan holding이 있는지 확인
+            </div>
+          </div>
+          <div style="padding: 16px 20px">
+            <button class="btn primary" onclick="renderVerifyResult()">
+              🧮 검산 실행
+            </button>
+            <div id="verifyResult" style="margin-top: 16px"></div>
+          </div>
+        </div>
+
+        <!-- 위험 작업 — 전체 데이터 초기화. data-io.js resetAll 이 확인 후 이력·자산내역·목표비중을 모두 삭제한다. -->
+        <div class="section">
+          <div class="section-header">
+            <h2>🗑️ 위험 작업</h2>
+          </div>
+          <div style="padding: 16px 20px">
+            <button class="btn danger" onclick="resetAll()">
+              전체 데이터 초기화
+            </button>
+            <span
+              style="
+                margin-left: 10px;
+                font-size: 12px;
+                color: var(--text-muted);
+              "
+              >이력·자산내역·목표비중을 모두 삭제합니다</span
+            >
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+      <!-- /tab-panel settings -->
 
-  <!-- 과거 이력 보정 — 빼먹은 자산을 과거 스냅샷에 소급 반영. 버튼이 data-io.js openHistoricalAddModal 모달을 연다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>📋 빠진 자산 과거 이력 보정</h2>
-      <div class="desc">실수로 빼먹은 자산(청약/퇴직금/보험 등)을 과거 스냅샷에 소급 반영. 시간에 따라 늘어난 자산은 선형 보간으로 자동 계산.</div>
+      <footer>
+        수정하면 서버에 자동 저장됩니다 (로그인 계정별 분리) · 다른 기기에선
+        로그인 후 새로고침만 하면 됩니다 · 설정 탭에서 JSON 백업 권장
+      </footer>
     </div>
-    <div style="padding: 16px 20px;">
-      <button class="btn primary" onclick="openHistoricalAddModal()">+ 빼먹은 자산 추가</button>
-      <span style="margin-left: 10px; font-size: 12px; color: var(--danger);">⚠️ 적용 전에 "백업 다운로드"로 JSON 백업 받아두세요 (롤백 안 됨)</span>
-    </div>
-  </div>
 
-  <!-- 합계 검산 — 버튼이 calc.js renderVerifyResult 를 호출해 #verifyResult 영역에 결과를 출력한다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>🧮 합계 검산 (중복·누락 체크)</h2>
-      <div class="desc">자산타입 / 통화노출 / 유동성 세 축이 각각 총자산과 정확히 일치하는지, 어디에도 안 잡히는 orphan holding이 있는지 확인</div>
-    </div>
-    <div style="padding: 16px 20px;">
-      <button class="btn primary" onclick="renderVerifyResult()">🧮 검산 실행</button>
-      <div id="verifyResult" style="margin-top:16px;"></div>
-    </div>
-  </div>
+    <!-- 우하단 토스트 알림 — data-io.js 의 toast() 가 문구를 넣고 잠시 표시한 뒤 자동으로 숨긴다. -->
+    <div class="toast" id="toast"></div>
 
-  <!-- 위험 작업 — 전체 데이터 초기화. data-io.js resetAll 이 확인 후 이력·자산내역·목표비중을 모두 삭제한다. -->
-  <div class="section">
-    <div class="section-header">
-      <h2>🗑️ 위험 작업</h2>
-    </div>
-    <div style="padding: 16px 20px;">
-      <button class="btn danger" onclick="resetAll()">전체 데이터 초기화</button>
-      <span style="margin-left: 10px; font-size: 12px; color: var(--text-muted);">이력·자산내역·목표비중을 모두 삭제합니다</span>
-    </div>
-  </div>
-  </div><!-- /tab-panel settings -->
-
-  <footer>
-    수정하면 서버에 자동 저장됩니다 (로그인 계정별 분리) · 다른 기기에선 로그인 후 새로고침만 하면 됩니다 · 설정 탭에서 JSON 백업 권장
-  </footer>
-</div>
-
-<!-- 우하단 토스트 알림 — data-io.js 의 toast() 가 문구를 넣고 잠시 표시한 뒤 자동으로 숨긴다. -->
-<div class="toast" id="toast"></div>
-
-<!-- 클래식 스크립트 분할(ES 모듈 아님, 전역 스코프 공유) — 나열 순서가 곧 의존성 순서이므로 절대 바꾸면 안 된다. -->
-<!-- constants.js 카테고리·자산타입 등 상수 정의 → state.js 상태 로드/저장·메모 모달 → calc.js 합계·손익·검산 계산. -->
-<!-- → render.js 탭·KPI·테이블 렌더 → charts.js Chart.js 차트·트리맵 → data-io.js JSON 입출력·스냅샷·더미·토스트. -->
-<!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → broker.js 증권사 잔고 동기화 -->
-<!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
-<!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
-<!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
-<script src="js/constants.js?v=20260907c"></script>
-<script src="js/state.js?v=20260907c"></script>
-<script src="js/calc.js?v=20260907c"></script>
-<script src="js/render.js?v=20260907c"></script>
-<script src="js/charts.js?v=20260907c"></script>
-<script src="js/data-io.js?v=20260907c"></script>
-<script src="js/fetch.js?v=20260907c"></script>
-<script src="js/sync.js?v=20260907c"></script>
-<script src="js/broker.js?v=20260907c"></script>
-<script src="js/main.js?v=20260907c"></script>
-</body>
+    <!-- 클래식 스크립트 분할(ES 모듈 아님, 전역 스코프 공유) — 나열 순서가 곧 의존성 순서이므로 절대 바꾸면 안 된다. -->
+    <!-- constants.js 카테고리·자산타입 등 상수 정의 → state.js 상태 로드/저장·메모 모달 → calc.js 합계·손익·검산 계산. -->
+    <!-- → render.js 탭·KPI·테이블 렌더 → charts.js Chart.js 차트·트리맵 → data-io.js JSON 입출력·스냅샷·더미·토스트. -->
+    <!-- → fetch.js 환율·시세·CPI/M2 수집 → sync.js 서버 저장 → broker.js 증권사 잔고 동기화 -->
+    <!-- → main.js 부트스트랩(반드시 마지막에 실행). -->
+    <!-- ?v= 캐시 스탬프 — js/css를 수정해 배포할 때마다 반드시 함께 올릴 것. index.html은 항상 재검증되므로 -->
+    <!-- 스탬프가 바뀌면 브라우저가 js/css를 강제로 새로 받는다 (HTML만 새것 + JS는 구캐시인 어긋남 사고 방지). -->
+    <script src="js/constants.js?v=20260907c"></script>
+    <script src="js/state.js?v=20260907c"></script>
+    <script src="js/calc.js?v=20260907c"></script>
+    <script src="js/render.js?v=20260907c"></script>
+    <script src="js/charts.js?v=20260907c"></script>
+    <script src="js/data-io.js?v=20260907c"></script>
+    <script src="js/fetch.js?v=20260907c"></script>
+    <script src="js/sync.js?v=20260907c"></script>
+    <script src="js/broker.js?v=20260907c"></script>
+    <script src="js/main.js?v=20260907c"></script>
+  </body>
 </html>

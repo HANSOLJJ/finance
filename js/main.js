@@ -48,8 +48,9 @@ function boot() {
   updateSyncIndicator(); // ☁️ 헤더·설정 탭 동기화 상태 초기 표시
   refreshBrokerConnections(); // 🔗 설정 탭 증권사 연결 목록 (실패해도 무해 — 내부 try/catch)
   // 페이지 로드 시 환율 자동 갱신 (rateUpdatedAt이 1시간 이상 지났거나 비어있으면)
-  const stale = !state.rateUpdatedAt
-    || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;
+  const stale =
+    !state.rateUpdatedAt ||
+    Date.now() - new Date(state.rateUpdatedAt).getTime() > 3600 * 1000;
   if (stale) fetchExchangeRate(false);
 }
 
@@ -86,7 +87,9 @@ async function bootstrap() {
       showBootFail('서버 응답 오류 (HTTP ' + res.status + ')');
     }
   } catch (_) {
-    showBootFail('서버에 연결하지 못했습니다 — 네트워크 확인 후 새로고침하세요');
+    showBootFail(
+      '서버에 연결하지 못했습니다 — 네트워크 확인 후 새로고침하세요',
+    );
   }
   boot();
 }

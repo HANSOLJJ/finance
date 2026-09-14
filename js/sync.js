@@ -24,7 +24,9 @@ let _syncState = 'idle';
 function scheduleServerSave() {
   if (!syncEnabled) return;
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => { flushServerSave(); }, 2000);
+  _saveTimer = setTimeout(() => {
+    flushServerSave();
+  }, 2000);
 }
 
 // 밀린 변경을 즉시 업로드한다. 직전 업로드와 내용이 같으면 통신 없이 끝낸다.
@@ -55,11 +57,14 @@ async function flushServerSave() {
 // 수동 즉시 저장 — 설정 탭 버튼과 헤더 인디케이터 클릭용. 결과를 토스트로 알린다.
 async function savePortfolio() {
   if (!syncEnabled) {
-    alert('서버 연결이 안 된 상태라 저장할 수 없습니다.\n새로고침 후 다시 시도하세요.');
+    alert(
+      '서버 연결이 안 된 상태라 저장할 수 없습니다.\n새로고침 후 다시 시도하세요.',
+    );
     return;
   }
   await flushServerSave();
-  if (_syncState === 'error') alert('서버 저장 실패 — 네트워크 상태를 확인하세요.');
+  if (_syncState === 'error')
+    alert('서버 저장 실패 — 네트워크 상태를 확인하세요.');
   else toast('☁️ 서버에 저장됨');
 }
 
@@ -67,20 +72,36 @@ async function savePortfolio() {
 // 색상 구분은 css 의 .sync-indicator.ok / .err 클래스가 담당한다.
 function updateSyncIndicator() {
   let text, cls;
-  if (!syncEnabled) { text = '🔒 서버 연결 안 됨'; cls = 'err'; }
-  else if (_syncState === 'saving') { text = '☁️ 저장 중…'; cls = ''; }
-  else if (_syncState === 'error') { text = '⚠️ 저장 실패 — 클릭해 재시도'; cls = 'err'; }
-  else if (state.lastServerSaveAt) {
-    const t = new Date(state.lastServerSaveAt)
-      .toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    text = '☁️ 저장됨 ' + t; cls = 'ok';
-  } else { text = '☁️ 자동 저장 대기'; cls = ''; }
+  if (!syncEnabled) {
+    text = '🔒 서버 연결 안 됨';
+    cls = 'err';
+  } else if (_syncState === 'saving') {
+    text = '☁️ 저장 중…';
+    cls = '';
+  } else if (_syncState === 'error') {
+    text = '⚠️ 저장 실패 — 클릭해 재시도';
+    cls = 'err';
+  } else if (state.lastServerSaveAt) {
+    const t = new Date(state.lastServerSaveAt).toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    text = '☁️ 저장됨 ' + t;
+    cls = 'ok';
+  } else {
+    text = '☁️ 자동 저장 대기';
+    cls = '';
+  }
   const el = document.getElementById('syncIndicator');
-  if (el) { el.textContent = text; el.className = 'sync-indicator ' + cls; }
+  if (el) {
+    el.textContent = text;
+    el.className = 'sync-indicator ' + cls;
+  }
   const st = document.getElementById('syncStatus');
   if (st) {
     st.textContent = state.lastServerSaveAt
-      ? '마지막 서버 저장: ' + new Date(state.lastServerSaveAt).toLocaleString('ko-KR')
+      ? '마지막 서버 저장: ' +
+        new Date(state.lastServerSaveAt).toLocaleString('ko-KR')
       : '아직 서버에 저장된 내용이 없습니다 — 값을 수정하면 자동 저장됩니다';
   }
 }

@@ -17,10 +17,10 @@
 // Chart.js는 hidden 요소에 그리지 못하므로 탭 표시 후 renderCharts()(charts.js)를 지연 재호출.
 function switchTab(tabName) {
   if (!tabName) return;
-  document.querySelectorAll('.tab-btn').forEach(b => {
+  document.querySelectorAll('.tab-btn').forEach((b) => {
     b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
   });
-  document.querySelectorAll('.tab-panel').forEach(p => {
+  document.querySelectorAll('.tab-panel').forEach((p) => {
     p.classList.toggle('active', p.getAttribute('data-panel') === tabName);
   });
   state.activeTab = tabName;
@@ -31,7 +31,11 @@ function switchTab(tabName) {
   saveState();
   // 탭 전환 시 차트가 0px로 보이는 경우 방지: Chart.js는 hidden 요소에 그리지 못함
   // 따라서 탭 전환 후 차트만 다시 그려서 정확한 크기로 그려지도록
-  setTimeout(() => { try { renderCharts(); } catch (_) {} }, 50);
+  setTimeout(() => {
+    try {
+      renderCharts();
+    } catch (_) {}
+  }, 50);
 }
 
 // 탭 클릭/해시 변경 리스너 등록 및 초기 탭 결정 (URL 해시 > 저장된 state > dashboard 순).
@@ -39,14 +43,25 @@ function switchTab(tabName) {
 // 첫 화면부터 해시·state 동기화와 차트 재렌더가 동일한 경로로 처리된다.
 // 뒤로가기 등 브라우저 해시 변경(hashchange)도 유효한 탭 이름일 때만 반영한다.
 function initTabs() {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () =>
+      switchTab(btn.getAttribute('data-tab')),
+    );
   });
   // 초기 탭: URL 해시 > state.activeTab > 'dashboard'
-  const validTabs = ['dashboard', 'holdings', 'analysis', 'history', 'settings'];
+  const validTabs = [
+    'dashboard',
+    'holdings',
+    'analysis',
+    'history',
+    'settings',
+  ];
   const fromHash = (location.hash || '').slice(1);
-  const initial = validTabs.includes(fromHash) ? fromHash
-    : (validTabs.includes(state.activeTab) ? state.activeTab : 'dashboard');
+  const initial = validTabs.includes(fromHash)
+    ? fromHash
+    : validTabs.includes(state.activeTab)
+      ? state.activeTab
+      : 'dashboard';
   switchTab(initial);
   window.addEventListener('hashchange', () => {
     const t = (location.hash || '').slice(1);
@@ -59,17 +74,21 @@ function initTabs() {
 // ? 아이콘이 버튼 안에 있는 경우(차트 모드 버튼 등) 버튼 클릭 오발동도 차단한다.
 // main.js boot()에서 1회만 호출. 표시 규칙은 CSS의 .help.tip-open이 hover와 공유.
 function initHelpTapTooltips() {
-  document.addEventListener('click', (e) => {
-    const help = e.target.closest('.help');
-    document.querySelectorAll('.help.tip-open').forEach(el => {
-      if (el !== help) el.classList.remove('tip-open');
-    });
-    if (help) {
-      e.preventDefault();
-      e.stopPropagation();
-      help.classList.toggle('tip-open');
-    }
-  }, true);
+  document.addEventListener(
+    'click',
+    (e) => {
+      const help = e.target.closest('.help');
+      document.querySelectorAll('.help.tip-open').forEach((el) => {
+        if (el !== help) el.classList.remove('tip-open');
+      });
+      if (help) {
+        e.preventDefault();
+        e.stopPropagation();
+        help.classList.toggle('tip-open');
+      }
+    },
+    true,
+  );
 }
 
 // ==================== 포맷팅 ====================
@@ -92,7 +111,8 @@ function fmtKRWshort(n) {
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
   if (abs >= 1e8) return sign + (abs / 1e8).toFixed(1) + '억';
-  if (abs >= 1e4) return sign + Math.round(abs / 1e4).toLocaleString('ko-KR') + '만';
+  if (abs >= 1e4)
+    return sign + Math.round(abs / 1e4).toLocaleString('ko-KR') + '만';
   return sign + Math.round(abs).toLocaleString('ko-KR');
 }
 
@@ -139,7 +159,7 @@ function render() {
 // 자산타입 5개(현금/주식/금/원자재/암호화폐) 단위로 현재-목표 차이를 금액으로 표시.
 // ±2%p 이상 차이는 카드 색상으로 강조. 채권/부동산은 리밸런싱 대상에서 제외한 목록이다.
 const REBAL_CORE_TYPES = ['현금', '주식', '금', '원자재', '암호화폐'];
-const REBAL_THRESHOLD = 0.02;  // 2%p
+const REBAL_THRESHOLD = 0.02; // 2%p
 
 // 자산타입 리밸런싱 카드 렌더 — 현재/목표 비중 차이를 금액(KRW)·%p로 표시, 뷰 스코프(유동/전체) 반영.
 // 현재값은 calc.js의 assetTypeTotal(유동 모드면 scopedAssetTypeTotal), 목표는 state.assetTypeTargets에서 읽음.
@@ -158,13 +178,13 @@ function renderRebalancing() {
   }
   let alertCount = 0;
   let totalGap = 0;
-  const cards = REBAL_CORE_TYPES.map(t => {
+  const cards = REBAL_CORE_TYPES.map((t) => {
     const cur = scoped ? scopedAssetTypeTotal(t) : assetTypeTotal(t);
     const curPct = cur / total;
     const tgt = state.assetTypeTargets[t] || 0;
     const tgtAmt = total * tgt;
-    const diff = tgtAmt - cur;  // 양수: 매수 필요, 음수: 매도 필요
-    const diffPct = curPct - tgt;  // 양수: 초과, 음수: 부족
+    const diff = tgtAmt - cur; // 양수: 매수 필요, 음수: 매도 필요
+    const diffPct = curPct - tgt; // 양수: 초과, 음수: 부족
     const isAlert = Math.abs(diffPct) >= REBAL_THRESHOLD;
     if (isAlert) alertCount++;
     totalGap += Math.abs(diff);
@@ -185,14 +205,14 @@ function renderRebalancing() {
       <div class="rebal-card ${cls}">
         <div class="rebal-head">
           <span class="name">${t}</span>
-          <span class="asset-chip ${atCls}" style="cursor:default">${(tgt*100).toFixed(1)}% 목표</span>
+          <span class="asset-chip ${atCls}" style="cursor:default">${(tgt * 100).toFixed(1)}% 목표</span>
         </div>
         <div class="rebal-pct-row">
-          <span class="cur">${(curPct*100).toFixed(1)}%</span>
+          <span class="cur">${(curPct * 100).toFixed(1)}%</span>
           <span>현재 (${fmtKRWshort(cur)})</span>
         </div>
         <div class="rebal-pct-row" style="font-size:11px">
-          <span>목표 ${fmtKRWshort(tgtAmt)} · 차이 ${(diffPct >= 0 ? '+' : '')}${(diffPct*100).toFixed(1)}%p</span>
+          <span>목표 ${fmtKRWshort(tgtAmt)} · 차이 ${diffPct >= 0 ? '+' : ''}${(diffPct * 100).toFixed(1)}%p</span>
         </div>
         <div class="rebal-action">${action}</div>
       </div>
@@ -202,7 +222,7 @@ function renderRebalancing() {
   const scopeLabel = scoped ? '💧 유동 자산' : '총 자산';
   summary.innerHTML = `
     <span class="chip" style="${scoped ? 'background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
-    <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 자산타입이 ±${(REBAL_THRESHOLD*100).toFixed(0)}%p 초과` : '✓ 모든 자산타입이 ±2%p 이내'}</span>
+    <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 자산타입이 ±${(REBAL_THRESHOLD * 100).toFixed(0)}%p 초과` : '✓ 모든 자산타입이 ±2%p 이내'}</span>
     <span class="chip">총 조정 필요 금액 (절대값 합) ${fmtKRWshort(totalGap)}</span>
   `;
 }
@@ -224,13 +244,28 @@ function renderRebalancingExposure() {
   }
   // 통화노출별 스타일 매핑
   const EXP_STYLE = {
-    '원화':      { emoji: '🇰🇷', bg: '#dcfce7', color: '#166534', border: 'var(--c-krw)' },
-    '달러(노출)':{ emoji: '🇺🇸', bg: '#dbeafe', color: '#1e40af', border: 'var(--c-usd)' },
-    '달러헤지':  { emoji: '🥇', bg: '#fef9c3', color: '#854d0e', border: 'var(--c-gold)' },
+    원화: {
+      emoji: '🇰🇷',
+      bg: '#dcfce7',
+      color: '#166534',
+      border: 'var(--c-krw)',
+    },
+    '달러(노출)': {
+      emoji: '🇺🇸',
+      bg: '#dbeafe',
+      color: '#1e40af',
+      border: 'var(--c-usd)',
+    },
+    달러헤지: {
+      emoji: '🥇',
+      bg: '#fef9c3',
+      color: '#854d0e',
+      border: 'var(--c-gold)',
+    },
   };
   let alertCount = 0;
   let totalGap = 0;
-  const cards = EXPOSURES.map(e => {
+  const cards = EXPOSURES.map((e) => {
     const cur = scoped ? scopedExposureTotal(e) : exposureTotal(e);
     const curPct = cur / total;
     const tgt = state.expTargets[e] || 0;
@@ -257,14 +292,14 @@ function renderRebalancingExposure() {
       <div class="rebal-card ${cls}">
         <div class="rebal-head">
           <span class="name">${s.emoji || ''} ${e}</span>
-          <span class="asset-chip" style="cursor:default;background:${s.bg};color:${s.color};border-color:${s.border};">${(tgt*100).toFixed(1)}% 목표</span>
+          <span class="asset-chip" style="cursor:default;background:${s.bg};color:${s.color};border-color:${s.border};">${(tgt * 100).toFixed(1)}% 목표</span>
         </div>
         <div class="rebal-pct-row">
-          <span class="cur">${(curPct*100).toFixed(1)}%</span>
+          <span class="cur">${(curPct * 100).toFixed(1)}%</span>
           <span>현재 (${fmtKRWshort(cur)})</span>
         </div>
         <div class="rebal-pct-row" style="font-size:11px">
-          <span>목표 ${fmtKRWshort(tgtAmt)} · 차이 ${(diffPct >= 0 ? '+' : '')}${(diffPct*100).toFixed(1)}%p</span>
+          <span>목표 ${fmtKRWshort(tgtAmt)} · 차이 ${diffPct >= 0 ? '+' : ''}${(diffPct * 100).toFixed(1)}%p</span>
         </div>
         <div class="rebal-action">${action}</div>
       </div>
@@ -274,7 +309,7 @@ function renderRebalancingExposure() {
   const scopeLabel = scoped ? '💧 유동 자산' : '총 자산';
   summary.innerHTML = `
     <span class="chip" style="${scoped ? 'background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);' : ''}">${scopeLabel} ${fmtKRWshort(total)}</span>
-    <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 통화노출이 ±${(REBAL_THRESHOLD*100).toFixed(0)}%p 초과` : '✓ 모든 통화노출이 ±2%p 이내'}</span>
+    <span class="chip">${alertCount > 0 ? `⚠️ ${alertCount}개 통화노출이 ±${(REBAL_THRESHOLD * 100).toFixed(0)}%p 초과` : '✓ 모든 통화노출이 ±2%p 이내'}</span>
     <span class="chip">총 조정 필요 금액 (절대값 합) ${fmtKRWshort(totalGap)}</span>
   `;
 }
@@ -291,28 +326,32 @@ function _removed_renderHedgePerformance() {
 
   // CPI 누적: 첫 스냅샷 ~ 현재 (대략의 보유 기간 proxy)
   // 평단가 기준 매수 시점이 종목마다 다르지만, 트래커 시작 시점 = 사용자 자산 추적 시작 시점이라 합리적 근사
-  const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...state.history].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
   let cpiCum = null;
   let cpiPeriodLabel = '';
   if (sorted.length >= 2) {
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
     if (first.cpiIndex && last.cpiIndex) {
-      cpiCum = (last.cpiIndex / first.cpiIndex) - 1;
+      cpiCum = last.cpiIndex / first.cpiIndex - 1;
       cpiPeriodLabel = `${first.date} ~ ${last.date}`;
     } else {
       const fallback = num(state.usCpiAnnual) || 0.035;
-      const elapsed = (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
+      const elapsed =
+        (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
       cpiCum = Math.pow(1 + fallback, elapsed) - 1;
       cpiPeriodLabel = `${first.date} ~ ${last.date} (CPI 추정)`;
     }
   }
 
   // 자산타입별 P&L 집계 (holdingPnL 사용 - 평단가 기반, 부채 제외)
-  const aggregate = {};  // { atype: { cost, current, count, withPnL } }
-  assetHoldings().forEach(h => {
+  const aggregate = {}; // { atype: { cost, current, count, withPnL } }
+  assetHoldings().forEach((h) => {
     const atype = assetTypeOf(h);
-    if (!aggregate[atype]) aggregate[atype] = { cost: 0, current: 0, count: 0, withPnL: 0 };
+    if (!aggregate[atype])
+      aggregate[atype] = { cost: 0, current: 0, count: 0, withPnL: 0 };
     aggregate[atype].count += 1;
     const p = holdingPnL(h);
     if (p) {
@@ -324,35 +363,56 @@ function _removed_renderHedgePerformance() {
 
   // 표시할 행 만들기
   const ROWS = [];
-  ASSET_TYPES.forEach(t => {
+  ASSET_TYPES.forEach((t) => {
     const agg = aggregate[t];
     if (!agg || agg.count === 0) return;
     if (agg.withPnL === 0) {
       // 평단가 미입력 (현금/부동산 또는 사용자가 안 적은 경우)
-      ROWS.push({ type: t, cost: 0, current: 0, pnlPct: null, vsCpi: null,
-        note: agg.count + '개 보유 (평단가 미입력)', evalText: '평단가 필요', evalCls: 'dash' });
+      ROWS.push({
+        type: t,
+        cost: 0,
+        current: 0,
+        pnlPct: null,
+        vsCpi: null,
+        note: agg.count + '개 보유 (평단가 미입력)',
+        evalText: '평단가 필요',
+        evalCls: 'dash',
+      });
       return;
     }
     const pnlPct = agg.cost > 0 ? (agg.current - agg.cost) / agg.cost : null;
-    const vsCpi = (pnlPct !== null && cpiCum !== null) ? pnlPct - cpiCum : null;
+    const vsCpi = pnlPct !== null && cpiCum !== null ? pnlPct - cpiCum : null;
 
     let evalText, evalCls;
     if (vsCpi === null) {
-      evalText = '이력 부족'; evalCls = 'dash';
-    } else if (vsCpi > 0.10) {
-      evalText = '🟢 매우 우수'; evalCls = 'buy';
+      evalText = '이력 부족';
+      evalCls = 'dash';
+    } else if (vsCpi > 0.1) {
+      evalText = '🟢 매우 우수';
+      evalCls = 'buy';
     } else if (vsCpi > 0) {
-      evalText = '🟢 우수'; evalCls = 'buy';
+      evalText = '🟢 우수';
+      evalCls = 'buy';
     } else if (vsCpi > -0.05) {
-      evalText = '🟡 그저 그럼'; evalCls = 'dash';
+      evalText = '🟡 그저 그럼';
+      evalCls = 'dash';
     } else {
-      evalText = '🔴 잠식'; evalCls = 'sell';
+      evalText = '🔴 잠식';
+      evalCls = 'sell';
     }
 
-    const partial = agg.withPnL < agg.count
-      ? ` (${agg.withPnL}/${agg.count}종목)` : '';
-    ROWS.push({ type: t, cost: agg.cost, current: agg.current, pnlPct, vsCpi,
-      note: partial, evalText, evalCls });
+    const partial =
+      agg.withPnL < agg.count ? ` (${agg.withPnL}/${agg.count}종목)` : '';
+    ROWS.push({
+      type: t,
+      cost: agg.cost,
+      current: agg.current,
+      pnlPct,
+      vsCpi,
+      note: partial,
+      evalText,
+      evalCls,
+    });
   });
 
   if (ROWS.length === 0) {
@@ -367,14 +427,16 @@ function _removed_renderHedgePerformance() {
     return b.vsCpi - a.vsCpi;
   });
 
-  ROWS.forEach(r => {
+  ROWS.forEach((r) => {
     const tr = document.createElement('tr');
-    const pnlCell = r.pnlPct !== null
-      ? `<span style="color:${r.pnlPct >= 0 ? 'var(--success)' : 'var(--danger)'}">${r.pnlPct >= 0 ? '+' : ''}${(r.pnlPct*100).toFixed(1)}%</span>`
-      : '<span style="color:var(--text-muted)">—</span>';
-    const vsCpiCell = r.vsCpi !== null
-      ? `<span style="color:${r.vsCpi > 0 ? 'var(--success)' : (r.vsCpi < 0 ? 'var(--danger)' : 'var(--text-muted)')};font-weight:600">${r.vsCpi >= 0 ? '+' : ''}${(r.vsCpi*100).toFixed(1)}%p</span>`
-      : '<span style="color:var(--text-muted)">—</span>';
+    const pnlCell =
+      r.pnlPct !== null
+        ? `<span style="color:${r.pnlPct >= 0 ? 'var(--success)' : 'var(--danger)'}">${r.pnlPct >= 0 ? '+' : ''}${(r.pnlPct * 100).toFixed(1)}%</span>`
+        : '<span style="color:var(--text-muted)">—</span>';
+    const vsCpiCell =
+      r.vsCpi !== null
+        ? `<span style="color:${r.vsCpi > 0 ? 'var(--success)' : r.vsCpi < 0 ? 'var(--danger)' : 'var(--text-muted)'};font-weight:600">${r.vsCpi >= 0 ? '+' : ''}${(r.vsCpi * 100).toFixed(1)}%p</span>`
+        : '<span style="color:var(--text-muted)">—</span>';
     tr.innerHTML = `
       <td><span class="asset-chip ${ASSET_TYPE_CLS[r.type] || 'asset-stock'}" style="cursor:default">${r.type}</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${r.note}</span></td>
       <td class="right">${r.cost > 0 ? fmtKRWshort(r.cost) : '—'}</td>
@@ -387,8 +449,12 @@ function _removed_renderHedgePerformance() {
   });
 
   // 합계 행 (평단가 입력된 종목들 합산)
-  let totalCost = 0, totalCurrent = 0;
-  ROWS.forEach(r => { totalCost += r.cost; totalCurrent += r.current; });
+  let totalCost = 0,
+    totalCurrent = 0;
+  ROWS.forEach((r) => {
+    totalCost += r.cost;
+    totalCurrent += r.current;
+  });
   if (totalCost > 0) {
     const totalPnL = (totalCurrent - totalCost) / totalCost;
     const totalVsCpi = cpiCum !== null ? totalPnL - cpiCum : null;
@@ -399,9 +465,9 @@ function _removed_renderHedgePerformance() {
       <td>합계 (평단가 입력 분만)</td>
       <td class="right">${fmtKRWshort(totalCost)}</td>
       <td class="right">${fmtKRWshort(totalCurrent)}</td>
-      <td class="right" style="color:${totalPnL >= 0 ? 'var(--success)' : 'var(--danger)'}">${totalPnL >= 0 ? '+' : ''}${(totalPnL*100).toFixed(1)}%</td>
-      <td class="right" style="color:${totalVsCpi !== null && totalVsCpi > 0 ? 'var(--success)' : (totalVsCpi !== null && totalVsCpi < 0 ? 'var(--danger)' : 'var(--text-muted)')}">${totalVsCpi !== null ? (totalVsCpi >= 0 ? '+' : '') + (totalVsCpi*100).toFixed(1) + '%p' : '—'}</td>
-      <td class="center" style="font-size:11px;color:var(--text-muted)">${cpiCum !== null ? 'CPI ' + (cpiCum >= 0 ? '+' : '') + (cpiCum*100).toFixed(1) + '%' : '이력 필요'}</td>
+      <td class="right" style="color:${totalPnL >= 0 ? 'var(--success)' : 'var(--danger)'}">${totalPnL >= 0 ? '+' : ''}${(totalPnL * 100).toFixed(1)}%</td>
+      <td class="right" style="color:${totalVsCpi !== null && totalVsCpi > 0 ? 'var(--success)' : totalVsCpi !== null && totalVsCpi < 0 ? 'var(--danger)' : 'var(--text-muted)'}">${totalVsCpi !== null ? (totalVsCpi >= 0 ? '+' : '') + (totalVsCpi * 100).toFixed(1) + '%p' : '—'}</td>
+      <td class="center" style="font-size:11px;color:var(--text-muted)">${cpiCum !== null ? 'CPI ' + (cpiCum >= 0 ? '+' : '') + (cpiCum * 100).toFixed(1) + '%' : '이력 필요'}</td>
     `;
     tbody.appendChild(sumRow);
   }
@@ -421,10 +487,20 @@ function renderTaxAnalysis() {
 
   // 1단계 — 카테고리 행들을 합산해 상단 요약 카드용 합계(KRW)를 만든다.
   // hasPnL(평단가 입력) 행만 손익·원금 합계에 포함해 손익률 왜곡을 방지.
-  let totalValue = 0, totalPnL = 0, totalCost = 0, totalEvalForPnL = 0, totalDed = 0, totalBase = 0, totalTax = 0;
-  rows.forEach(r => {
+  let totalValue = 0,
+    totalPnL = 0,
+    totalCost = 0,
+    totalEvalForPnL = 0,
+    totalDed = 0,
+    totalBase = 0,
+    totalTax = 0;
+  rows.forEach((r) => {
     totalValue += r.value;
-    if (r.hasPnL) { totalPnL += r.pnl; totalCost += r.cost || 0; totalEvalForPnL += r.evalForPnL || 0; }
+    if (r.hasPnL) {
+      totalPnL += r.pnl;
+      totalCost += r.cost || 0;
+      totalEvalForPnL += r.evalForPnL || 0;
+    }
     totalDed += r.deduction;
     totalBase += r.taxableBase;
     totalTax += r.tax;
@@ -454,7 +530,7 @@ function renderTaxAnalysis() {
     <div class="tax-card pnl-rate ${totalPnL >= 0 ? 'pos' : 'neg'}">
       <div class="tax-lbl">평가 손익</div>
       <div class="tax-val">${pnlRate !== null ? pnlSign + fmtKRWshort(totalPnL) : '—'}</div>
-      <div class="tax-pct">${pnlRate !== null ? pnlSign + (pnlRate*100).toFixed(2) + '%' : '평단가 입력 필요'}</div>
+      <div class="tax-pct">${pnlRate !== null ? pnlSign + (pnlRate * 100).toFixed(2) + '%' : '평단가 입력 필요'}</div>
       <div class="tax-sub">투자원금 ${fmtKRWshort(totalCost)} → 평가 ${fmtKRWshort(totalEvalForPnL)}<span style="color:var(--text-muted);font-size:11px;"> (평단가 입력분 기준)</span></div>
     </div>
   `;
@@ -466,8 +542,8 @@ function renderTaxAnalysis() {
     return;
   }
   // 3단계 — 카테고리별 상세 행 생성 (과세 규칙 라벨·손익·공제·과세표준·세금·세후 금액).
-  rows.forEach(r => {
-    const pnlCls = r.pnl > 0 ? 'tax-pos' : (r.pnl < 0 ? 'tax-neg' : '');
+  rows.forEach((r) => {
+    const pnlCls = r.pnl > 0 ? 'tax-pos' : r.pnl < 0 ? 'tax-neg' : '';
     const pnlSign = r.pnl > 0 ? '+' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -488,7 +564,7 @@ function renderTaxAnalysis() {
   sumRow.style.background = 'var(--surface)';
   sumRow.style.fontWeight = '600';
   const totalSign = totalPnL > 0 ? '+' : '';
-  const totalCls = totalPnL > 0 ? 'tax-pos' : (totalPnL < 0 ? 'tax-neg' : '');
+  const totalCls = totalPnL > 0 ? 'tax-pos' : totalPnL < 0 ? 'tax-neg' : '';
   sumRow.innerHTML = `
     <td class="m-keep">합계</td>
     <td class="right">${fmtKRW(totalValue)}</td>
@@ -516,7 +592,10 @@ function renderSettings() {
       const hh = String(dt.getHours()).padStart(2, '0');
       const mi = String(dt.getMinutes()).padStart(2, '0');
       const ageDays = Math.floor((Date.now() - dt.getTime()) / 86400000);
-      const ageWarn = ageDays >= 14 ? ` <span style="color:var(--danger);font-weight:600">⚠️ ${ageDays}일 경과 - 백업 권장</span>` : ` (${ageDays}일 전)`;
+      const ageWarn =
+        ageDays >= 14
+          ? ` <span style="color:var(--danger);font-weight:600">⚠️ ${ageDays}일 경과 - 백업 권장</span>`
+          : ` (${ageDays}일 전)`;
       meta.innerHTML = `📁 마지막 JSON 백업: ${yy}-${mm}-${dd} ${hh}:${mi}${ageWarn}`;
     } else {
       meta.innerHTML = `📁 <span style="color:var(--danger);font-weight:600">⚠️ 백업 이력 없음 - 지금 한번 다운로드해 두세요</span>`;
@@ -543,33 +622,54 @@ function renderKPIs() {
   const debtLine = document.getElementById('kpi-debt-line');
   if (debtLine) {
     debtLine.style.display = debt > 0 ? '' : 'none';
-    if (debt > 0) debtLine.textContent = `자산 ${fmtKRW(total)} − 부채 ${fmtKRW(debt)}`;
+    if (debt > 0)
+      debtLine.textContent = `자산 ${fmtKRW(total)} − 부채 ${fmtKRW(debt)}`;
   }
-  const totalHoldings = assetHoldings().filter(h => holdingValue(h) > 0).length;
-  document.getElementById('kpi-updated').textContent = `총 ${totalHoldings}개 종목 · 마지막 업데이트 ${state.lastUpdated}`;
+  const totalHoldings = assetHoldings().filter(
+    (h) => holdingValue(h) > 0,
+  ).length;
+  document.getElementById('kpi-updated').textContent =
+    `총 ${totalHoldings}개 종목 · 마지막 업데이트 ${state.lastUpdated}`;
 
   // 원화/달러/달러헤지 비중은 viewScope 반영
   const scoped = isLiquidScope();
   const scopeBase = scoped ? scopedTotal() : total;
   const krw = scoped ? scopedExposureTotal('원화') : exposureTotal('원화');
-  const usd = scoped ? scopedExposureTotal('달러(노출)') : exposureTotal('달러(노출)');
-  const hedge = scoped ? scopedExposureTotal('달러헤지') : exposureTotal('달러헤지');
+  const usd = scoped
+    ? scopedExposureTotal('달러(노출)')
+    : exposureTotal('달러(노출)');
+  const hedge = scoped
+    ? scopedExposureTotal('달러헤지')
+    : exposureTotal('달러헤지');
 
-  document.getElementById('kpi-krw').textContent = scopeBase ? fmtPct(krw / scopeBase) : '0.0%';
-  document.getElementById('kpi-krw-amt').textContent = fmtKRW(krw) + (scoped ? ' (유동)' : '');
+  document.getElementById('kpi-krw').textContent = scopeBase
+    ? fmtPct(krw / scopeBase)
+    : '0.0%';
+  document.getElementById('kpi-krw-amt').textContent =
+    fmtKRW(krw) + (scoped ? ' (유동)' : '');
 
-  document.getElementById('kpi-usd').textContent = scopeBase ? fmtPct(usd / scopeBase) : '0.0%';
-  document.getElementById('kpi-usd-amt').textContent = fmtKRW(usd) + (scoped ? ' (유동)' : '');
+  document.getElementById('kpi-usd').textContent = scopeBase
+    ? fmtPct(usd / scopeBase)
+    : '0.0%';
+  document.getElementById('kpi-usd-amt').textContent =
+    fmtKRW(usd) + (scoped ? ' (유동)' : '');
 
   const hedgeEl = document.getElementById('kpi-hedge');
   const hedgeAmtEl = document.getElementById('kpi-hedge-amt');
-  if (hedgeEl) hedgeEl.textContent = scopeBase ? fmtPct(hedge / scopeBase) : '0.0%';
-  if (hedgeAmtEl) hedgeAmtEl.textContent = fmtKRW(hedge) + (scoped ? ' (유동)' : '');
+  if (hedgeEl)
+    hedgeEl.textContent = scopeBase ? fmtPct(hedge / scopeBase) : '0.0%';
+  if (hedgeAmtEl)
+    hedgeAmtEl.textContent = fmtKRW(hedge) + (scoped ? ' (유동)' : '');
 
-  document.getElementById('m-krw').textContent = scopeBase ? fmtPct(krw / scopeBase) : '0.0%';
-  document.getElementById('m-usd').textContent = scopeBase ? fmtPct(usd / scopeBase) : '0.0%';
+  document.getElementById('m-krw').textContent = scopeBase
+    ? fmtPct(krw / scopeBase)
+    : '0.0%';
+  document.getElementById('m-usd').textContent = scopeBase
+    ? fmtPct(usd / scopeBase)
+    : '0.0%';
   const mHedgeEl = document.getElementById('m-hedge');
-  if (mHedgeEl) mHedgeEl.textContent = scopeBase ? fmtPct(hedge / scopeBase) : '0.0%';
+  if (mHedgeEl)
+    mHedgeEl.textContent = scopeBase ? fmtPct(hedge / scopeBase) : '0.0%';
 
   // 유동성 KPI
   const liquidAmt = liquidityTotal('liquid');
@@ -578,8 +678,12 @@ function renderKPIs() {
   const liqPctEl = document.getElementById('kpi-liquid-pct');
   const lockedEl = document.getElementById('kpi-locked-amt');
   if (liqEl) liqEl.textContent = fmtKRW(liquidAmt);
-  if (liqPctEl) liqPctEl.textContent = total ? fmtPct(liquidAmt / total) + ' / 총자산' : '0.0%';
-  if (lockedEl) lockedEl.textContent = `🔒 묶임 ${fmtKRWshort(lockedAmt)} (${total ? fmtPct(lockedAmt / total) : '0.0%'})`;
+  if (liqPctEl)
+    liqPctEl.textContent = total
+      ? fmtPct(liquidAmt / total) + ' / 총자산'
+      : '0.0%';
+  if (lockedEl)
+    lockedEl.textContent = `🔒 묶임 ${fmtKRWshort(lockedAmt)} (${total ? fmtPct(lockedAmt / total) : '0.0%'})`;
 
   renderInflationKPI();
 }
@@ -598,13 +702,16 @@ function renderInflationKPI() {
   // reset classes
   card.classList.remove('win', 'lose', 'flat');
 
-  const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...state.history].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
   if (sorted.length < 2) {
     card.classList.add('flat');
     gapEl.textContent = '—';
-    breakdownEl.innerHTML = sorted.length === 0
-      ? '<span>이력 탭에서 첫 스냅샷 찍으면 자동 계산</span>'
-      : '<span>다음 스냅샷부터 비교 시작</span>';
+    breakdownEl.innerHTML =
+      sorted.length === 0
+        ? '<span>이력 탭에서 첫 스냅샷 찍으면 자동 계산</span>'
+        : '<span>다음 스냅샷부터 비교 시작</span>';
     return;
   }
 
@@ -624,10 +731,11 @@ function renderInflationKPI() {
   // CPI 누적 인플레 (없으면 fallback annual rate 사용)
   let cpiRet;
   if (first.cpiIndex && last.cpiIndex) {
-    cpiRet = (last.cpiIndex / first.cpiIndex) - 1;
+    cpiRet = last.cpiIndex / first.cpiIndex - 1;
   } else {
     const fallback = num(state.usCpiAnnual) || 0.035;
-    const elapsed = (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
+    const elapsed =
+      (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
     cpiRet = Math.pow(1 + fallback, elapsed) - 1;
   }
   // 실질 갭 (명목 - CPI)
@@ -661,35 +769,41 @@ function renderHoldings() {
   container.innerHTML = '';
 
   // 1단계 — 카테고리별 섹션 생성 (헤더 + 컬럼 헤더 행 + 보유 행들 + 추가 버튼).
-  CATEGORIES.forEach(c => {
+  CATEGORIES.forEach((c) => {
     const sect = document.createElement('div');
-    sect.className = 'cat-section' + (state.collapsed[c.key] ? ' collapsed' : '');
+    sect.className =
+      'cat-section' + (state.collapsed[c.key] ? ' collapsed' : '');
 
     // 섹션 헤더 — 카테고리 배지·보유 수·합계(KRW, USD 카테고리는 USD 병기)·전체대비 %.
     // 헤더 클릭으로 접기/펼치기 토글. 암호화폐는 시세 출처 드롭다운, 금은 시세 갱신 버튼이 추가로 붙는다.
     const total = categoryTotal(c.key);
     const grand = grandTotal();
-    const pctOfGrand = grand > 0 ? (total / grand * 100) : 0;
+    const pctOfGrand = grand > 0 ? (total / grand) * 100 : 0;
     const header = document.createElement('div');
     header.className = 'cat-header';
-    const exchangeSelector = c.isCrypto ? `
+    const exchangeSelector = c.isCrypto
+      ? `
       <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">시세:</span>
       <select class="crypto-exchange-select" data-stop-collapse="1" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--card);cursor:pointer;">
         <option value="bithumb" ${state.cryptoExchange === 'bithumb' ? 'selected' : ''}>Bithumb</option>
         <option value="upbit" ${state.cryptoExchange === 'upbit' ? 'selected' : ''}>Upbit</option>
         <option value="coingecko" ${state.cryptoExchange === 'coingecko' ? 'selected' : ''}>CoinGecko</option>
       </select>
-    ` : '';
-    const goldRefreshBtn = c.key === '금' ? `
+    `
+      : '';
+    const goldRefreshBtn =
+      c.key === '금'
+        ? `
       <button class="gold-refresh-btn" data-stop-collapse="1" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid #e0a800;background:#fef3c7;color:#78350f;cursor:pointer;margin-left:8px;font-weight:500;">
         🥇 시세 자동 갱신
       </button>
-    ` : '';
+    `
+        : '';
     header.innerHTML = `
       <div class="left">
         <span class="badge ${c.cls}">${c.key}</span>
         <span style="color:var(--text-muted);font-size:12px;">
-          ${state.holdings.filter(h => h.category === c.key && holdingValue(h) > 0).length}개 보유
+          ${state.holdings.filter((h) => h.category === c.key && holdingValue(h) > 0).length}개 보유
         </span>
         ${exchangeSelector}
         ${goldRefreshBtn}
@@ -703,28 +817,40 @@ function renderHoldings() {
     `;
     header.onclick = (ev) => {
       // 드롭다운 등 내부 컨트롤 클릭 시 collapse 안 함
-      if (ev.target.closest('[data-stop-collapse]') || ev.target.tagName === 'OPTION') return;
+      if (
+        ev.target.closest('[data-stop-collapse]') ||
+        ev.target.tagName === 'OPTION'
+      )
+        return;
       state.collapsed[c.key] = !state.collapsed[c.key];
       sect.classList.toggle('collapsed');
       saveState();
     };
     if (c.isCrypto) {
-      header.querySelector('.crypto-exchange-select').addEventListener('change', (ev) => {
-        ev.stopPropagation();
-        state.cryptoExchange = ev.target.value;
-        saveState();
-        toast(`암호화폐 시세 출처: ${ev.target.options[ev.target.selectedIndex].text}`);
-      });
-      header.querySelector('.crypto-exchange-select').addEventListener('click', (ev) => {
-        ev.stopPropagation();
-      });
+      header
+        .querySelector('.crypto-exchange-select')
+        .addEventListener('change', (ev) => {
+          ev.stopPropagation();
+          state.cryptoExchange = ev.target.value;
+          saveState();
+          toast(
+            `암호화폐 시세 출처: ${ev.target.options[ev.target.selectedIndex].text}`,
+          );
+        });
+      header
+        .querySelector('.crypto-exchange-select')
+        .addEventListener('click', (ev) => {
+          ev.stopPropagation();
+        });
     }
     if (c.key === '금') {
       // 금 시세 자동 갱신 버튼 — fetch.js의 fetchAndApplyGoldPrice가 시세 조회 후 render()까지 수행.
-      header.querySelector('.gold-refresh-btn').addEventListener('click', async (ev) => {
-        ev.stopPropagation();
-        await fetchAndApplyGoldPrice(ev.currentTarget);
-      });
+      header
+        .querySelector('.gold-refresh-btn')
+        .addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          await fetchAndApplyGoldPrice(ev.currentTarget);
+        });
     }
 
     const body = document.createElement('div');
@@ -752,18 +878,28 @@ function renderHoldings() {
       `;
     } else {
       const isAmount = c.amountOnly;
-      const col1Label = c.key === '현금' ? '계좌명' : (c.key === '금' ? '명칭' : (c.key === '부동산' ? '단지/명칭' : '종목명'));
-      const col2Label = c.key === '현금' ? '은행' : (c.key === '금' ? '보관처' : '계좌/거래소');
+      const col1Label =
+        c.key === '현금'
+          ? '계좌명'
+          : c.key === '금'
+            ? '명칭'
+            : c.key === '부동산'
+              ? '단지/명칭'
+              : '종목명';
+      const col2Label =
+        c.key === '현금' ? '은행' : c.key === '금' ? '보관처' : '계좌/거래소';
       const skipAcc = c.skipAccount;
       // 모바일 3칸 정렬 — amountOnly 행은 이름·평가금액입력(5번째)·손익(7번째),
       // 금 행은 이름·평가금액(6번째)·손익(7번째)을 남기므로 헤더도 같은 위치를 마킹한다.
       headRow.innerHTML = `
-        ${skipAcc
-          ? `<div class="span-2 m-keep">${col1Label}</div>`
-          : `<div class="m-keep">${col1Label}</div><div>${col2Label}</div>`}
-        <div style="text-align:right">${isAmount ? '' : (c.key === '금' ? '그램(g)' : '수량')}</div>
+        ${
+          skipAcc
+            ? `<div class="span-2 m-keep">${col1Label}</div>`
+            : `<div class="m-keep">${col1Label}</div><div>${col2Label}</div>`
+        }
+        <div style="text-align:right">${isAmount ? '' : c.key === '금' ? '그램(g)' : '수량'}</div>
         <div style="text-align:right">${isAmount ? '' : '평단가'}</div>
-        <div class="${isAmount ? 'm-keep' : ''}" style="text-align:right">${isAmount ? '평가금액' : (c.key === '금' ? '시세(원/g)' : '현재가')}</div>
+        <div class="${isAmount ? 'm-keep' : ''}" style="text-align:right">${isAmount ? '평가금액' : c.key === '금' ? '시세(원/g)' : '현재가'}</div>
         <div class="${isAmount ? '' : 'm-keep'}" style="text-align:right">${isAmount ? '' : '평가금액'}</div>
         <div class="m-keep" style="text-align:right">${isAmount ? '' : '평가손익'}</div>
         <div style="text-align:center">통화노출</div>
@@ -777,71 +913,78 @@ function renderHoldings() {
 
     // 2단계 — 이 카테고리에 속한 보유 종목 행 생성. 행마다 자산타입 칩·유동성 칩·
     // 통화노출 셀렉트·메모 셀·삭제 버튼을 공통으로 만들고, 카테고리 유형별로 본문을 조립.
-    state.holdings.filter(h => h.category === c.key).forEach(h => {
-      const row = document.createElement('div');
-      // .pnl 클래스 추가: 11-column grid 적용
-      row.className = 'row pnl' + (c.hasTicker ? ' has-ticker' : '') + (holdingLiquidity(h) === 'locked' ? ' is-locked' : '');
-      row.dataset.holdingId = h.id;  // 모바일 행 탭 → 편집 모달 식별용
-      const at = assetTypeOf(h);
-      const atCls = ASSET_TYPE_CLS[at] || 'asset-stock';
-      // 선택 가능한 자산타입 — 부동산/암호화폐는 카테고리 잠금이 따로 있어서 제외
-      const SELECTABLE_ATYPES = ['주식', '채권', '현금', '금', '원자재'];
-      const assetChip = c.assetTypeFixed
-        ? `<span class="asset-chip locked ${atCls}" title="${c.assetTypeFixed} (자동 분류)">${c.assetTypeFixed}</span>`
-        : `<select class="asset-chip asset-chip-select ${atCls}" data-field="assetType" data-id="${h.id}" title="자산타입 선택 (도넛/리밸런싱은 이걸 기준으로 계산)">
-            ${SELECTABLE_ATYPES.map(t => `<option value="${t}" ${t === at ? 'selected' : ''}>${t}</option>`).join('')}
+    state.holdings
+      .filter((h) => h.category === c.key)
+      .forEach((h) => {
+        const row = document.createElement('div');
+        // .pnl 클래스 추가: 11-column grid 적용
+        row.className =
+          'row pnl' +
+          (c.hasTicker ? ' has-ticker' : '') +
+          (holdingLiquidity(h) === 'locked' ? ' is-locked' : '');
+        row.dataset.holdingId = h.id; // 모바일 행 탭 → 편집 모달 식별용
+        const at = assetTypeOf(h);
+        const atCls = ASSET_TYPE_CLS[at] || 'asset-stock';
+        // 선택 가능한 자산타입 — 부동산/암호화폐는 카테고리 잠금이 따로 있어서 제외
+        const SELECTABLE_ATYPES = ['주식', '채권', '현금', '금', '원자재'];
+        const assetChip = c.assetTypeFixed
+          ? `<span class="asset-chip locked ${atCls}" title="${c.assetTypeFixed} (자동 분류)">${c.assetTypeFixed}</span>`
+          : `<select class="asset-chip asset-chip-select ${atCls}" data-field="assetType" data-id="${h.id}" title="자산타입 선택 (도넛/리밸런싱은 이걸 기준으로 계산)">
+            ${SELECTABLE_ATYPES.map((t) => `<option value="${t}" ${t === at ? 'selected' : ''}>${t}</option>`).join('')}
           </select>`;
-      const liq = holdingLiquidity(h);
-      const liqChip = `<button class="liq-chip ${liq === 'locked' ? 'liq-locked' : 'liq-liquid'}" data-toggle-liq="${h.id}" title="${liq === 'locked' ? '🔒 묶임 — 즉시 매도/인출 어려움 (클릭해서 유동으로 변경)' : '💧 유동 — 즉시 매도/인출 가능 (클릭해서 묶임으로 변경)'}">${liq === 'locked' ? '🔒' : '💧'}</button>`;
-      const exposureSelect = `<select class="inp center" data-field="exposure" data-id="${h.id}">
-        ${EXPOSURES.map(e => `<option value="${e}" ${e === h.exposure ? 'selected' : ''}>${e}</option>`).join('')}
+        const liq = holdingLiquidity(h);
+        const liqChip = `<button class="liq-chip ${liq === 'locked' ? 'liq-locked' : 'liq-liquid'}" data-toggle-liq="${h.id}" title="${liq === 'locked' ? '🔒 묶임 — 즉시 매도/인출 어려움 (클릭해서 유동으로 변경)' : '💧 유동 — 즉시 매도/인출 가능 (클릭해서 묶임으로 변경)'}">${liq === 'locked' ? '🔒' : '💧'}</button>`;
+        const exposureSelect = `<select class="inp center" data-field="exposure" data-id="${h.id}">
+        ${EXPOSURES.map((e) => `<option value="${e}" ${e === h.exposure ? 'selected' : ''}>${e}</option>`).join('')}
       </select>`;
-      // 종목 메모(멀티라인) 인디케이터 — 이름이 있을 때만 동작.
-      // h.memo(짧은 라벨, 현재 행 한정)와 별개로 종목명 기준으로 공유되는 longMemo.
-      const longMemo = h.name ? getHoldingMemo(h.name) : '';
-      const longMemoBtn = `<button class="memo-dot ${longMemo ? 'has-memo' : ''}" ${h.name ? `data-holding-memo="${escapeHtml(h.name)}"` : ''} data-memo="${escapeHtml(longMemo)}" title="${h.name ? (longMemo ? '종목 메모 보기/편집' : '종목 메모 추가') : '먼저 종목명을 입력하세요'}" ${h.name ? '' : 'disabled'}>${longMemo ? '📝' : '＋'}</button>`;
-      // 메모 컬럼: long memo 있으면 첫 줄 미리보기(클릭=모달), 없으면 기존 짧은 라벨 input
-      const memoBody = longMemo
-        ? `<div class="memo-preview" ${h.name ? `data-holding-memo="${escapeHtml(h.name)}"` : ''} title="클릭해서 보기/편집">${escapeHtml(memoFirstLine(longMemo, 30))}${longMemo.split(/\r?\n/).length > 1 ? ' ...' : ''}</div>`
-        : `<input class="inp" placeholder="—" value="${escapeHtml(h.memo)}" data-field="memo" data-id="${h.id}" />`;
-      const memoInput = `<div class="memo-cell">${memoBody}${longMemoBtn}</div>`;
-      const deleteBtn = `<button class="icon-btn" data-delete="${h.id}" title="삭제">×</button>`;
-      const chipCellWrap = `<div class="chip-cell">${assetChip}${liqChip}</div>`;
+        // 종목 메모(멀티라인) 인디케이터 — 이름이 있을 때만 동작.
+        // h.memo(짧은 라벨, 현재 행 한정)와 별개로 종목명 기준으로 공유되는 longMemo.
+        const longMemo = h.name ? getHoldingMemo(h.name) : '';
+        const longMemoBtn = `<button class="memo-dot ${longMemo ? 'has-memo' : ''}" ${h.name ? `data-holding-memo="${escapeHtml(h.name)}"` : ''} data-memo="${escapeHtml(longMemo)}" title="${h.name ? (longMemo ? '종목 메모 보기/편집' : '종목 메모 추가') : '먼저 종목명을 입력하세요'}" ${h.name ? '' : 'disabled'}>${longMemo ? '📝' : '＋'}</button>`;
+        // 메모 컬럼: long memo 있으면 첫 줄 미리보기(클릭=모달), 없으면 기존 짧은 라벨 input
+        const memoBody = longMemo
+          ? `<div class="memo-preview" ${h.name ? `data-holding-memo="${escapeHtml(h.name)}"` : ''} title="클릭해서 보기/편집">${escapeHtml(memoFirstLine(longMemo, 30))}${longMemo.split(/\r?\n/).length > 1 ? ' ...' : ''}</div>`
+          : `<input class="inp" placeholder="—" value="${escapeHtml(h.memo)}" data-field="memo" data-id="${h.id}" />`;
+        const memoInput = `<div class="memo-cell">${memoBody}${longMemoBtn}</div>`;
+        const deleteBtn = `<button class="icon-btn" data-delete="${h.id}" title="삭제">×</button>`;
+        const chipCellWrap = `<div class="chip-cell">${assetChip}${liqChip}</div>`;
 
-      // P&L 셀 빌더 (검색형/금 카테고리에서 공통 사용).
-      // calc.js의 holdingPnL(평단가 기반)이 null이면 '—', 아니면 손익 금액(KRW 축약)+%를 색상 클래스와 함께 출력.
-      function pnlCellHTML(h) {
-        const p = holdingPnL(h);
-        if (!p) return `<div class="pnl-cell zero m-keep">—</div>`;
-        const cls = p.pnl > 0 ? 'pos' : (p.pnl < 0 ? 'neg' : 'zero');
-        const sign = p.pnl > 0 ? '+' : '';
-        return `<div class="pnl-cell ${cls} m-keep">
+        // P&L 셀 빌더 (검색형/금 카테고리에서 공통 사용).
+        // calc.js의 holdingPnL(평단가 기반)이 null이면 '—', 아니면 손익 금액(KRW 축약)+%를 색상 클래스와 함께 출력.
+        function pnlCellHTML(h) {
+          const p = holdingPnL(h);
+          if (!p) return `<div class="pnl-cell zero m-keep">—</div>`;
+          const cls = p.pnl > 0 ? 'pos' : p.pnl < 0 ? 'neg' : 'zero';
+          const sign = p.pnl > 0 ? '+' : '';
+          return `<div class="pnl-cell ${cls} m-keep">
           <div class="amt">${sign}${fmtKRWshort(p.pnl)}</div>
-          <div class="pct">${sign}${(p.pct*100).toFixed(2)}%</div>
+          <div class="pct">${sign}${(p.pct * 100).toFixed(2)}%</div>
         </div>`;
-      }
+        }
 
-      if (c.hasTicker) {
-        // === 검색형 (국내주식, 해외주식, 암호화폐, 연금저축, 퇴직연금, ISA) ===
-        // 종목명 검색 인풋(fetch.js onSearchInput 연동) + 수량/평단가/현재가 입력.
-        // isUSD 카테고리는 현재가·평단가를 USD로 받고 KRW 환산액을 병기한다.
-        const priceCell = c.isUSD
-          ? `<div class="dual-price">
+        if (c.hasTicker) {
+          // === 검색형 (국내주식, 해외주식, 암호화폐, 연금저축, 퇴직연금, ISA) ===
+          // 종목명 검색 인풋(fetch.js onSearchInput 연동) + 수량/평단가/현재가 입력.
+          // isUSD 카테고리는 현재가·평단가를 USD로 받고 KRW 환산액을 병기한다.
+          const priceCell = c.isUSD
+            ? `<div class="dual-price">
                <div class="usd">$<input class="" placeholder="0" value="${fmtNumInput(h.priceUSD)}" data-field="priceUSD" data-id="${h.id}" data-numeric="1" /></div>
                <div class="krw">${num(h.priceUSD) > 0 ? fmtKRW(num(h.priceUSD) * num(state.usdKrwRate)) : '—'}</div>
              </div>`
-          : `<input class="inp right" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" />`;
-        // 평단가 셀: 해외주식은 USD, 그 외 KRW
-        const avgPriceCell = c.isUSD
-          ? `<input class="inp right target" placeholder="$0" value="${fmtNumInput(h.avgPriceUSD)}" data-field="avgPriceUSD" data-id="${h.id}" data-numeric="1" title="매수 평단가 (USD). 비우면 손익 계산 안 함" />`
-          : `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="매수 평단가. 비우면 손익 계산 안 함" />`;
-        const searchPlaceholder = c.isCrypto
-          ? '비트코인, BTC 검색...'
-          : (c.isUSD ? 'Apple, AAPL 검색...' : '삼성전자, 005930 검색...');
-        const tickerInfo = h.ticker
-          ? `<div class="ticker-info"><span class="sym">${escapeHtml(h.ticker)}</span>${h.symbol && h.symbol !== h.ticker ? ' · ' + escapeHtml(h.symbol) : ''}</div>`
-          : '';
-        row.innerHTML = `
+            : `<input class="inp right" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" />`;
+          // 평단가 셀: 해외주식은 USD, 그 외 KRW
+          const avgPriceCell = c.isUSD
+            ? `<input class="inp right target" placeholder="$0" value="${fmtNumInput(h.avgPriceUSD)}" data-field="avgPriceUSD" data-id="${h.id}" data-numeric="1" title="매수 평단가 (USD). 비우면 손익 계산 안 함" />`
+            : `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="매수 평단가. 비우면 손익 계산 안 함" />`;
+          const searchPlaceholder = c.isCrypto
+            ? '비트코인, BTC 검색...'
+            : c.isUSD
+              ? 'Apple, AAPL 검색...'
+              : '삼성전자, 005930 검색...';
+          const tickerInfo = h.ticker
+            ? `<div class="ticker-info"><span class="sym">${escapeHtml(h.ticker)}</span>${h.symbol && h.symbol !== h.ticker ? ' · ' + escapeHtml(h.symbol) : ''}</div>`
+            : '';
+          row.innerHTML = `
           <div class="search-cell m-keep">
             <input class="search-input" placeholder="${searchPlaceholder}" value="${escapeHtml(h.name)}" data-search="${h.id}" data-id="${h.id}" autocomplete="off" />
             ${tickerInfo}
@@ -858,25 +1001,26 @@ function renderHoldings() {
           <button class="refresh-btn" data-refresh="${h.id}" title="시세 갱신">🔄</button>
           ${deleteBtn}
         `;
-      } else if (c.amountOnly) {
-        // === 평가금액 직접입력형 (현금, 부동산) - 평단가/손익 컬럼은 빈 셀 ===
-        // 수량 개념 없이 price 필드에 평가금액을 직접 입력받는다(quantity는 1 고정).
-        // 통화노출이 '달러(노출)'인 현금은 USD로 입력받아 KRW 환산액을 병기.
-        const isDollarCash = h.exposure === '달러(노출)';
-        const amountCell = isDollarCash
-          ? `<div class="dual-price m-keep">
+        } else if (c.amountOnly) {
+          // === 평가금액 직접입력형 (현금, 부동산) - 평단가/손익 컬럼은 빈 셀 ===
+          // 수량 개념 없이 price 필드에 평가금액을 직접 입력받는다(quantity는 1 고정).
+          // 통화노출이 '달러(노출)'인 현금은 USD로 입력받아 KRW 환산액을 병기.
+          const isDollarCash = h.exposure === '달러(노출)';
+          const amountCell = isDollarCash
+            ? `<div class="dual-price m-keep">
                <div class="usd">$<input class="" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" /></div>
                <div class="krw">${num(h.price) > 0 ? fmtKRW(num(h.price) * num(state.usdKrwRate)) : '—'}</div>
              </div>`
-          : `<input class="inp right m-keep" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" />`;
-        const computedDisplay = isDollarCash ? fmtKRW(holdingValue(h)) : '';
-        const namePh = c.key === '부동산' ? '예: 잠실엘스 84A' : '예: 신한 CMA';
-        // 부동산: 명칭이 col 1-2 spanning, account 입력 생략
-        const nameAndAccountCells = c.skipAccount
-          ? `<input class="inp span-2 m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />`
-          : `<input class="inp m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
+            : `<input class="inp right m-keep" placeholder="0" value="${fmtNumInput(h.price)}" data-field="price" data-id="${h.id}" data-numeric="1" data-amount-only="1" />`;
+          const computedDisplay = isDollarCash ? fmtKRW(holdingValue(h)) : '';
+          const namePh =
+            c.key === '부동산' ? '예: 잠실엘스 84A' : '예: 신한 CMA';
+          // 부동산: 명칭이 col 1-2 spanning, account 입력 생략
+          const nameAndAccountCells = c.skipAccount
+            ? `<input class="inp span-2 m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />`
+            : `<input class="inp m-keep" placeholder="${namePh}" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
              <input class="inp" placeholder="—" value="${escapeHtml(h.account)}" data-field="account" data-id="${h.id}" />`;
-        row.innerHTML = `
+          row.innerHTML = `
           ${nameAndAccountCells}
           <div class="col-empty"></div>
           <div class="col-empty"></div>
@@ -889,11 +1033,11 @@ function renderHoldings() {
           <div class="col-empty"></div>
           ${deleteBtn}
         `;
-      } else {
-        // === 일반형 (금) - 평단가 컬럼 추가 (g당 평단) ===
-        // 수량은 그램(g), 시세·평단가는 원/g 단위. 검색 없이 명칭·보관처를 직접 입력한다.
-        const avgPriceCell = `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="g당 매수 평단가. 비우면 손익 계산 안 함" />`;
-        row.innerHTML = `
+        } else {
+          // === 일반형 (금) - 평단가 컬럼 추가 (g당 평단) ===
+          // 수량은 그램(g), 시세·평단가는 원/g 단위. 검색 없이 명칭·보관처를 직접 입력한다.
+          const avgPriceCell = `<input class="inp right target" placeholder="0" value="${fmtNumInput(h.avgPrice)}" data-field="avgPrice" data-id="${h.id}" data-numeric="1" title="g당 매수 평단가. 비우면 손익 계산 안 함" />`;
+          row.innerHTML = `
           <input class="inp m-keep" placeholder="예: KRX 금현물 / 골드바" value="${escapeHtml(h.name)}" data-field="name" data-id="${h.id}" />
           <input class="inp" placeholder="한국투자증권/금고 등" value="${escapeHtml(h.account)}" data-field="account" data-id="${h.id}" />
           <input class="inp right" placeholder="g" value="${h.quantity}" data-field="quantity" data-id="${h.id}" />
@@ -907,9 +1051,9 @@ function renderHoldings() {
           <div class="col-empty"></div>
           ${deleteBtn}
         `;
-      }
-      body.appendChild(row);
-    });
+        }
+        body.appendChild(row);
+      });
 
     // 3단계 — 종목 추가 버튼. 클릭 시 카테고리 기본값(통화노출/자산타입/유동성, constants.js)으로
     // 빈 보유 항목을 state.holdings에 push하고 render()로 전체 재렌더.
@@ -919,14 +1063,24 @@ function renderHoldings() {
     addBtn.onclick = (e) => {
       e.stopPropagation();
       state.holdings.push({
-        id: uid(), category: c.key, name: '', account: '', ticker: '', symbol: '',
-        quantity: c.amountOnly ? '1' : '', price: '', priceUSD: '',
-        avgPrice: '', avgPriceUSD: '',
-        exposure: DEFAULT_EXPOSURE_BY_CAT[c.key], memo: '',
+        id: uid(),
+        category: c.key,
+        name: '',
+        account: '',
+        ticker: '',
+        symbol: '',
+        quantity: c.amountOnly ? '1' : '',
+        price: '',
+        priceUSD: '',
+        avgPrice: '',
+        avgPriceUSD: '',
+        exposure: DEFAULT_EXPOSURE_BY_CAT[c.key],
+        memo: '',
         assetType: c.assetTypeFixed || '주식',
         liquidity: DEFAULT_LIQUIDITY_BY_CAT[c.key] || 'liquid',
         lastFetched: '',
-        source: '', syncedAt: ''  // 수동 입력 행 (증권사 동기화 마커 없음)
+        source: '',
+        syncedAt: '', // 수동 입력 행 (증권사 동기화 마커 없음)
       });
       render();
     };
@@ -939,31 +1093,33 @@ function renderHoldings() {
 
   // 4단계 — 렌더가 끝난 뒤 data-* 속성 기준으로 이벤트를 일괄 바인딩.
   // 필드 입력/변경 → onFieldChange, 숫자 필드는 포커스/블러 시 콤마 제거·복원 핸들러 추가.
-  container.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
-    el.addEventListener('input', onFieldChange);
-    el.addEventListener('change', onFieldChange);
-    if (el.getAttribute('data-numeric')) {
-      el.addEventListener('blur', onNumericBlur);
-      el.addEventListener('focus', onNumericFocus);
-    }
-  });
+  container
+    .querySelectorAll('input[data-field], select[data-field]')
+    .forEach((el) => {
+      el.addEventListener('input', onFieldChange);
+      el.addEventListener('change', onFieldChange);
+      if (el.getAttribute('data-numeric')) {
+        el.addEventListener('blur', onNumericBlur);
+        el.addEventListener('focus', onNumericFocus);
+      }
+    });
   // 행 삭제 버튼 — 확인 없이 즉시 제거 후 전체 재렌더(저장은 render 내부 saveState가 수행).
-  container.querySelectorAll('[data-delete]').forEach(btn => {
+  container.querySelectorAll('[data-delete]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = e.target.getAttribute('data-delete');
-      state.holdings = state.holdings.filter(h => h.id !== id);
+      state.holdings = state.holdings.filter((h) => h.id !== id);
       render();
     });
   });
   // 행별 시세 갱신 버튼 — fetch.js의 refreshHolding이 API 조회·가격 반영·render()까지 수행.
-  container.querySelectorAll('[data-refresh]').forEach(btn => {
+  container.querySelectorAll('[data-refresh]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       const id = e.currentTarget.getAttribute('data-refresh');
       await refreshHolding(id);
     });
   });
   // 종목 메모 버튼/미리보기 — state.js의 openMemoModal로 멀티라인 메모 편집 모달을 연다.
-  container.querySelectorAll('[data-holding-memo]').forEach(btn => {
+  container.querySelectorAll('[data-holding-memo]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -973,10 +1129,10 @@ function renderHoldings() {
     });
   });
   // 자산타입 순환 토글(레거시 칩 버튼용) — 현재 행 템플릿은 select를 쓰므로 사실상 매칭 대상이 없다.
-  container.querySelectorAll('[data-toggle-asset]').forEach(btn => {
+  container.querySelectorAll('[data-toggle-asset]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const id = e.currentTarget.getAttribute('data-toggle-asset');
-      const h = state.holdings.find(x => x.id === id);
+      const h = state.holdings.find((x) => x.id === id);
       if (!h) return;
       // 주식 → 채권 → 금 → 원자재 → 현금 → 주식 순환
       const TOGGLABLE = ['주식', '채권', '금', '원자재', '현금'];
@@ -987,14 +1143,14 @@ function renderHoldings() {
     });
   });
   // 유동성 칩(💧/🔒) 클릭 토글 — h.liquidity를 liquid↔locked로 뒤집고 저장 후 전체 재렌더.
-  container.querySelectorAll('[data-toggle-liq]').forEach(btn => {
+  container.querySelectorAll('[data-toggle-liq]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = e.currentTarget.getAttribute('data-toggle-liq');
-      const h = state.holdings.find(x => x.id === id);
+      const h = state.holdings.find((x) => x.id === id);
       if (!h) return;
       const cur = holdingLiquidity(h);
-      h.liquidity = (cur === 'locked') ? 'liquid' : 'locked';
+      h.liquidity = cur === 'locked' ? 'liquid' : 'locked';
       saveState();
       render();
     });
@@ -1002,9 +1158,11 @@ function renderHoldings() {
   // 검색 입력 핸들러 (IME 조합 중 검색 발사 방지).
   // 한글은 compositionend(조합 확정) 시점에만, 영문 등은 input 즉시 fetch.js의 onSearchInput으로 넘긴다.
   // 포커스/블러 시 드롭다운 표시·숨김도 fetch.js(onSearchFocus/onSearchBlur)가 담당.
-  container.querySelectorAll('input[data-search]').forEach(input => {
+  container.querySelectorAll('input[data-search]').forEach((input) => {
     let composing = false;
-    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionstart', () => {
+      composing = true;
+    });
     input.addEventListener('compositionend', (e) => {
       composing = false;
       // 조합 완료 시점에 검색 발사
@@ -1020,11 +1178,17 @@ function renderHoldings() {
   });
   // 모바일 컴팩트 행 탭 → 편집 모달. matchMedia를 클릭 시점에 검사하므로 데스크톱(769px+)은 무반응.
   // 인풋/셀렉트/버튼/드롭다운/메모 미리보기 등 자체 상호작용 요소를 탭한 경우는 제외한다.
-  container.querySelectorAll('.row:not(.head)').forEach(rowEl => {
+  container.querySelectorAll('.row:not(.head)').forEach((rowEl) => {
     rowEl.addEventListener('click', (e) => {
       if (!window.matchMedia('(max-width: 768px)').matches) return;
-      if (e.target.closest('input, select, button, .search-dropdown, .memo-preview')) return;
-      if (rowEl.dataset.holdingId) openHoldingEditModal(rowEl.dataset.holdingId);
+      if (
+        e.target.closest(
+          'input, select, button, .search-dropdown, .memo-preview',
+        )
+      )
+        return;
+      if (rowEl.dataset.holdingId)
+        openHoldingEditModal(rowEl.dataset.holdingId);
     });
   });
 }
@@ -1036,7 +1200,7 @@ function renderHoldings() {
 // 종목 변경(검색)은 드롭다운 조회([data-dropdown])가 문서 전역이라 모달에 복제하면 충돌 →
 // 모달에선 읽기 전용으로 두고 목록의 종목명 칸에서 기존 검색을 쓰게 안내한다. 닫으면 render() 1회.
 function openHoldingEditModal(holdingId) {
-  const h = state.holdings.find(x => x.id === holdingId);
+  const h = state.holdings.find((x) => x.id === holdingId);
   if (!h) return;
   const c = CATEGORY_MAP[h.category];
   if (!c) return;
@@ -1078,9 +1242,25 @@ function openHoldingEditModal(holdingId) {
       ? numInput('현재가 ($)', 'priceUSD', h.priceUSD)
       : numInput('현재가 (원)', 'price', h.price);
   } else if (c.amountOnly) {
-    fieldsHTML += textInput(c.key === '부동산' ? '단지/명칭' : '이름', 'name', h.name, true);
-    if (!c.skipAccount) fieldsHTML += textInput(c.key === '현금' ? '은행' : '기관', 'account', h.account, false);
-    fieldsHTML += numInput(h.exposure === '달러(노출)' ? '평가금액 ($)' : '평가금액 (원)', 'price', h.price, false);
+    fieldsHTML += textInput(
+      c.key === '부동산' ? '단지/명칭' : '이름',
+      'name',
+      h.name,
+      true,
+    );
+    if (!c.skipAccount)
+      fieldsHTML += textInput(
+        c.key === '현금' ? '은행' : '기관',
+        'account',
+        h.account,
+        false,
+      );
+    fieldsHTML += numInput(
+      h.exposure === '달러(노출)' ? '평가금액 ($)' : '평가금액 (원)',
+      'price',
+      h.price,
+      false,
+    );
   } else {
     // 금 — 명칭·보관처·그램·평단가·시세
     fieldsHTML += textInput('명칭', 'name', h.name, true);
@@ -1095,13 +1275,13 @@ function openHoldingEditModal(holdingId) {
   const SELECTABLE_ATYPES = ['주식', '채권', '현금', '금', '원자재'];
   const exposureField = `<label class="hold-edit-field"><span>통화노출</span>
       <select class="inp" data-field="exposure" data-id="${h.id}">
-        ${EXPOSURES.map(x => `<option value="${x}" ${x === h.exposure ? 'selected' : ''}>${x}</option>`).join('')}
+        ${EXPOSURES.map((x) => `<option value="${x}" ${x === h.exposure ? 'selected' : ''}>${x}</option>`).join('')}
       </select></label>`;
   const assetTypeField = c.assetTypeFixed
     ? `<div class="hold-edit-field"><span>자산타입</span><div class="hold-edit-ro">${c.assetTypeFixed} <span class="hold-edit-note">(자동 분류)</span></div></div>`
     : `<label class="hold-edit-field"><span>자산타입</span>
         <select class="inp" data-field="assetType" data-id="${h.id}">
-          ${SELECTABLE_ATYPES.map(t => `<option value="${t}" ${t === at ? 'selected' : ''}>${t}</option>`).join('')}
+          ${SELECTABLE_ATYPES.map((t) => `<option value="${t}" ${t === at ? 'selected' : ''}>${t}</option>`).join('')}
         </select></label>`;
   const liq = holdingLiquidity(h);
   const liquidityField = `<label class="hold-edit-field"><span>유동성</span>
@@ -1146,43 +1326,57 @@ function openHoldingEditModal(holdingId) {
     const el = document.getElementById('holdEditLive');
     if (!el) return;
     const p = holdingPnL(h);
-    el.textContent = `평가금액 ${fmtKRW(holdingValue(h))}`
-      + (p ? ` · 손익 ${p.pnl > 0 ? '+' : ''}${fmtKRWshort(p.pnl)} (${p.pnl > 0 ? '+' : ''}${(p.pct * 100).toFixed(2)}%)` : '');
+    el.textContent =
+      `평가금액 ${fmtKRW(holdingValue(h))}` +
+      (p
+        ? ` · 손익 ${p.pnl > 0 ? '+' : ''}${fmtKRWshort(p.pnl)} (${p.pnl > 0 ? '+' : ''}${(p.pct * 100).toFixed(2)}%)`
+        : '');
   };
-  modal.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
-    el.addEventListener('input', onFieldChange);
-    el.addEventListener('change', onFieldChange);
-    if (el.getAttribute('data-numeric')) {
-      el.addEventListener('blur', onNumericBlur);
-      el.addEventListener('focus', onNumericFocus);
-    }
-    el.addEventListener('input', updateLive);
-    el.addEventListener('change', updateLive);
-  });
+  modal
+    .querySelectorAll('input[data-field], select[data-field]')
+    .forEach((el) => {
+      el.addEventListener('input', onFieldChange);
+      el.addEventListener('change', onFieldChange);
+      if (el.getAttribute('data-numeric')) {
+        el.addEventListener('blur', onNumericBlur);
+        el.addEventListener('focus', onNumericFocus);
+      }
+      el.addEventListener('input', updateLive);
+      el.addEventListener('change', updateLive);
+    });
   updateLive();
 
-  const close = () => { backdrop.remove(); render(); };
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  const close = () => {
+    backdrop.remove();
+    render();
+  };
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
   document.getElementById('holdEditCloseX').addEventListener('click', close);
   document.getElementById('holdEditCloseBtn').addEventListener('click', close);
   document.getElementById('holdEditDeleteBtn').addEventListener('click', () => {
     if (!confirm(`'${h.name || '(이름 없음)'}' 항목을 삭제할까요?`)) return;
-    state.holdings = state.holdings.filter(x => x.id !== h.id);
+    state.holdings = state.holdings.filter((x) => x.id !== h.id);
     backdrop.remove();
-    render();  // 저장은 render 내부 saveState가 수행 (행 삭제 버튼과 동일 경로)
+    render(); // 저장은 render 내부 saveState가 수행 (행 삭제 버튼과 동일 경로)
   });
   const memoBtn = document.getElementById('holdEditMemoBtn');
-  if (memoBtn) memoBtn.addEventListener('click', () => openMemoModal('holding', h.name, h.name));
+  if (memoBtn)
+    memoBtn.addEventListener('click', () =>
+      openMemoModal('holding', h.name, h.name),
+    );
   const refreshBtn = document.getElementById('holdEditRefreshBtn');
-  if (refreshBtn) refreshBtn.addEventListener('click', async () => {
-    refreshBtn.disabled = true;
-    await refreshHolding(h.id);  // 시세 반영 + render()까지 수행 (모달은 body 직속이라 유지됨)
-    refreshBtn.disabled = false;
-    const priceField = c.isUSD ? 'priceUSD' : 'price';
-    const inp = modal.querySelector(`input[data-field="${priceField}"]`);
-    if (inp) inp.value = fmtNumInput(h[priceField]);
-    updateLive();
-  });
+  if (refreshBtn)
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      await refreshHolding(h.id); // 시세 반영 + render()까지 수행 (모달은 body 직속이라 유지됨)
+      refreshBtn.disabled = false;
+      const priceField = c.isUSD ? 'priceUSD' : 'price';
+      const inp = modal.querySelector(`input[data-field="${priceField}"]`);
+      if (inp) inp.value = fmtNumInput(h[priceField]);
+      updateLive();
+    });
 }
 
 // 숫자 인풋 포커스 핸들러 — 콤마를 제거한 raw 값으로 바꿔 편집을 편하게 함.
@@ -1194,7 +1388,9 @@ function onNumericFocus(e) {
   e.target.value = raw;
   // 커서를 끝에 두기
   setTimeout(() => {
-    try { e.target.setSelectionRange(raw.length, raw.length); } catch (_) {}
+    try {
+      e.target.setSelectionRange(raw.length, raw.length);
+    } catch (_) {}
   }, 0);
 }
 
@@ -1214,7 +1410,7 @@ function onNumericBlur(e) {
 function onFieldChange(e) {
   const id = e.target.getAttribute('data-id');
   const field = e.target.getAttribute('data-field');
-  const h = state.holdings.find(x => x.id === id);
+  const h = state.holdings.find((x) => x.id === id);
   if (!h) return;
   h[field] = e.target.value;
   saveState();
@@ -1227,7 +1423,9 @@ function onFieldChange(e) {
   }
 
   // 숫자 입력(price, priceUSD, quantity, avgPrice, avgPriceUSD)은 input 이벤트마다 부분 갱신만
-  if (['quantity', 'price', 'priceUSD', 'avgPrice', 'avgPriceUSD'].includes(field)) {
+  if (
+    ['quantity', 'price', 'priceUSD', 'avgPrice', 'avgPriceUSD'].includes(field)
+  ) {
     if (e.type === 'change') {
       // blur 시 전체 재렌더 → 콤마 포맷 적용
       render();
@@ -1261,10 +1459,10 @@ function partialUpdate(h) {
       pnlEl.className = 'pnl-cell zero m-keep';
       pnlEl.innerHTML = '—';
     } else {
-      const cls = p.pnl > 0 ? 'pos' : (p.pnl < 0 ? 'neg' : 'zero');
+      const cls = p.pnl > 0 ? 'pos' : p.pnl < 0 ? 'neg' : 'zero';
       const sign = p.pnl > 0 ? '+' : '';
       pnlEl.className = 'pnl-cell ' + cls + ' m-keep';
-      pnlEl.innerHTML = `<div class="amt">${sign}${fmtKRWshort(p.pnl)}</div><div class="pct">${sign}${(p.pct*100).toFixed(2)}%</div>`;
+      pnlEl.innerHTML = `<div class="amt">${sign}${fmtKRWshort(p.pnl)}</div><div class="pct">${sign}${(p.pct * 100).toFixed(2)}%</div>`;
     }
   }
 
@@ -1276,7 +1474,11 @@ function partialUpdate(h) {
     // 카테고리 헤더의 전체대비 % 도 갱신
     const total = grandTotal();
     const pctEl = catSection.querySelector('.cat-header .total-pct');
-    if (pctEl) pctEl.textContent = total > 0 ? '(' + (categoryTotal(h.category) / total * 100).toFixed(1) + '%)' : '';
+    if (pctEl)
+      pctEl.textContent =
+        total > 0
+          ? '(' + ((categoryTotal(h.category) / total) * 100).toFixed(1) + '%)'
+          : '';
   }
 
   // 가벼운 갱신은 즉시
@@ -1289,9 +1491,17 @@ function partialUpdate(h) {
 // HTML 특수문자 이스케이프 — 사용자 입력(종목명/메모 등)을 innerHTML 템플릿에 넣을 때 XSS/마크업 깨짐 방지.
 // null/undefined도 빈 문자열로 안전 처리. renderHoldings·renderHistory의 템플릿 전반에서 사용.
 function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[m]));
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    (m) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[m],
+  );
 }
 
 // 자산타입별 목표 비중 테이블 렌더 — ASSET_TYPES 전체(부동산 포함)를 행으로, 목표는 % 인풋으로 편집.
@@ -1305,17 +1515,20 @@ function renderAssetTypeTargets() {
   tbody.innerHTML = '';
 
   let sumTarget = 0;
-  ASSET_TYPES.forEach(t => {
+  ASSET_TYPES.forEach((t) => {
     const cur = assetTypeTotal(t);
     const curPct = total ? cur / total : 0;
     const tgt = state.assetTypeTargets[t] ?? 0;
     sumTarget += tgt;
     const tgtAmt = total * tgt;
     const diff = tgtAmt - cur;
-    const signal = !total ? { txt: '—', cls: 'dash' }
-      : Math.abs(curPct - tgt) < 0.01 ? { txt: '적정', cls: 'ok' }
-      : curPct < tgt ? { txt: '매수 필요', cls: 'buy' }
-      : { txt: '매도 필요', cls: 'sell' };
+    const signal = !total
+      ? { txt: '—', cls: 'dash' }
+      : Math.abs(curPct - tgt) < 0.01
+        ? { txt: '적정', cls: 'ok' }
+        : curPct < tgt
+          ? { txt: '매수 필요', cls: 'buy' }
+          : { txt: '매도 필요', cls: 'sell' };
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1327,7 +1540,7 @@ function renderAssetTypeTargets() {
                value="${(tgt * 100).toFixed(1)}" data-asset-target="${t}" style="width:70px;display:inline-block;" />%
       </td>
       <td class="right">${fmtKRW(tgtAmt)}</td>
-      <td class="right" style="color:${diff > 0 ? 'var(--success)' : (diff < 0 ? 'var(--danger)' : 'var(--text-muted)')}">${diff !== 0 ? fmtKRW(diff) : '—'}</td>
+      <td class="right" style="color:${diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-muted)'}">${diff !== 0 ? fmtKRW(diff) : '—'}</td>
       <td class="center"><span class="pill ${signal.cls}">${signal.txt}</span></td>
     `;
     tbody.appendChild(tr);
@@ -1348,8 +1561,8 @@ function renderAssetTypeTargets() {
   `;
   tbody.appendChild(sumRow);
 
-  tbody.querySelectorAll('[data-asset-target]').forEach(el => {
-    el.addEventListener('change', e => {
+  tbody.querySelectorAll('[data-asset-target]').forEach((el) => {
+    el.addEventListener('change', (e) => {
       const t = e.target.getAttribute('data-asset-target');
       const v = num(e.target.value) / 100;
       state.assetTypeTargets[t] = v;
@@ -1370,17 +1583,20 @@ function renderExpTargets() {
   tbody.innerHTML = '';
 
   let sumTarget = 0;
-  EXPOSURES.forEach(e => {
+  EXPOSURES.forEach((e) => {
     const cur = exposureTotal(e);
     const curPct = total ? cur / total : 0;
     const tgt = state.expTargets[e] ?? 0;
     sumTarget += tgt;
     const tgtAmt = total * tgt;
     const diff = tgtAmt - cur;
-    const signal = !total ? { txt: '—', cls: 'dash' }
-      : Math.abs(curPct - tgt) < 0.01 ? { txt: '적정', cls: 'ok' }
-      : curPct < tgt ? { txt: '비중 확대', cls: 'buy' }
-      : { txt: '비중 축소', cls: 'sell' };
+    const signal = !total
+      ? { txt: '—', cls: 'dash' }
+      : Math.abs(curPct - tgt) < 0.01
+        ? { txt: '적정', cls: 'ok' }
+        : curPct < tgt
+          ? { txt: '비중 확대', cls: 'buy' }
+          : { txt: '비중 축소', cls: 'sell' };
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1392,7 +1608,7 @@ function renderExpTargets() {
                value="${(tgt * 100).toFixed(1)}" data-exp-target="${e}" style="width:70px;display:inline-block;" />%
       </td>
       <td class="right">${fmtKRW(tgtAmt)}</td>
-      <td class="right" style="color:${diff > 0 ? 'var(--success)' : (diff < 0 ? 'var(--danger)' : 'var(--text-muted)')}">${diff !== 0 ? fmtKRW(diff) : '—'}</td>
+      <td class="right" style="color:${diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-muted)'}">${diff !== 0 ? fmtKRW(diff) : '—'}</td>
       <td class="center"><span class="pill ${signal.cls}">${signal.txt}</span></td>
     `;
     tbody.appendChild(tr);
@@ -1413,8 +1629,8 @@ function renderExpTargets() {
   `;
   tbody.appendChild(sumRow);
 
-  tbody.querySelectorAll('[data-exp-target]').forEach(el => {
-    el.addEventListener('change', ev => {
+  tbody.querySelectorAll('[data-exp-target]').forEach((el) => {
+    el.addEventListener('change', (ev) => {
       const exp = ev.target.getAttribute('data-exp-target');
       const v = num(ev.target.value) / 100;
       state.expTargets[exp] = v;
@@ -1444,7 +1660,7 @@ function renderHistory() {
   if (twrCell) twrCell.style.display = hasFlows ? '' : 'none';
 
   // 벤치마크 컬럼(S&P500·나스닥)은 지수가 기록된 스냅샷이 하나라도 있을 때만 노출한다.
-  const hasBench = (state.history || []).some(x => x.spx || x.ndx);
+  const hasBench = (state.history || []).some((x) => x.spx || x.ndx);
   const spxTh = document.getElementById('thSpx');
   if (spxTh) spxTh.style.display = hasBench ? '' : 'none';
   const ndxTh = document.getElementById('thNdx');
@@ -1461,7 +1677,9 @@ function renderHistory() {
   }
 
   // 1단계 — 날짜순 정렬 후 첫 스냅샷을 기준점(base)으로 고정. 이후 모든 누적 비교의 분모가 된다.
-  const sorted = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...state.history].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
   const first = sorted[0];
   const baseUSD = first.totalUSD || 0;
   const baseCPI = first.cpiIndex || null;
@@ -1472,10 +1690,16 @@ function renderHistory() {
 
   // 지정 일수(targetDays) 전에 가장 가까운 과거 스냅샷 찾기 (±toleranceDays 허용).
   // 30일 변화율(기본)과 YoY(365일±60일) 계산에 재사용된다. 범위 내 스냅샷이 없으면 null.
-  function findClosestSnapshot(currentDate, currentIdx, targetDays = 30, toleranceDays = 10) {
+  function findClosestSnapshot(
+    currentDate,
+    currentIdx,
+    targetDays = 30,
+    toleranceDays = 10,
+  ) {
     const currentDt = new Date(currentDate);
     const targetDate = new Date(currentDt.getTime() - targetDays * 86400000);
-    let best = null, bestDiff = Infinity;
+    let best = null,
+      bestDiff = Infinity;
     for (let j = 0; j < currentIdx; j++) {
       const snapDt = new Date(sorted[j].date);
       const diffFromTarget = Math.abs((snapDt - targetDate) / 86400000);
@@ -1493,19 +1717,24 @@ function renderHistory() {
   function fmtSignedPctSmall(p, label) {
     if (p === null || !isFinite(p)) return '—';
     const sign = p >= 0 ? '+' : '';
-    const color = p > 0.0001 ? 'var(--success)' : (p < -0.0001 ? 'var(--danger)' : 'var(--text-muted)');
-    return `<span style="color:${color}">${sign}${(p*100).toFixed(2)}%</span>${label ? `<span style="color:var(--text-muted)">(${label})</span>` : ''}`;
+    const color =
+      p > 0.0001
+        ? 'var(--success)'
+        : p < -0.0001
+          ? 'var(--danger)'
+          : 'var(--text-muted)';
+    return `<span style="color:${color}">${sign}${(p * 100).toFixed(2)}%</span>${label ? `<span style="color:var(--text-muted)">(${label})</span>` : ''}`;
   }
 
   // 2단계 — 스냅샷별 표 행 생성. 행마다 USD 자산(직전/30일경/누적 변화율),
   // TWR(실투자 수익률) 시계열 — 입출금(state.cashflows)을 제거한 구간별 성과 (calc.js).
   // 날짜로 바로 찾을 수 있게 맵으로 변환해 행 렌더에서 사용한다.
   const twrSeries = computeTWRSeries();
-  const twrByDate = Object.fromEntries(twrSeries.map(t => [t.date, t]));
+  const twrByDate = Object.fromEntries(twrSeries.map((t) => [t.date, t]));
 
   // 벤치마크 누적 % 의 기준점 — 지수가 기록된 첫 스냅샷.
-  const firstSpx = sorted.find(x => x.spx);
-  const firstNdx = sorted.find(x => x.ndx);
+  const firstSpx = sorted.find((x) => x.spx);
+  const firstNdx = sorted.find((x) => x.ndx);
 
   // CPI·M2 기준선 대비 실질 갭, CPI/M2 지수(누적·YoY), 환율 변화를 계산해 채운다.
   sorted.forEach((s, i) => {
@@ -1515,21 +1744,23 @@ function renderHistory() {
 
     // USD 자산 변화량 3종
     const prevUSD = prev?.totalUSD || null;
-    const usdPrevPct = (prevUSD && sUSD) ? (sUSD - prevUSD) / prevUSD : null;
+    const usdPrevPct = prevUSD && sUSD ? (sUSD - prevUSD) / prevUSD : null;
     const prev30USD = close30?.snap?.totalUSD || null;
-    const usd30Pct = (prev30USD && sUSD) ? (sUSD - prev30USD) / prev30USD : null;
-    const usdCumPct = (baseUSD && sUSD) ? (sUSD - baseUSD) / baseUSD : null;
+    const usd30Pct = prev30USD && sUSD ? (sUSD - prev30USD) / prev30USD : null;
+    const usdCumPct = baseUSD && sUSD ? (sUSD - baseUSD) / baseUSD : null;
 
     // 환율 변화량
-    const fxPrevPct = (prev?.fxRate && s.fxRate) ? (s.fxRate - prev.fxRate) / prev.fxRate : null;
-    const fxCumPct = (baseFX && s.fxRate) ? (s.fxRate - baseFX) / baseFX : null;
+    const fxPrevPct =
+      prev?.fxRate && s.fxRate ? (s.fxRate - prev.fxRate) / prev.fxRate : null;
+    const fxCumPct = baseFX && s.fxRate ? (s.fxRate - baseFX) / baseFX : null;
     // CPI 기준선 — 첫 스냅샷 USD 자산이 물가만큼 불었다면 지금 얼마여야 하는가(USD).
     // 지수 데이터가 없으면 연율 가정치를 경과 연수만큼 복리 적용해 근사.
     let cpiBaseline;
     if (baseCPI && s.cpiIndex && baseUSD) {
       cpiBaseline = baseUSD * (s.cpiIndex / baseCPI);
     } else if (baseUSD) {
-      const elapsed = (new Date(s.date) - new Date(first.date)) / (365.25 * 86400000);
+      const elapsed =
+        (new Date(s.date) - new Date(first.date)) / (365.25 * 86400000);
       cpiBaseline = baseUSD * Math.pow(1 + fallbackRate, elapsed);
     } else {
       cpiBaseline = 0;
@@ -1539,41 +1770,58 @@ function renderHistory() {
     if (baseM2Val && s.m2 && baseUSD) {
       m2Baseline = baseUSD * (s.m2 / baseM2Val);
     }
-    const realDiffCPI = cpiBaseline > 0 ? (sUSD - cpiBaseline) / cpiBaseline : 0;
+    const realDiffCPI =
+      cpiBaseline > 0 ? (sUSD - cpiBaseline) / cpiBaseline : 0;
     const realDiffM2 = m2Baseline ? (sUSD - m2Baseline) / m2Baseline : null;
 
     // CPI / M2 누적 변화율 (첫 스냅샷 대비)
-    const cpiCumPct = (baseCPI && s.cpiIndex) ? (s.cpiIndex / baseCPI) - 1 : null;
-    const m2CumPct = (baseM2Val && s.m2) ? (s.m2 / baseM2Val) - 1 : null;
+    const cpiCumPct = baseCPI && s.cpiIndex ? s.cpiIndex / baseCPI - 1 : null;
+    const m2CumPct = baseM2Val && s.m2 ? s.m2 / baseM2Val - 1 : null;
     // 전년 대비 (YoY)
     // 1순위: 스냅샷에 저장된 cpiYoYPct/m2YoYPct (BLS/FRED API에서 직접 가져온 값)
     //        → 사용자 이력 짧아도 정확
     // 2순위: 1년 전 스냅샷과 비교 (±60일 tolerance) → 1년 이상 이력 있을 때 fallback
     const yoy = i > 0 ? findClosestSnapshot(s.date, i, 365, 60) : null;
-    const cpiYoYPct = (s.cpiYoYPct ?? null) !== null ? s.cpiYoYPct
-      : ((yoy && yoy.snap.cpiIndex && s.cpiIndex) ? (s.cpiIndex / yoy.snap.cpiIndex) - 1 : null);
-    const m2YoYPct = (s.m2YoYPct ?? null) !== null ? s.m2YoYPct
-      : ((yoy && yoy.snap.m2 && s.m2) ? (s.m2 / yoy.snap.m2) - 1 : null);
+    const cpiYoYPct =
+      (s.cpiYoYPct ?? null) !== null
+        ? s.cpiYoYPct
+        : yoy && yoy.snap.cpiIndex && s.cpiIndex
+          ? s.cpiIndex / yoy.snap.cpiIndex - 1
+          : null;
+    const m2YoYPct =
+      (s.m2YoYPct ?? null) !== null
+        ? s.m2YoYPct
+        : yoy && yoy.snap.m2 && s.m2
+          ? s.m2 / yoy.snap.m2 - 1
+          : null;
 
     // USD 자산 셀: 절대값 + 직전/30일경/누적
     const usdCellContent = `
       ${fmtUSD(sUSD)}
-      ${i === 0 ? '<div style="font-size:10px;color:var(--text-muted)">기준</div>' : `
+      ${
+        i === 0
+          ? '<div style="font-size:10px;color:var(--text-muted)">기준</div>'
+          : `
         <div style="font-size:10px;line-height:1.4;">
           ${usdPrevPct !== null ? `<div title="직전 스냅샷 대비 USD 자산 변화율">직전 ${fmtSignedPctSmall(usdPrevPct)}</div>` : ''}
-          ${usd30Pct !== null ? `<div title="약 30일 전 스냅샷 대비 USD 자산 변화율 (실제 ${close30.actualDaysAgo}일 전 데이터 사용)">30일경 ${fmtSignedPctSmall(usd30Pct, close30.actualDaysAgo+'일전')}</div>` : `<div style="color:var(--text-muted)" title="±10일 범위에 비교할 스냅샷 없음 (스냅샷이 너무 자주/드물게 찍힘)">30일경 —</div>`}
+          ${usd30Pct !== null ? `<div title="약 30일 전 스냅샷 대비 USD 자산 변화율 (실제 ${close30.actualDaysAgo}일 전 데이터 사용)">30일경 ${fmtSignedPctSmall(usd30Pct, close30.actualDaysAgo + '일전')}</div>` : `<div style="color:var(--text-muted)" title="±10일 범위에 비교할 스냅샷 없음 (스냅샷이 너무 자주/드물게 찍힘)">30일경 —</div>`}
           ${usdCumPct !== null ? `<div title="첫 스냅샷 대비 누적 USD 자산 변화율">누적 ${fmtSignedPctSmall(usdCumPct)}</div>` : ''}
-        </div>`}
+        </div>`
+      }
     `;
 
     // 환율 셀: 절대값 + 직전/누적
     const fxCellContent = `
       ${s.fxRate ? s.fxRate.toFixed(2) : '—'}
-      ${i === 0 ? '<div style="font-size:10px;color:var(--text-muted)">기준</div>' : `
+      ${
+        i === 0
+          ? '<div style="font-size:10px;color:var(--text-muted)">기준</div>'
+          : `
         <div style="font-size:10px;line-height:1.4;">
           ${fxPrevPct !== null ? `<div title="직전 스냅샷 대비 환율 변화율 (양수=원화 약세)">직전 ${fmtSignedPctSmall(fxPrevPct)}</div>` : ''}
           ${fxCumPct !== null ? `<div title="첫 스냅샷 대비 누적 환율 변화율 (양수=원화 약세)">누적 ${fmtSignedPctSmall(fxCumPct)}</div>` : ''}
-        </div>`}
+        </div>`
+      }
     `;
 
     const tr = document.createElement('tr');
@@ -1584,13 +1832,14 @@ function renderHistory() {
     const memoDotHtml = `<button ${memoDotAttr} data-snap-memo="${s.id}" data-snap-date="${s.date}" style="position:relative">${snapMemo ? '📝' : '+'}</button>`;
     // 순입금 셀 — 직전 스냅샷 이후 기록된 입출금 합계와 그 구간의 TWR(입출금 제거 수익률).
     const twr = twrByDate[s.date];
-    const flowCellContent = i === 0
-      ? '<span style="font-size:10px;color:var(--text-muted)">기준</span>'
-      : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
+    const flowCellContent =
+      i === 0
+        ? '<span style="font-size:10px;color:var(--text-muted)">기준</span>'
+        : `${twr && twr.flow ? `<span style="color:${twr.flow >= 0 ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums;">${twr.flow > 0 ? '+' : ''}${fmtKRWshort(twr.flow)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
          ${twr ? `<div style="font-size:10px;color:var(--text-muted)" title="이 구간의 실투자 수익률 (입출금 효과 제거, KRW 기준)">TWR ${fmtSignedPctSmall(twr.r)}</div>` : ''}`;
 
     // 벤치마크 지수 셀 — 절대값 + 첫 기록 대비 누적 % (지수 데이터가 있는 스냅샷부터).
-    const fmtIdxNum = v => v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const fmtIdxNum = (v) => v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const spxCell = s.spx
       ? `${fmtIdxNum(s.spx)}${firstSpx ? `<div style="font-size:10px;color:var(--text-muted);font-weight:500">${s.id === firstSpx.id ? '기준' : fmtSignedPct(s.spx / firstSpx.spx - 1)}</div>` : ''}`
       : '—';
@@ -1602,10 +1851,10 @@ function renderHistory() {
       <td style="white-space:nowrap">${s.date}${memoDotHtml}</td>
       <td class="right">${usdCellContent}</td>
       ${hasFlows ? `<td class="right">${flowCellContent}</td>` : ''}
-      <td class="right" style="color:var(--danger)">${fmtUSD(cpiBaseline)}${cpiBaseline > 0 ? `<div class="${realDiffCPI > 0 ? 'mom-pos' : (realDiffCPI < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 CPI 기준선 대비 차이 — 양수면 인플레이션을 이긴 것">vs ${fmtSignedPct(realDiffCPI)}</div>` : ''}</td>
-      <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}${realDiffM2 !== null ? `<div class="${realDiffM2 > 0 ? 'mom-pos' : (realDiffM2 < 0 ? 'mom-neg' : '')}" style="font-size:10px;font-weight:600" title="내 USD 자산의 M2 기준선 대비 차이 — 양수면 통화확장 속도를 이긴 것">vs ${fmtSignedPct(realDiffM2)}</div>` : ''}</td>
-      <td class="right">${s.cpiIndex ? s.cpiIndex.toFixed(2) : '—'}${cpiCumPct !== null ? `<div style="font-size:10px;color:var(--danger);font-weight:500">${i === 0 ? '기준' : fmtSignedPct(cpiCumPct)}</div>` : (s.cpiLabel ? `<div style="font-size:10px;color:var(--text-muted)">${s.cpiLabel}</div>` : '')}${cpiYoYPct !== null ? `<div style="font-size:10px;color:var(--danger);opacity:0.8" title="전년 대비 (뉴스에서 보는 인플레이션율). ${yoy ? yoy.actualDaysAgo + '일 전 스냅샷 사용' : ''}">YoY ${fmtSignedPct(cpiYoYPct)}</div>` : ''}</td>
-      <td class="right">${s.m2 ? s.m2.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '—'}${m2CumPct !== null ? `<div style="font-size:10px;color:#9333ea;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(m2CumPct)}</div>` : (s.m2Label ? `<div style="font-size:10px;color:var(--text-muted)">${s.m2Label}</div>` : '')}${m2YoYPct !== null ? `<div style="font-size:10px;color:#9333ea;opacity:0.8" title="전년 대비 M2 통화공급 증가율">YoY ${fmtSignedPct(m2YoYPct)}</div>` : ''}</td>
+      <td class="right" style="color:var(--danger)">${fmtUSD(cpiBaseline)}${cpiBaseline > 0 ? `<div class="${realDiffCPI > 0 ? 'mom-pos' : realDiffCPI < 0 ? 'mom-neg' : ''}" style="font-size:10px;font-weight:600" title="내 USD 자산의 CPI 기준선 대비 차이 — 양수면 인플레이션을 이긴 것">vs ${fmtSignedPct(realDiffCPI)}</div>` : ''}</td>
+      <td class="right" style="color:#9333ea">${m2Baseline !== null ? fmtUSD(m2Baseline) : '—'}${realDiffM2 !== null ? `<div class="${realDiffM2 > 0 ? 'mom-pos' : realDiffM2 < 0 ? 'mom-neg' : ''}" style="font-size:10px;font-weight:600" title="내 USD 자산의 M2 기준선 대비 차이 — 양수면 통화확장 속도를 이긴 것">vs ${fmtSignedPct(realDiffM2)}</div>` : ''}</td>
+      <td class="right">${s.cpiIndex ? s.cpiIndex.toFixed(2) : '—'}${cpiCumPct !== null ? `<div style="font-size:10px;color:var(--danger);font-weight:500">${i === 0 ? '기준' : fmtSignedPct(cpiCumPct)}</div>` : s.cpiLabel ? `<div style="font-size:10px;color:var(--text-muted)">${s.cpiLabel}</div>` : ''}${cpiYoYPct !== null ? `<div style="font-size:10px;color:var(--danger);opacity:0.8" title="전년 대비 (뉴스에서 보는 인플레이션율). ${yoy ? yoy.actualDaysAgo + '일 전 스냅샷 사용' : ''}">YoY ${fmtSignedPct(cpiYoYPct)}</div>` : ''}</td>
+      <td class="right">${s.m2 ? s.m2.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '—'}${m2CumPct !== null ? `<div style="font-size:10px;color:#9333ea;font-weight:500">${i === 0 ? '기준' : fmtSignedPct(m2CumPct)}</div>` : s.m2Label ? `<div style="font-size:10px;color:var(--text-muted)">${s.m2Label}</div>` : ''}${m2YoYPct !== null ? `<div style="font-size:10px;color:#9333ea;opacity:0.8" title="전년 대비 M2 통화공급 증가율">YoY ${fmtSignedPct(m2YoYPct)}</div>` : ''}</td>
       <td class="right">${fxCellContent}</td>
       ${hasBench ? `<td class="right">${spxCell}</td><td class="right">${ndxCell}</td>` : ''}
       <td class="center"><button class="icon-btn" data-del-snap="${s.id}" title="삭제">×</button></td>
@@ -1622,38 +1871,58 @@ function renderHistory() {
     const nominalRet = baseUSD > 0 ? (lastUSD - baseUSD) / baseUSD : 0;
     let inflation;
     if (baseCPI && last.cpiIndex) {
-      inflation = (last.cpiIndex / baseCPI) - 1;
+      inflation = last.cpiIndex / baseCPI - 1;
     } else {
-      const elapsed = (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
+      const elapsed =
+        (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
       inflation = Math.pow(1 + fallbackRate, elapsed) - 1;
     }
-    const m2Growth = (baseM2Local && last.m2) ? (last.m2 / baseM2Local) - 1 : null;
+    const m2Growth = baseM2Local && last.m2 ? last.m2 / baseM2Local - 1 : null;
     const realRet = nominalRet - inflation;
     const m2Real = m2Growth !== null ? nominalRet - m2Growth : null;
 
-    document.getElementById('m-nominal-return').textContent = fmtSignedPct(nominalRet);
-    document.getElementById('m-nominal-return').style.color = nominalRet >= 0 ? 'var(--success)' : 'var(--danger)';
-    document.getElementById('m-inflation').textContent = fmtSignedPct(inflation);
+    document.getElementById('m-nominal-return').textContent =
+      fmtSignedPct(nominalRet);
+    document.getElementById('m-nominal-return').style.color =
+      nominalRet >= 0 ? 'var(--success)' : 'var(--danger)';
+    document.getElementById('m-inflation').textContent =
+      fmtSignedPct(inflation);
     document.getElementById('m-inflation').style.color = 'var(--danger)';
-    document.getElementById('m-m2growth').textContent = m2Growth !== null ? fmtSignedPct(m2Growth) : '—';
+    document.getElementById('m-m2growth').textContent =
+      m2Growth !== null ? fmtSignedPct(m2Growth) : '—';
     document.getElementById('m-m2growth').style.color = '#9333ea';
-    document.getElementById('m-real-return').textContent = fmtSignedPct(realRet);
-    document.getElementById('m-real-return').style.color = realRet >= 0 ? 'var(--success)' : 'var(--danger)';
-    document.getElementById('m-m2-real').textContent = m2Real !== null ? fmtSignedPct(m2Real) : '—';
-    document.getElementById('m-m2-real').style.color = m2Real !== null ? (m2Real >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)';
+    document.getElementById('m-real-return').textContent =
+      fmtSignedPct(realRet);
+    document.getElementById('m-real-return').style.color =
+      realRet >= 0 ? 'var(--success)' : 'var(--danger)';
+    document.getElementById('m-m2-real').textContent =
+      m2Real !== null ? fmtSignedPct(m2Real) : '—';
+    document.getElementById('m-m2-real').style.color =
+      m2Real !== null
+        ? m2Real >= 0
+          ? 'var(--success)'
+          : 'var(--danger)'
+        : 'var(--text-muted)';
     // 누적 TWR — 입출금을 제거한 실투자 수익률 (KRW 기준). 스냅샷 2개부터 의미가 있다.
     const twrEl = document.getElementById('m-twr');
     if (twrEl && hasFlows) {
-      const twrLast = twrSeries.length >= 2 ? twrSeries[twrSeries.length - 1].cum : null;
+      const twrLast =
+        twrSeries.length >= 2 ? twrSeries[twrSeries.length - 1].cum : null;
       twrEl.textContent = twrLast !== null ? fmtSignedPct(twrLast) : '—';
-      twrEl.style.color = twrLast !== null ? (twrLast >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)';
+      twrEl.style.color =
+        twrLast !== null
+          ? twrLast >= 0
+            ? 'var(--success)'
+            : 'var(--danger)'
+          : 'var(--text-muted)';
     }
     // MDD·변동성 — 스냅샷 이력만으로 계산되는 참고용 리스크 지표 (calc.js computeRiskStats).
     const risk = computeRiskStats();
     const mddEl = document.getElementById('m-mdd');
     if (mddEl) {
       mddEl.textContent = risk ? '-' + (risk.mdd * 100).toFixed(1) + '%' : '—';
-      mddEl.style.color = risk && risk.mdd > 0 ? 'var(--danger)' : 'var(--text-muted)';
+      mddEl.style.color =
+        risk && risk.mdd > 0 ? 'var(--danger)' : 'var(--text-muted)';
     }
     const volEl = document.getElementById('m-vol');
     if (volEl) {
@@ -1682,15 +1951,15 @@ function renderHistory() {
 
   // 4단계 — 행별 삭제/메모 버튼 바인딩. 삭제는 즉시 state.history에서 제거 후 render().
   // 메모는 state.js의 openMemoModal('snapshot', ...)로 편집 모달을 연다.
-  tbody.querySelectorAll('[data-del-snap]').forEach(btn => {
-    btn.addEventListener('click', e => {
+  tbody.querySelectorAll('[data-del-snap]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
       const id = e.target.getAttribute('data-del-snap');
-      state.history = state.history.filter(h => h.id !== id);
+      state.history = state.history.filter((h) => h.id !== id);
       render();
     });
   });
-  tbody.querySelectorAll('[data-snap-memo]').forEach(btn => {
-    btn.addEventListener('click', e => {
+  tbody.querySelectorAll('[data-snap-memo]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.getAttribute('data-snap-memo');
       const date = btn.getAttribute('data-snap-date');
@@ -1698,4 +1967,3 @@ function renderHistory() {
     });
   });
 }
-

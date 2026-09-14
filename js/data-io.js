@@ -44,7 +44,9 @@ function openHistoricalAddModal() {
         <label style="font-size:12px;">
           <div style="color:var(--text-muted);margin-bottom:4px;">카테고리</div>
           <select id="histAddCategory" class="inp" style="width:100%;border:1px solid var(--border);padding:6px 8px;">
-            ${CATEGORIES.filter(c => !c.isDebt).map(c => `<option value="${c.key}">${c.key}</option>`).join('')}
+            ${CATEGORIES.filter((c) => !c.isDebt)
+              .map((c) => `<option value="${c.key}">${c.key}</option>`)
+              .join('')}
           </select>
         </label>
         <label style="font-size:12px;">
@@ -62,7 +64,7 @@ function openHistoricalAddModal() {
         <label style="font-size:12px;">
           <div style="color:var(--text-muted);margin-bottom:4px;">통화노출</div>
           <select id="histAddExposure" class="inp" style="width:100%;border:1px solid var(--border);padding:6px 8px;">
-            ${EXPOSURES.map(e => `<option value="${e}">${e}</option>`).join('')}
+            ${EXPOSURES.map((e) => `<option value="${e}">${e}</option>`).join('')}
           </select>
         </label>
         <label style="font-size:12px;">
@@ -104,16 +106,20 @@ function openHistoricalAddModal() {
   catEl.addEventListener('change', syncDefaults);
   syncDefaults();
   // 사용자가 가장 많이 빠뜨릴 카테고리부터 기본 선택 (현금)
-  catEl.value = '현금'; syncDefaults();
+  catEl.value = '현금';
+  syncDefaults();
 
   // 금액 입력 시 첫/마지막 스냅샷 기준의 적용 전후 미리보기 갱신.
   const updatePreview = () => {
     const amt = num(amtEl.value);
     if (!amt || amt <= 0) {
-      previewEl.textContent = '금액을 입력하면 적용 결과 미리보기가 표시됩니다.';
+      previewEl.textContent =
+        '금액을 입력하면 적용 결과 미리보기가 표시됩니다.';
       return;
     }
-    const sortedSnaps = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+    const sortedSnaps = [...state.history].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
     const first = sortedSnaps[0];
     const last = sortedSnaps[sortedSnaps.length - 1];
     previewEl.innerHTML = `각 스냅샷에 <b>${fmtKRWshort(amt)}</b>씩 더합니다.<br/>
@@ -134,19 +140,33 @@ function openHistoricalAddModal() {
       exposure: expEl.value,
       liquidity: liqEl.value,
     };
-    if (!data.name) { alert('자산명을 입력하세요.'); nameEl.focus(); return; }
-    if (!data.amount || data.amount <= 0) { alert('금액을 입력하세요.'); amtEl.focus(); return; }
-    const ok = confirm(`적용하시겠습니까?\n\n자산: ${data.name}\n금액: ${fmtKRW(data.amount)}\n대상 스냅샷: ${snapCount}개 (모두 동일 금액 가산)\n\n현재 holdings에도 같은 자산이 추가됩니다.\n적용 후 롤백 불가 — 백업 받아두셨나요?`);
+    if (!data.name) {
+      alert('자산명을 입력하세요.');
+      nameEl.focus();
+      return;
+    }
+    if (!data.amount || data.amount <= 0) {
+      alert('금액을 입력하세요.');
+      amtEl.focus();
+      return;
+    }
+    const ok = confirm(
+      `적용하시겠습니까?\n\n자산: ${data.name}\n금액: ${fmtKRW(data.amount)}\n대상 스냅샷: ${snapCount}개 (모두 동일 금액 가산)\n\n현재 holdings에도 같은 자산이 추가됩니다.\n적용 후 롤백 불가 — 백업 받아두셨나요?`,
+    );
     if (!ok) return;
     applyHistoricalAsset(data);
     close();
-    toast(`📋 ${data.name} 소급 적용 완료 — ${snapCount}개 스냅샷 + 현재 holdings`);
+    toast(
+      `📋 ${data.name} 소급 적용 완료 — ${snapCount}개 스냅샷 + 현재 holdings`,
+    );
   };
 
   document.getElementById('histAddCloseBtn').onclick = close;
   document.getElementById('histAddCancelBtn').onclick = close;
   document.getElementById('histAddApplyBtn').onclick = apply;
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
   setTimeout(() => nameEl.focus(), 30);
 }
 
@@ -179,11 +199,12 @@ function applyHistoricalAsset(data) {
     assetType,
     liquidity: data.liquidity,
     lastFetched: '',
-    source: '', syncedAt: '',  // 수동 입력 행 (증권사 동기화 마커 없음)
+    source: '',
+    syncedAt: '', // 수동 입력 행 (증권사 동기화 마커 없음)
   });
 
   // 2. 모든 스냅샷에 동일 금액 가산
-  state.history.forEach(snap => {
+  state.history.forEach((snap) => {
     const amt = data.amount;
     snap.total = (snap.total || 0) + amt;
     if (snap.fxRate) snap.totalUSD = snap.total / snap.fxRate;
@@ -194,7 +215,8 @@ function applyHistoricalAsset(data) {
       snap.usdTotal = snap.usd;
     }
     if (snap.byCategory) {
-      snap.byCategory[data.category] = (snap.byCategory[data.category] || 0) + amt;
+      snap.byCategory[data.category] =
+        (snap.byCategory[data.category] || 0) + amt;
     }
     if (snap.byAssetType) {
       snap.byAssetType[assetType] = (snap.byAssetType[assetType] || 0) + amt;
@@ -238,7 +260,9 @@ async function exportJSON() {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
-      try { document.body.removeChild(a); } catch (_) {}
+      try {
+        document.body.removeChild(a);
+      } catch (_) {}
       URL.revokeObjectURL(url);
     }, 1000);
 
@@ -247,7 +271,9 @@ async function exportJSON() {
     saveState();
     renderSettings();
 
-    toast(`💾 ${filename} 다운로드 시작${fromServer ? ' (서버 진본)' : ' (서버 응답 없음 — 현재 화면 기준)'}`);
+    toast(
+      `💾 ${filename} 다운로드 시작${fromServer ? ' (서버 진본)' : ' (서버 응답 없음 — 현재 화면 기준)'}`,
+    );
   } catch (err) {
     console.error('[Export] 에러:', err);
     alert('내보내기 실패: ' + err.message);
@@ -285,10 +311,17 @@ function applyImportedJSON(text, fileName) {
   try {
     if (!text) throw new Error('파일이 비어있습니다');
     const data = JSON.parse(text);
-    if (!data.holdings || !Array.isArray(data.holdings)) throw new Error('잘못된 형식: holdings 배열 없음');
+    if (!data.holdings || !Array.isArray(data.holdings))
+      throw new Error('잘못된 형식: holdings 배열 없음');
     // assetTypeTargets 또는 (레거시) catTargets 중 하나는 있어야 함
-    if (!data.assetTypeTargets && !data.catTargets) throw new Error('잘못된 형식: 목표 비중 없음');
-    if (!confirm(`"${fileName}" 백업으로 교체할까요?\n이 화면과 서버 데이터가 모두 이 내용으로 바뀝니다.`)) return;
+    if (!data.assetTypeTargets && !data.catTargets)
+      throw new Error('잘못된 형식: 목표 비중 없음');
+    if (
+      !confirm(
+        `"${fileName}" 백업으로 교체할까요?\n이 화면과 서버 데이터가 모두 이 내용으로 바뀝니다.`,
+      )
+    )
+      return;
     state = migrateState({ ...defaultState(), ...data });
     saveState();
     flushServerSave();
@@ -315,18 +348,24 @@ function openCashflowModal() {
 
   // 목록 HTML 생성 — 최신 날짜가 위로 오게 정렬해 최근 기록부터 보인다.
   const listHtml = () => {
-    const flows = [...(state.cashflows || [])].sort((a, b) => b.date.localeCompare(a.date));
+    const flows = [...(state.cashflows || [])].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     if (flows.length === 0) {
       return '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">아직 기록이 없습니다 — 월급 이체·큰 입출금이 있을 때 적어두면 실투자 수익률(TWR)이 정확해집니다.</div>';
     }
     return `<table style="width:100%;font-size:12px;">
       <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">날짜</th><th class="right" style="padding:4px 8px;">금액</th><th style="text-align:left;padding:4px 8px;">메모</th><th></th></tr></thead>
-      <tbody>${flows.map(f => `<tr>
+      <tbody>${flows
+        .map(
+          (f) => `<tr>
         <td style="padding:3px 8px;white-space:nowrap;">${f.date}</td>
         <td class="right" style="padding:3px 8px;color:${num(f.amount) >= 0 ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums;">${num(f.amount) >= 0 ? '+' : ''}${fmtKRW(num(f.amount))}</td>
         <td style="padding:3px 8px;">${escapeHtml(f.memo || '')}</td>
         <td style="padding:3px 4px;"><button class="icon-btn" data-del-flow="${f.id}" title="삭제">×</button></td>
-      </tr>`).join('')}</tbody>
+      </tr>`,
+        )
+        .join('')}</tbody>
     </table>`;
   };
 
@@ -373,10 +412,10 @@ function openCashflowModal() {
 
   // 삭제 버튼 바인딩 — 목록을 다시 그릴 때마다 재바인딩해야 한다.
   const bindDeletes = () => {
-    backdrop.querySelectorAll('[data-del-flow]').forEach(btn => {
+    backdrop.querySelectorAll('[data-del-flow]').forEach((btn) => {
       btn.onclick = () => {
         const id = btn.getAttribute('data-del-flow');
-        state.cashflows = state.cashflows.filter(f => f.id !== id);
+        state.cashflows = state.cashflows.filter((f) => f.id !== id);
         saveState();
         refreshList();
       };
@@ -392,23 +431,52 @@ function openCashflowModal() {
   const add = () => {
     const date = dateEl.value;
     const amount = num(amtEl.value);
-    if (!date) { alert('날짜를 선택하세요.'); dateEl.focus(); return; }
-    if (!amount) { alert('금액을 입력하세요 (출금은 음수).'); amtEl.focus(); return; }
-    state.cashflows.push({ id: uid(), date, amount, memo: (memoEl.value || '').trim() });
+    if (!date) {
+      alert('날짜를 선택하세요.');
+      dateEl.focus();
+      return;
+    }
+    if (!amount) {
+      alert('금액을 입력하세요 (출금은 음수).');
+      amtEl.focus();
+      return;
+    }
+    state.cashflows.push({
+      id: uid(),
+      date,
+      amount,
+      memo: (memoEl.value || '').trim(),
+    });
     saveState();
-    amtEl.value = ''; memoEl.value = '';
+    amtEl.value = '';
+    memoEl.value = '';
     refreshList();
     amtEl.focus();
   };
   document.getElementById('cfAddBtn').onclick = add;
-  amtEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
-  memoEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  amtEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      add();
+    }
+  });
+  memoEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      add();
+    }
+  });
 
   // 닫기 — 이력 테이블·차트에 TWR 반영을 위해 닫을 때 한 번만 전체 재렌더한다.
-  const close = () => { backdrop.remove(); render(); };
+  const close = () => {
+    backdrop.remove();
+    render();
+  };
   document.getElementById('cfCloseBtn').onclick = close;
   document.getElementById('cfDoneBtn').onclick = close;
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
 }
 
 // 현재 자산 총계를 오늘 날짜의 스냅샷으로 state.history에 저장한다(같은 날짜는 덮어씀).
@@ -429,14 +497,23 @@ async function snapshot(auto = false) {
 
   // 미국 CPI + M2 자동 fetch (실패 시 마지막 캐시값 사용)
   // YoY (전년 동월 대비)도 같은 API 응답에서 함께 추출 → 사용자 이력 짧아도 작동
-  let cpiIndex = null, cpiLabel = null, cpiYoYPct = null;
-  let m2Value = null, m2Label = null, m2YoYPct = null;
+  let cpiIndex = null,
+    cpiLabel = null,
+    cpiYoYPct = null;
+  let m2Value = null,
+    m2Label = null,
+    m2YoYPct = null;
   try {
     const cpi = await fetchUSCPI();
     cpiIndex = cpi.index;
     cpiLabel = cpi.label;
     cpiYoYPct = cpi.yoyPct;
-    state.lastCPI = { index: cpiIndex, label: cpiLabel, yoyPct: cpiYoYPct, fetchedAt: new Date().toISOString() };
+    state.lastCPI = {
+      index: cpiIndex,
+      label: cpiLabel,
+      yoyPct: cpiYoYPct,
+      fetchedAt: new Date().toISOString(),
+    };
   } catch (e) {
     console.warn('CPI fetch 실패, 마지막 캐시 사용:', e.message);
     if (state.lastCPI) {
@@ -450,7 +527,12 @@ async function snapshot(auto = false) {
     m2Value = m2.value;
     m2Label = m2.label;
     m2YoYPct = m2.yoyPct;
-    state.lastM2 = { value: m2Value, label: m2Label, yoyPct: m2YoYPct, fetchedAt: new Date().toISOString() };
+    state.lastM2 = {
+      value: m2Value,
+      label: m2Label,
+      yoyPct: m2YoYPct,
+      fetchedAt: new Date().toISOString(),
+    };
   } catch (e) {
     console.warn('M2 fetch 실패, 마지막 캐시 사용:', e.message);
     if (state.lastM2) {
@@ -461,26 +543,43 @@ async function snapshot(auto = false) {
   }
 
   // 같은 날짜가 있으면 덮어쓰기
-  state.history = state.history.filter(h => h.date !== date);
+  state.history = state.history.filter((h) => h.date !== date);
   const liquidKRW = liquidityTotal('liquid');
   const lockedKRW = liquidityTotal('locked');
   state.history.push({
-    id: uid(), date, total, totalUSD, fxRate,
+    id: uid(),
+    date,
+    total,
+    totalUSD,
+    fxRate,
     debt: debtTotal(), // 부채 총액 — total 은 자산 기준이므로 순자산은 total - debt
-    cpiIndex, cpiLabel, cpiYoYPct,
-    m2: m2Value, m2Label, m2YoYPct,
-    krw, usd, usdTotal: usd,
-    liquid: liquidKRW, locked: lockedKRW,
+    cpiIndex,
+    cpiLabel,
+    cpiYoYPct,
+    m2: m2Value,
+    m2Label,
+    m2YoYPct,
+    krw,
+    usd,
+    usdTotal: usd,
+    liquid: liquidKRW,
+    locked: lockedKRW,
     liquidUSD: fxRate ? liquidKRW / fxRate : null,
     lockedUSD: fxRate ? lockedKRW / fxRate : null,
-    byAssetType: Object.fromEntries(ASSET_TYPES.map(t => [t, assetTypeTotal(t)])),
-    byCategory: Object.fromEntries(CATEGORIES.map(c => [c.key, categoryTotal(c.key)]))
+    byAssetType: Object.fromEntries(
+      ASSET_TYPES.map((t) => [t, assetTypeTotal(t)]),
+    ),
+    byCategory: Object.fromEntries(
+      CATEGORIES.map((c) => [c.key, categoryTotal(c.key)]),
+    ),
   });
   saveState(); // 이력 변경 영속화 — 자동 저장 예약 (기존엔 누락돼 있던 저장 지점)
   render();
   const cpiNote = cpiIndex ? ` · CPI ${cpiIndex.toFixed(2)}` : '';
-  const m2Note = m2Value ? ` · M2 ${(m2Value/1000).toFixed(1)}T` : '';
-  toast(`📸 ${auto ? '오늘 스냅샷 자동 기록 · ' : ''}${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`);
+  const m2Note = m2Value ? ` · M2 ${(m2Value / 1000).toFixed(1)}T` : '';
+  toast(
+    `📸 ${auto ? '오늘 스냅샷 자동 기록 · ' : ''}${date} ${fmtUSD(totalUSD)}${cpiNote}${m2Note}`,
+  );
   // 벤치마크 지수(S&P500/나스닥)를 방금 스냅샷과 과거 누락분에 채워 넣는다 (fetch.js).
   // CPI/M2 처럼 스냅샷에 저장되며, 시세 갱신 없이 수동 스냅샷만 찍어도 여기서 함께 기록된다.
   await applyBenchmarksToHistory();
@@ -491,7 +590,12 @@ async function snapshot(auto = false) {
 // 자동 저장 체제라 초기화도 서버 저장본을 빈 상태로 덮어쓴다 — confirm 문구에 명시.
 // 백업(JSON 파일·서버 날짜별 버전 90일) 없이는 되돌릴 수 없다.
 function resetAll() {
-  if (!confirm('정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라지고, 서버 저장본도 빈 상태로 덮어써집니다.')) return;
+  if (
+    !confirm(
+      '정말 모든 데이터를 초기화하시겠습니까?\n저장된 이력과 입력값이 모두 사라지고, 서버 저장본도 빈 상태로 덮어써집니다.',
+    )
+  )
+    return;
   state = defaultState();
   saveState();
   render();
@@ -506,4 +610,3 @@ function toast(msg) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2200);
 }
-

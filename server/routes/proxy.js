@@ -34,22 +34,40 @@ export default function proxyRoutes() {
     const target = typeof req.query.url === 'string' ? req.query.url : '';
     if (!target) return res.status(400).type('text/plain').send('missing url');
     let t;
-    try { t = new URL(target); } catch { return res.status(400).type('text/plain').send('bad url'); }
-    if (!ALLOW.includes(t.hostname)) return res.status(403).type('text/plain').send('host not allowed');
+    try {
+      t = new URL(target);
+    } catch {
+      return res.status(400).type('text/plain').send('bad url');
+    }
+    if (!ALLOW.includes(t.hostname))
+      return res.status(403).type('text/plain').send('host not allowed');
 
     // FRED 요청에 서버 보관 키 주입 — 요청에 이미 api_key 가 붙어 있으면 존중하고 덮어쓰지 않는다.
-    if (t.hostname === 'api.stlouisfed.org' && process.env.FRED_API_KEY && !t.searchParams.get('api_key')) {
+    if (
+      t.hostname === 'api.stlouisfed.org' &&
+      process.env.FRED_API_KEY &&
+      !t.searchParams.get('api_key')
+    ) {
       t.searchParams.set('api_key', process.env.FRED_API_KEY);
     }
 
-    const init = { method: req.method, headers: { 'User-Agent': 'Mozilla/5.0' } };
+    const init = {
+      method: req.method,
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    };
     if (req.method === 'POST') {
       init.body = typeof req.body === 'string' ? req.body : '';
-      init.headers['Content-Type'] = req.get('Content-Type') || 'application/json';
+      init.headers['Content-Type'] =
+        req.get('Content-Type') || 'application/json';
     }
     const resp = await fetch(t.toString(), init); // 네트워크 실패는 에러 미들웨어(500) — 원본도 500
     // 넘기는 헤더는 Content-Type 하나뿐. undici 가 gzip 을 이미 풀어주므로 Content-Encoding 등을 전달하면 안 된다.
-    res.status(resp.status).set('Content-Type', resp.headers.get('Content-Type') || 'application/json');
+    res
+      .status(resp.status)
+      .set(
+        'Content-Type',
+        resp.headers.get('Content-Type') || 'application/json',
+      );
     if (!resp.body) return res.end();
     // 바이트를 손대지 않고 흘려보낸다 — resp.text() 는 UTF-8 강제 디코드라 EUC-KR 응답(KRX·네이버)을 깨뜨리고,
     // 그러면 js/fetch.js 의 _validateJSON 이 실패해 공개 프록시로 조용히 폴백된다.

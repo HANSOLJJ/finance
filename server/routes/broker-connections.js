@@ -25,7 +25,11 @@ const mask = (v) => {
 
 // 원본 request.json() 과 같은 모양 — 파싱 실패는 null.
 function parseBody(req) {
-  try { return JSON.parse(typeof req.body === 'string' ? req.body : ''); } catch { return null; }
+  try {
+    return JSON.parse(typeof req.body === 'string' ? req.body : '');
+  } catch {
+    return null;
+  }
 }
 
 export default function brokerConnectionsRoutes(db) {
@@ -35,10 +39,14 @@ export default function brokerConnectionsRoutes(db) {
   // GET — 연결 목록(마스킹) + provider 메타. 설정 화면이 이 응답 하나로 렌더된다.
   r.get('/', (req, res) => {
     const list = db.getConnections(req.email);
-    const connections = list.map(c => ({
-      id: c.id, provider: c.provider, label: c.label || '',
+    const connections = list.map((c) => ({
+      id: c.id,
+      provider: c.provider,
+      label: c.label || '',
       accounts: Array.isArray(c.accounts) ? c.accounts : [],
-      credsMasked: Object.fromEntries(Object.entries(c.creds || {}).map(([k, v]) => [k, mask(v)])),
+      credsMasked: Object.fromEntries(
+        Object.entries(c.creds || {}).map(([k, v]) => [k, mask(v)]),
+      ),
       ...(c.credsError ? { credsError: c.credsError } : {}),
     }));
     res.json({ ok: true, connections, providers: providerMeta() });
@@ -49,18 +57,26 @@ export default function brokerConnectionsRoutes(db) {
   r.put('/', (req, res) => {
     const body = parseBody(req);
     if (!body || !Array.isArray(body.connections)) {
-      return res.status(400).type('text/plain').send('invalid body: expected { connections: [] }');
+      return res
+        .status(400)
+        .type('text/plain')
+        .send('invalid body: expected { connections: [] }');
     }
 
     const prev = db.getConnections(req.email);
-    const prevById = Object.fromEntries(prev.map(c => [c.id, c]));
+    const prevById = Object.fromEntries(prev.map((c) => [c.id, c]));
     const invalidated = [];
     const next = [];
 
     for (const c of body.connections) {
       const provider = PROVIDERS[c.provider];
-      if (!provider) return res.status(400).json({ ok: false, error: `알 수 없는 증권사: ${c.provider}` });
-      const id = String(c.id || '').trim() || `c${Date.now().toString(36)}${next.length}`;
+      if (!provider)
+        return res
+          .status(400)
+          .json({ ok: false, error: `알 수 없는 증권사: ${c.provider}` });
+      const id =
+        String(c.id || '').trim() ||
+        `c${Date.now().toString(36)}${next.length}`;
       const old = prevById[id];
       // 자격증명 병합 — 빈 값은 기존 유지. 값이 바뀌면 토큰 캐시를 버려야 한다.
       const creds = {};
@@ -71,25 +87,45 @@ export default function brokerConnectionsRoutes(db) {
         creds[f.key] = incoming || kept;
         if (incoming && incoming !== kept) credsChanged = true;
       }
-      const missing = provider.credFields.filter(f => !creds[f.key]).map(f => f.label);
-      if (missing.length) return res.status(400).json({ ok: false, error: `${provider.label}: ${missing.join(', ')} 입력 필요` });
+      const missing = provider.credFields
+        .filter((f) => !creds[f.key])
+        .map((f) => f.label);
+      if (missing.length)
+        return res.status(400).json({
+          ok: false,
+          error: `${provider.label}: ${missing.join(', ')} 입력 필요`,
+        });
 
       // 계좌 목록 — fixed 모드는 provider 정의를 쓰므로 저장하지 않는다.
-      const accounts = provider.accountMode === 'user'
-        ? (Array.isArray(c.accounts) ? c.accounts : [])
-            .map(a => ({ code: String(a.code || '').trim(), category: String(a.category || '').trim() }))
-            .filter(a => a.code)
-        : [];
+      const accounts =
+        provider.accountMode === 'user'
+          ? (Array.isArray(c.accounts) ? c.accounts : [])
+              .map((a) => ({
+                code: String(a.code || '').trim(),
+                category: String(a.category || '').trim(),
+              }))
+              .filter((a) => a.code)
+          : [];
       if (provider.accountMode === 'user' && !accounts.length) {
-        return res.status(400).json({ ok: false, error: `${provider.label}: 조회할 계좌를 1개 이상 추가하세요` });
+        return res.status(400).json({
+          ok: false,
+          error: `${provider.label}: 조회할 계좌를 1개 이상 추가하세요`,
+        });
       }
 
       if (credsChanged) invalidated.push(id);
-      next.push({ id, provider: c.provider, label: String(c.label || provider.label).trim(), creds, accounts });
+      next.push({
+        id,
+        provider: c.provider,
+        label: String(c.label || provider.label).trim(),
+        creds,
+        accounts,
+      });
     }
 
     // 삭제된 연결의 토큰 캐시도 정리
-    for (const old of prev) if (!next.some(n => n.id === old.id)) invalidated.push(old.id);
+    for (const old of prev)
+      if (!next.some((n) => n.id === old.id)) invalidated.push(old.id);
 
     db.putConnections(req.email, next, invalidated);
     res.json({ ok: true, count: next.length });

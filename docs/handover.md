@@ -14,11 +14,11 @@
 
 최종 목표가 **트레이딩 봇**으로 확정되면서 Cloudflare Workers로는 구조적으로 불가능한 요구가 생겼다.
 
-| 봇이 요구하는 것 | Cloudflare Workers |
-|---|---|
-| 24/7 상시 실행 (조건 감시) | ❌ 요청이 올 때만 실행 |
-| WebSocket 실시간 시세 유지 | ❌ 장시간 연결 불가 |
-| 고정 출발 IP | ❌ 엣지마다 다르고 IPv6 |
+| 봇이 요구하는 것           | Cloudflare Workers      |
+| -------------------------- | ----------------------- |
+| 24/7 상시 실행 (조건 감시) | ❌ 요청이 올 때만 실행  |
+| WebSocket 실시간 시세 유지 | ❌ 장시간 연결 불가     |
+| 고정 출발 IP               | ❌ 엣지마다 다르고 IPv6 |
 
 세 번째는 이미 실장애다 — 키움 `8050 지정단말기 인증에 실패했습니다`, 빗썸 `invalid ip format`. 둘 다 **호출 IP 사전 등록**을 요구하는데 Workers는 등록할 IP가 없다. 브라우저에서 증권사를 직접 호출하는 우회안은 **키움 앱키가 주문 권한을 포함**해 기각(브라우저 노출 = 계좌 탈취 위험).
 
@@ -47,14 +47,14 @@
 
 ## 4. 결정된 것과 이유 (사용자 결정)
 
-| 결정 | 이유 |
-|---|---|
-| **Express 네이티브로 다시 쓴다** (가짜 KV·Request/Response 변환 어댑터 없음) | 사용자 혼자 쓰므로 이사 중 무중단이 요구사항이 아니다. 확보할 건 데이터뿐. 호환 층을 없애 구조를 깨끗하게 |
-| **SQLite (Node 내장 `node:sqlite`)** | 봇 단계의 시세 이력·신호·체결은 행 단위 기간 조회가 필요해 파일로는 감당 불가. 지금 깔면 저장소가 둘로 안 갈라진다. 트랜잭션으로 원자적 쓰기가 공짜. 백업 대상이 파일 1개 |
-| **portfolio JSON은 정규화하지 않는다** | 서버는 이 데이터를 읽지 않고 통과만 시킨다(스키마 보정은 클라이언트 `migrateState()`). 컬럼으로 쪼개면 앱 필드 추가마다 서버 스키마도 고쳐야 한다 |
-| **증권사 자격증명(creds)만 암호화** | 키움 앱키는 주문 권한 포함 — 저장에도 같은 잣대. portfolio는 유출돼도 금전 피해가 없고, 암호화하면 `sqlite3`로 열어보기·백업 골라내기가 막힌다 |
-| **로그인은 Cloudflare Access 그대로** | Tunnel을 지나도 `Cf-Access-Jwt-Assertion` 헤더가 오리진까지 온다. 기존 JWT 검증 코드·`APP_AUD` 상수가 무수정 동작. 로그인 코드를 새로 만들지 않는다 |
-| **`functions/`는 검증 끝난 뒤 마지막 커밋에서 삭제** | 재작성 중 원본 대조용. 안 건드리므로 그동안 Cloudflare 배포도 살아 있다 |
+| 결정                                                                         | 이유                                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Express 네이티브로 다시 쓴다** (가짜 KV·Request/Response 변환 어댑터 없음) | 사용자 혼자 쓰므로 이사 중 무중단이 요구사항이 아니다. 확보할 건 데이터뿐. 호환 층을 없애 구조를 깨끗하게                                                                 |
+| **SQLite (Node 내장 `node:sqlite`)**                                         | 봇 단계의 시세 이력·신호·체결은 행 단위 기간 조회가 필요해 파일로는 감당 불가. 지금 깔면 저장소가 둘로 안 갈라진다. 트랜잭션으로 원자적 쓰기가 공짜. 백업 대상이 파일 1개 |
+| **portfolio JSON은 정규화하지 않는다**                                       | 서버는 이 데이터를 읽지 않고 통과만 시킨다(스키마 보정은 클라이언트 `migrateState()`). 컬럼으로 쪼개면 앱 필드 추가마다 서버 스키마도 고쳐야 한다                         |
+| **증권사 자격증명(creds)만 암호화**                                          | 키움 앱키는 주문 권한 포함 — 저장에도 같은 잣대. portfolio는 유출돼도 금전 피해가 없고, 암호화하면 `sqlite3`로 열어보기·백업 골라내기가 막힌다                            |
+| **로그인은 Cloudflare Access 그대로**                                        | Tunnel을 지나도 `Cf-Access-Jwt-Assertion` 헤더가 오리진까지 온다. 기존 JWT 검증 코드·`APP_AUD` 상수가 무수정 동작. 로그인 코드를 새로 만들지 않는다                       |
+| **`functions/`는 검증 끝난 뒤 마지막 커밋에서 삭제**                         | 재작성 중 원본 대조용. 안 건드리므로 그동안 Cloudflare 배포도 살아 있다                                                                                                   |
 
 ## 5. 구조
 
@@ -79,12 +79,12 @@ data/finance.db             실데이터 — gitignore
 
 `functions/` 9개 파일 839줄 전수 확인 결과.
 
-| 기존 | 처리 | 근거 |
-|---|---|---|
-| `_lib/brokers.js` (91줄) | **그대로 복사** | 네트워크·env 없는 순수 정규화 함수 |
-| `_lib/providers.js` (229줄) | **복사 + 2줄** | `fetch`·`AbortSignal.timeout`·`crypto.subtle`·`randomUUID`·`btoa` 전부 Node 전역. `cachedToken()`의 `ctx.env.KV.get/put` 2곳만 db 함수로 교체 |
-| `_lib/access.js` (86줄) | **복사 + 2줄** | `crypto.subtle`·`atob`·`fetch` Node 전역. `request.headers.get()` → `req.get()`, 맨 앞에 `DEV_EMAIL` 우회 1줄 |
-| `api/*.js` 6개 (433줄) | **재작성** | `Request`/`Response` → Express `req`/`res`. 응답 코드·헤더·에러 분기는 원본과 1:1 |
+| 기존                        | 처리            | 근거                                                                                                                                          |
+| --------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_lib/brokers.js` (91줄)    | **그대로 복사** | 네트워크·env 없는 순수 정규화 함수                                                                                                            |
+| `_lib/providers.js` (229줄) | **복사 + 2줄**  | `fetch`·`AbortSignal.timeout`·`crypto.subtle`·`randomUUID`·`btoa` 전부 Node 전역. `cachedToken()`의 `ctx.env.KV.get/put` 2곳만 db 함수로 교체 |
+| `_lib/access.js` (86줄)     | **복사 + 2줄**  | `crypto.subtle`·`atob`·`fetch` Node 전역. `request.headers.get()` → `req.get()`, 맨 앞에 `DEV_EMAIL` 우회 1줄                                 |
+| `api/*.js` 6개 (433줄)      | **재작성**      | `Request`/`Response` → Express `req`/`res`. 응답 코드·헤더·에러 분기는 원본과 1:1                                                             |
 
 구조 정리 하나 — 지금 `api/broker.js`가 `loadConnections`를 export 하고 `api/broker-discover.js`가 import 한다(라우트끼리 참조). 이 함수는 `lib/db.js`의 질의 함수로 내리고 두 라우트가 각자 db를 쓴다.
 
@@ -114,12 +114,12 @@ data/finance.db             실데이터 — gitignore
 
 현재 KV에 실제로 들어 있는 건 3종류뿐이다.
 
-| KV 키 | 내용 | TTL |
-|---|---|---|
-| `user:<email>:portfolio:latest` | 앱 state 원문 문자열 | 없음 |
-| `user:<email>:portfolio:v:<KST날짜>` | 같은 원문 (롤백용) | 90일 |
-| `user:<email>:broker:connections` | `[{id,provider,label,creds{},accounts[]}]` | 없음 |
-| `user:<email>:broker:token:<connId>` | 토큰 문자열 | 23시간 |
+| KV 키                                | 내용                                       | TTL    |
+| ------------------------------------ | ------------------------------------------ | ------ |
+| `user:<email>:portfolio:latest`      | 앱 state 원문 문자열                       | 없음   |
+| `user:<email>:portfolio:v:<KST날짜>` | 같은 원문 (롤백용)                         | 90일   |
+| `user:<email>:broker:connections`    | `[{id,provider,label,creds{},accounts[]}]` | 없음   |
+| `user:<email>:broker:token:<connId>` | 토큰 문자열                                | 23시간 |
 
 ```sql
 PRAGMA journal_mode = WAL;   -- 봇이 붙어 읽는 동안 쓰기가 막히지 않는다

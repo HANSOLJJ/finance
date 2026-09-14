@@ -102,10 +102,10 @@
 
 **코드와 설정의 연결 고리** — [server/lib/access.js](../server/lib/access.js) 상단 상수 두 개.
 
-| 상수 | 현재 값 | 언제 바꾸나 |
-|---|---|---|
-| `TEAM_DOMAIN` | https://tight-star-46f3.cloudflareaccess.com | 팀 이름을 바꿨을 때 |
-| `APP_AUD` | 9c1dd224…08bfd | Access 앱을 지웠다 다시 만들었을 때 |
+| 상수          | 현재 값                                      | 언제 바꾸나                         |
+| ------------- | -------------------------------------------- | ----------------------------------- |
+| `TEAM_DOMAIN` | https://tight-star-46f3.cloudflareaccess.com | 팀 이름을 바꿨을 때                 |
+| `APP_AUD`     | 9c1dd224…08bfd                               | Access 앱을 지웠다 다시 만들었을 때 |
 
 **진단 도구** — 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` 를 열면 서버가 이 요청을 누구로 인식하는지 보여준다. `verifiedEmail`에 이메일이 나오면 인증 체인(로그인 → JWT → Tunnel → 서버 검증) 전체가 정상이다. 로컬 개발은 `.env`의 `DEV_EMAIL`로 우회한다 — **운영 env에는 절대 넣지 않는다.**
 
@@ -115,11 +115,11 @@
 
 **키 발급처** (각 사이트에서 본인이 직접 발급, 조회 권한만 있으면 된다).
 
-| 증권사 | 발급처 | 입력할 값 |
-|---|---|---|
+| 증권사       | 발급처                                                                            | 입력할 값                           |
+| ------------ | --------------------------------------------------------------------------------- | ----------------------------------- |
 | 한국투자증권 | KIS Developers (apiportal.koreainvestment.com) — 홈페이지 로그인 후 Open API 신청 | 앱키 · 앱시크릿 · 계좌번호 앞 8자리 |
-| 키움증권 | 키움 REST API (openapi.kiwoom.com) | 앱키 · 시크릿키 |
-| 빗썸 | 마이페이지 → API 관리 (API 2.0, 자산조회 권한) | 액세스 키 · 시크릿 키 |
+| 키움증권     | 키움 REST API (openapi.kiwoom.com)                                                | 앱키 · 시크릿키                     |
+| 빗썸         | 마이페이지 → API 관리 (API 2.0, 자산조회 권한)                                    | 액세스 키 · 시크릿 키               |
 
 > **호출 IP 등록** — 키움·빗썸은 API를 호출하는 서버의 공인 IP를 포털에 미리 등록해야 응답을 준다. 서버가 Mac mini(집 고정 공인 IP)라 **집 IP 하나만 등록하면 끝**이고, 이미 등록돼 실동작 확인까지 끝났다. 한국투자증권은 IP 등록을 요구하지 않는다. (Cloudflare Workers 시절에는 출발 IP가 고정되지 않아 이 둘이 구조적으로 막혀 있었다 — Mac mini 이전의 직접적 동기. 6절.)
 
@@ -158,18 +158,18 @@ pm2·cloudflared 모두 **사용자 LaunchAgent** 라 **자동 로그인이 켜�
 
 전부 Mac mini 터미널(또는 SSH) 기준. brew 경로가 PATH에 없으면 앞에 `export PATH=/opt/homebrew/bin:$PATH`.
 
-| 하고 싶은 것 | 명령 |
-|---|---|
-| 서버 상태 | `pm2 status` (online / restarts 횟수) |
-| 서버 **재시작** | `pm2 restart finance` — `~/.finance/env`를 고쳤을 때 반드시 (env 는 기동 시 한 번만 읽는다) |
-| 서버 로그 | `pm2 logs finance --lines 50` (실시간은 `pm2 logs finance`, Ctrl+C 로 나감). 파일은 `~/.pm2/logs/finance-out.log`·`finance-error.log` |
-| **코드 배포** (main 에 push 한 뒤) | `cd ~/projects/finance && git pull && npm ci && pm2 restart finance` — js/css/html 만 바뀌었으면 `git pull` 만으로 반영되지만(디스크에서 그대로 서빙) 재시작해도 손해 없다 |
-| 환경변수 편집 | `nano ~/.finance/env` → 저장 → `pm2 restart finance`. `DEV_EMAIL` 은 절대 넣지 않는다 |
-| 터널 상태 | `cloudflared tunnel info finance` (CONNECTOR 행이 있으면 연결됨) · `launchctl list \| grep cloudflare` (PID 와 종료코드 0) |
-| 터널 로그 | `tail -50 ~/Library/Logs/com.cloudflare.cloudflared.err.log` |
-| 터널 재시작 | `launchctl unload ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist && launchctl load ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist` |
-| 재부팅 후 점검 | `pm2 status` 에 finance online · `cloudflared tunnel info finance` 에 커넥터 · 브라우저에서 fin.hansoljj.com. 둘 다 사용자 LaunchAgent 라 자동 로그인이 꺼져 있으면 안 올라온다 |
-| 인증 진단 | 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` → `verifiedEmail` 에 이메일이 나와야 정상 |
+| 하고 싶은 것                       | 명령                                                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 서버 상태                          | `pm2 status` (online / restarts 횟수)                                                                                                                                           |
+| 서버 **재시작**                    | `pm2 restart finance` — `~/.finance/env`를 고쳤을 때 반드시 (env 는 기동 시 한 번만 읽는다)                                                                                     |
+| 서버 로그                          | `pm2 logs finance --lines 50` (실시간은 `pm2 logs finance`, Ctrl+C 로 나감). 파일은 `~/.pm2/logs/finance-out.log`·`finance-error.log`                                           |
+| **코드 배포** (main 에 push 한 뒤) | `cd ~/projects/finance && git pull && npm ci && pm2 restart finance` — js/css/html 만 바뀌었으면 `git pull` 만으로 반영되지만(디스크에서 그대로 서빙) 재시작해도 손해 없다      |
+| 환경변수 편집                      | `nano ~/.finance/env` → 저장 → `pm2 restart finance`. `DEV_EMAIL` 은 절대 넣지 않는다                                                                                           |
+| 터널 상태                          | `cloudflared tunnel info finance` (CONNECTOR 행이 있으면 연결됨) · `launchctl list \| grep cloudflare` (PID 와 종료코드 0)                                                      |
+| 터널 로그                          | `tail -50 ~/Library/Logs/com.cloudflare.cloudflared.err.log`                                                                                                                    |
+| 터널 재시작                        | `launchctl unload ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist && launchctl load ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist`                            |
+| 재부팅 후 점검                     | `pm2 status` 에 finance online · `cloudflared tunnel info finance` 에 커넥터 · 브라우저에서 fin.hansoljj.com. 둘 다 사용자 LaunchAgent 라 자동 로그인이 꺼져 있으면 안 올라온다 |
+| 인증 진단                          | 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` → `verifiedEmail` 에 이메일이 나와야 정상                                                                                   |
 
 **DB 보기** — `sqlite3 ~/projects/finance/data/finance.db` 로 들어가면 프롬프트가 뜬다(`.quit` 로 나감). 자주 쓰는 질의는 아래. 실행 중인 서버와 동시에 읽어도 안전하다(WAL).
 
@@ -189,12 +189,12 @@ select json from portfolio where version='latest' and email='<이메일>';  -- s
 
 ## 8. 자주 하는 작업 모음
 
-| 하고 싶은 것 | 방법 |
-|---|---|
-| 사용자 추가 | ① 구글 콘솔 → Google 인증 플랫폼 → 대상 → 테스트 사용자 **Add users** 에 상대 지메일 추가(3절) ② 주소 공유 (fin.hansoljj.com). 계정별 데이터 분리라 서로 안 보임. "운영자는 열람 가능" 고지 권장 |
-| 특정인 차단 | Access controls → Policies → everyone → Configure → Exclude에 Emails 추가 |
-| 자리 수동 회수 | Team & Resources → Users → 체크 → Action → Remove users |
-| 데이터 롤백 | `/api/portfolio?version=YYYY-MM-DD` 로 과거 버전 확인 → 설정 탭 "JSON에서 복원". DB 직접 조회는 7절 |
-| 저장이 401일 때 | ① `/api/whoami`의 verifiedEmail 확인 → null이면 ② 정책이 Allow인지(Bypass 아님), ③ 앱 AUD와 코드 `APP_AUD` 일치 여부, ④ 터널·서버 상태(7절) 순서로 점검 |
-| 구글 로그인 장애 시 | Applications → finance → Login methods에서 One-time PIN 임시로 다시 켜기 |
-| 서버 재시작·로그·배포·DB | 7절 운영 치트시트 |
+| 하고 싶은 것             | 방법                                                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 사용자 추가              | ① 구글 콘솔 → Google 인증 플랫폼 → 대상 → 테스트 사용자 **Add users** 에 상대 지메일 추가(3절) ② 주소 공유 (fin.hansoljj.com). 계정별 데이터 분리라 서로 안 보임. "운영자는 열람 가능" 고지 권장 |
+| 특정인 차단              | Access controls → Policies → everyone → Configure → Exclude에 Emails 추가                                                                                                                        |
+| 자리 수동 회수           | Team & Resources → Users → 체크 → Action → Remove users                                                                                                                                          |
+| 데이터 롤백              | `/api/portfolio?version=YYYY-MM-DD` 로 과거 버전 확인 → 설정 탭 "JSON에서 복원". DB 직접 조회는 7절                                                                                              |
+| 저장이 401일 때          | ① `/api/whoami`의 verifiedEmail 확인 → null이면 ② 정책이 Allow인지(Bypass 아님), ③ 앱 AUD와 코드 `APP_AUD` 일치 여부, ④ 터널·서버 상태(7절) 순서로 점검                                          |
+| 구글 로그인 장애 시      | Applications → finance → Login methods에서 One-time PIN 임시로 다시 켜기                                                                                                                         |
+| 서버 재시작·로그·배포·DB | 7절 운영 치트시트                                                                                                                                                                                |

@@ -8,1382 +8,2172 @@
 /* 카드 구분은 경계선과 배경 명도 차이(--bg < --surface < --card)로 한다. */
 /* 숫자 셀은 font-variant-numeric: tabular-nums 로 자릿수를 맞추고, 호버 등 전환 효과는 transition 0.15s 가 기본이다. */
 /* 반응형 분기는 max-width 1200px(KPI 그리드 축소)·1024px(태블릿 축소)·768px(모바일 — 파일 끝 블록) 세 지점이다. */
-  /* 전역 CSS 변수 — 팔레트·타입 스케일·그림자·카테고리/통화 색상 */
-  /* 팔레트 — 따뜻한 중립 회색(종이·먹) + 단일 강조색(짙은 청록). 프레임워크 기본값(Tailwind slate/blue)을 쓰지 않는다. */
-  /* 대비(WCAG AA, 흰 카드 기준) — text 17.2 · text-muted 5.9(bg 위 5.0, surface 위 5.4) · accent 6.7(accent-soft 위 5.7) · success 4.9 · danger 4.8. */
-  /* --success·--danger·--warning 은 손익·신호 관례색 — 방향(초록=이익/매수, 빨강=손실/매도)을 바꾸지 않는다. */
-  /* -soft/-line 은 그 옅은 배경·경계선 파생색 — css 안팎(js 인라인 style 포함)의 초록/빨강 틴트는 전부 이 4개를 쓴다. */
-  /* --c-* 는 자산 카테고리별 대표색으로 아래 .badge 배경과 차트 계열색에서 재사용된다. */
-  /* --c-krw·--c-usd·--c-commodity 는 통화노출(원화/달러/원자재) 구분색이다. */
-  :root {
-    --bg: #eeece6;            /* 페이지 바닥 */
-    --card: #ffffff;          /* 카드·입력 포커스·드롭다운 */
-    --surface: #f5f4f0;       /* 카드 안 음영면 — 표 머리글·호버·지표 박스 */
-    --text: #1c1b18;          /* 본문(먹) */
-    --text-muted: #67645c;    /* 보조 텍스트·라벨 */
-    --border: #e3e0d9;        /* 경계선 · 호버 배경 2단계 */
-    --border-strong: #cdc9c0; /* 강조 경계선 */
-    --primary: var(--text);   /* 진한 버튼·활성 탭·툴팁 배경 */
-    --primary-hover: #37352f;
-    --accent: #1b6383;        /* 단일 강조색 — 포커스·링크성 텍스트·ok 신호 */
-    --accent-soft: #e6eef2;   /* 강조색 옅은 배경 */
-    --accent-line: #c5d8e1;   /* 강조색 경계선 · 옅은 배경의 호버 */
-    --success: #158240;
-    --danger: #dc2626;
-    --success-soft: #f0fdf4;  /* 이익·매수 신호의 옅은 배경 (리밸런싱 카드·손익 카드·동기화 ok) */
-    --success-line: #86efac;  /* 그 경계선 */
-    --danger-soft: #fef2f2;   /* 손실·매도·오류의 옅은 배경 */
-    --danger-line: #fca5a5;
-    --warning: #ea580c;
-    --shadow: 0 1px 2px rgba(28, 27, 24, 0.04), 0 4px 12px rgba(28, 27, 24, 0.04);
-    --shadow-lg: 0 4px 20px rgba(28, 27, 24, 0.08);
+/* 전역 CSS 변수 — 팔레트·타입 스케일·그림자·카테고리/통화 색상 */
+/* 팔레트 — 따뜻한 중립 회색(종이·먹) + 단일 강조색(짙은 청록). 프레임워크 기본값(Tailwind slate/blue)을 쓰지 않는다. */
+/* 대비(WCAG AA, 흰 카드 기준) — text 17.2 · text-muted 5.9(bg 위 5.0, surface 위 5.4) · accent 6.7(accent-soft 위 5.7) · success 4.9 · danger 4.8. */
+/* --success·--danger·--warning 은 손익·신호 관례색 — 방향(초록=이익/매수, 빨강=손실/매도)을 바꾸지 않는다. */
+/* -soft/-line 은 그 옅은 배경·경계선 파생색 — css 안팎(js 인라인 style 포함)의 초록/빨강 틴트는 전부 이 4개를 쓴다. */
+/* --c-* 는 자산 카테고리별 대표색으로 아래 .badge 배경과 차트 계열색에서 재사용된다. */
+/* --c-krw·--c-usd·--c-commodity 는 통화노출(원화/달러/원자재) 구분색이다. */
+:root {
+  --bg: #eeece6; /* 페이지 바닥 */
+  --card: #ffffff; /* 카드·입력 포커스·드롭다운 */
+  --surface: #f5f4f0; /* 카드 안 음영면 — 표 머리글·호버·지표 박스 */
+  --text: #1c1b18; /* 본문(먹) */
+  --text-muted: #67645c; /* 보조 텍스트·라벨 */
+  --border: #e3e0d9; /* 경계선 · 호버 배경 2단계 */
+  --border-strong: #cdc9c0; /* 강조 경계선 */
+  --primary: var(--text); /* 진한 버튼·활성 탭·툴팁 배경 */
+  --primary-hover: #37352f;
+  --accent: #1b6383; /* 단일 강조색 — 포커스·링크성 텍스트·ok 신호 */
+  --accent-soft: #e6eef2; /* 강조색 옅은 배경 */
+  --accent-line: #c5d8e1; /* 강조색 경계선 · 옅은 배경의 호버 */
+  --success: #158240;
+  --danger: #dc2626;
+  --success-soft: #f0fdf4; /* 이익·매수 신호의 옅은 배경 (리밸런싱 카드·손익 카드·동기화 ok) */
+  --success-line: #86efac; /* 그 경계선 */
+  --danger-soft: #fef2f2; /* 손실·매도·오류의 옅은 배경 */
+  --danger-line: #fca5a5;
+  --warning: #ea580c;
+  --shadow: 0 1px 2px rgba(28, 27, 24, 0.04), 0 4px 12px rgba(28, 27, 24, 0.04);
+  --shadow-lg: 0 4px 20px rgba(28, 27, 24, 0.08);
 
-    /* 타입 스케일 6단 — 밀집 표 하한 11px, 본문·표·입력 13px. 모바일 입력 16px 은 768px 블록의 리터럴(iOS 플랫폼 상수, 스케일과 무관). */
-    /* 예외: 컴팩트 행의 표시 전용 입력(이름·평가금액)과 종목 검색 칸은 13px — 768px 블록 참조. */
-    --fs-xs: 11px;   /* 입력 행 머리글·메타·힌트·수익률 보조 */
-    --fs-sm: 12px;   /* 라벨·배지·pill·표 머리글·설명 */
-    --fs-md: 13px;   /* 본문·표·입력·버튼 (html 기준 크기) */
-    --fs-lg: 16px;   /* 섹션 제목·모달 제목·강조 숫자 */
-    --fs-xl: 20px;   /* 지표 박스 값·모바일 h1 */
-    --fs-2xl: 24px;  /* h1·KPI 값·세후 카드 값 */
+  /* 타입 스케일 6단 — 밀집 표 하한 11px, 본문·표·입력 13px. 모바일 입력 16px 은 768px 블록의 리터럴(iOS 플랫폼 상수, 스케일과 무관). */
+  /* 예외: 컴팩트 행의 표시 전용 입력(이름·평가금액)과 종목 검색 칸은 13px — 768px 블록 참조. */
+  --fs-xs: 11px; /* 입력 행 머리글·메타·힌트·수익률 보조 */
+  --fs-sm: 12px; /* 라벨·배지·pill·표 머리글·설명 */
+  --fs-md: 13px; /* 본문·표·입력·버튼 (html 기준 크기) */
+  --fs-lg: 16px; /* 섹션 제목·모달 제목·강조 숫자 */
+  --fs-xl: 20px; /* 지표 박스 값·모바일 h1 */
+  --fs-2xl: 24px; /* h1·KPI 값·세후 카드 값 */
 
-    --c-cash: #16a34a;
-    --c-kstock: #2563eb;
-    --c-fstock: #0ea5e9;
-    --c-crypto: #ec4899;
-    --c-pension-fund: #94a3b8;
-    --c-retirement: #6366f1;
-    --c-isa: #f97316;
-    --c-gold: #eab308;
+  --c-cash: #16a34a;
+  --c-kstock: #2563eb;
+  --c-fstock: #0ea5e9;
+  --c-crypto: #ec4899;
+  --c-pension-fund: #94a3b8;
+  --c-retirement: #6366f1;
+  --c-isa: #f97316;
+  --c-gold: #eab308;
 
-    --c-krw: #16a34a;
-    --c-usd: #2563eb;
-    --c-commodity: #d97706;
-  }
+  --c-krw: #16a34a;
+  --c-usd: #2563eb;
+  --c-commodity: #d97706;
+}
 
-  /* 기본 리셋 · 전역 폰트 */
-  /* Pretendard 우선의 폰트 스택, 기준 글자 크기 13px(--fs-md). 버튼·입력 요소는 본문 폰트를 상속받는다. */
-  /* Pretendard 는 index.html 의 jsDelivr 동적 서브셋 <link> 가 로드한다 — 링크가 없으면 이 선언은 어느 기기에서도 폴백만 쓰인다(2026-09-07 까지 실제 그 상태였음). */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, '맑은 고딕', 'Malgun Gothic', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-size: var(--fs-md);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-  button { font-family: inherit; cursor: pointer; border: none; background: none; }
-  input, select { font-family: inherit; }
+/* 기본 리셋 · 전역 폰트 */
+/* Pretendard 우선의 폰트 스택, 기준 글자 크기 13px(--fs-md). 버튼·입력 요소는 본문 폰트를 상속받는다. */
+/* Pretendard 는 index.html 의 jsDelivr 동적 서브셋 <link> 가 로드한다 — 링크가 없으면 이 선언은 어느 기기에서도 폴백만 쓰인다(2026-09-07 까지 실제 그 상태였음). */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  font-family:
+    'Pretendard',
+    -apple-system,
+    BlinkMacSystemFont,
+    '맑은 고딕',
+    'Malgun Gothic',
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+input,
+select {
+  font-family: inherit;
+}
 
-  /* Layout */
-  /* .app 은 전체 래퍼로 최대 1400px 중앙 정렬. header.top 은 상단 헤더(타이틀 + 우측 액션 버튼 묶음)다. */
-  /* .btn 은 앱 공용 버튼 — .primary(진한 배경)·.danger(호버 시 붉은 강조) 변형을 가진다. */
-  .app { max-width: 1400px; margin: 0 auto; padding: 24px; }
-  header.top {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 24px;
-  }
-  header.top h1 {
-    font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.5px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  header.top h1 .dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--accent);
-  }
-  .actions { display: flex; gap: 8px; }
-  .btn {
-    padding: 8px 14px; border-radius: 8px;
-    font-size: var(--fs-md); font-weight: 500;
-    background: var(--card); color: var(--text);
-    border: 1px solid var(--border);
-    transition: all 0.15s ease;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .btn:hover { background: var(--bg); border-color: var(--border-strong); }
-  .btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
-  .btn.primary:hover { background: var(--primary-hover); }
-  .btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+/* Layout */
+/* .app 은 전체 래퍼로 최대 1400px 중앙 정렬. header.top 은 상단 헤더(타이틀 + 우측 액션 버튼 묶음)다. */
+/* .btn 은 앱 공용 버튼 — .primary(진한 배경)·.danger(호버 시 붉은 강조) 변형을 가진다. */
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+header.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+header.top h1 {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+header.top h1 .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover {
+  background: var(--bg);
+  border-color: var(--border-strong);
+}
+.btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+.btn.primary:hover {
+  background: var(--primary-hover);
+}
+.btn.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
 
-  /* KPI cards */
-  /* 대시보드 상단 지표 카드 6장을 담는 그리드. 카드 내용은 render.js 의 renderKPIs 가 채운다. */
+/* KPI cards */
+/* 대시보드 상단 지표 카드 6장을 담는 그리드. 카드 내용은 render.js 의 renderKPIs 가 채운다. */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+/* 화면 폭 1200px 이하에서는 KPI 카드를 6열에서 3열로 줄여 두 줄로 배치한다. */
+@media (max-width: 1200px) {
   .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(3, 1fr);
   }
-  /* 화면 폭 1200px 이하에서는 KPI 카드를 6열에서 3열로 줄여 두 줄로 배치한다. */
-  @media (max-width: 1200px) {
-    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-  }
+}
 
-  /* ==================== View Scope 토글 ==================== */
-  /* 대시보드·분석 탭 상단의 "전체 자산 ↔ 💧 유동만" 분석 기준 전환 UI (calc.js setViewScope 연동). */
-  /* .scope-btn.primary 가 현재 선택된 기준을 나타내는 상태 클래스다. */
-  .scope-toggle-row {
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 16px;
-    padding: 10px 14px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    flex-wrap: wrap;
-  }
-  .scope-label {
-    font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted);
-  }
-  .scope-toggle {
-    display: inline-flex; gap: 0;
-    background: var(--bg);
-    border-radius: 8px;
-    padding: 3px;
-  }
-  .scope-btn {
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-size: var(--fs-sm); font-weight: 500;
-    background: transparent; color: var(--text-muted);
-    border: none; cursor: pointer;
-    transition: all 0.15s;
-  }
-  .scope-btn:hover:not(.primary) { color: var(--text); background: var(--border); }
-  .scope-btn.primary {
-    background: var(--card);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(28,27,24,0.08);
-    font-weight: 600;
-  }
-  .scope-hint {
-    font-size: var(--fs-xs); color: var(--text-muted);
-    flex: 1; min-width: 200px;
-  }
-  /* KPI 카드 (대시보드 상단 지표) — 총자산·유동자산·통화 비중 등 지표 1장 단위의 카드. */
-  /* .accent/.success/.warning 상태 클래스는 .value 숫자 색만 바꾼다. */
-  .kpi-card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 18px 20px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-  }
-  .kpi-card .label {
-    font-size: var(--fs-sm); color: var(--text-muted);
-    font-weight: 500; margin-bottom: 8px;
-    letter-spacing: 0.2px;
-  }
-  .kpi-card .value {
-    font-size: var(--fs-2xl); font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-  .kpi-card .sub {
-    font-size: var(--fs-sm); color: var(--text-muted);
-    margin-top: 4px;
-  }
-  .kpi-card.accent .value { color: var(--accent); }
-  .kpi-card.success .value { color: var(--success); }
-  .kpi-card.warning .value { color: var(--warning); }
+/* ==================== View Scope 토글 ==================== */
+/* 대시보드·분석 탭 상단의 "전체 자산 ↔ 💧 유동만" 분석 기준 전환 UI (calc.js setViewScope 연동). */
+/* .scope-btn.primary 가 현재 선택된 기준을 나타내는 상태 클래스다. */
+.scope-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+}
+.scope-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.scope-toggle {
+  display: inline-flex;
+  gap: 0;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 3px;
+}
+.scope-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.scope-btn:hover:not(.primary) {
+  color: var(--text);
+  background: var(--border);
+}
+.scope-btn.primary {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(28, 27, 24, 0.08);
+  font-weight: 600;
+}
+.scope-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 200px;
+}
+/* KPI 카드 (대시보드 상단 지표) — 총자산·유동자산·통화 비중 등 지표 1장 단위의 카드. */
+/* .accent/.success/.warning 상태 클래스는 .value 숫자 색만 바꾼다. */
+.kpi-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.kpi-card .label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+}
+.kpi-card .value {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.kpi-card .sub {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.kpi-card.accent .value {
+  color: var(--accent);
+}
+.kpi-card.success .value {
+  color: var(--success);
+}
+.kpi-card.warning .value {
+  color: var(--warning);
+}
 
-  /* Section card */
-  /* 모든 탭에서 공용으로 쓰는 흰색 카드 컨테이너(제목 헤더 + 본문). */
-  /* overflow:hidden 이라 내부 툴팁이 잘릴 수 있어 아래 .section:has(.help:hover) 규칙으로 보완한다. */
-  .section {
-    background: var(--card);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-    margin-bottom: 16px;
-    overflow: hidden;
-  }
-  .section-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-  .section-header h2 {
-    font-size: var(--fs-lg); font-weight: 600;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .section-header .desc {
-    font-size: var(--fs-sm); color: var(--text-muted);
-  }
-  .section-body { padding: 0; }
+/* Section card */
+/* 모든 탭에서 공용으로 쓰는 흰색 카드 컨테이너(제목 헤더 + 본문). */
+/* overflow:hidden 이라 내부 툴팁이 잘릴 수 있어 아래 .section:has(.help:hover) 규칙으로 보완한다. */
+.section {
+  background: var(--card);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.section-header h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-header .desc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.section-body {
+  padding: 0;
+}
 
-  /* Two-column layout */
-  /* 섹션·차트를 2열(.grid-2)/3열(.grid-3)로 나란히 배치하는 그리드. 1024px 이하에서 1열로 접힌다. */
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-  .grid-3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
+/* Two-column layout */
+/* 섹션·차트를 2열(.grid-2)/3열(.grid-3)로 나란히 배치하는 그리드. 1024px 이하에서 1열로 접힌다. */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
 
-  /* Chart container */
-  /* Chart.js 캔버스를 감싸는 고정 높이 래퍼. 기본 320px, .tall 변형은 400px. */
-  .chart-wrap {
-    padding: 20px;
-    height: 320px;
-    position: relative;
-  }
-  .chart-wrap.tall { height: 400px; }
+/* Chart container */
+/* Chart.js 캔버스를 감싸는 고정 높이 래퍼. 기본 320px, .tall 변형은 400px. */
+.chart-wrap {
+  padding: 20px;
+  height: 320px;
+  position: relative;
+}
+.chart-wrap.tall {
+  height: 400px;
+}
 
-  /* Tables */
-  /* 목표 비중·이력·세후 수익 등 앱 공용 테이블 스타일. th/td 의 .right/.center 클래스로 정렬을 지정한다. */
-  /* .table-scroll — 넓은 테이블(이력 최대 11열 등)의 가로 스크롤 래퍼. .section 의 overflow:hidden 은 */
-  /* 카드 radius 용으로 유지하고, 좁은 화면에서 잘리는 대신 이 래퍼 안에서 좌우 스와이프로 전 컬럼 접근. */
-  /* 테이블은 min-content 아래로 줄어들지 않으므로 별도 min-width 없이 자연 오버플로 → 래퍼가 스크롤을 받는다. */
-  /* (min-width:max-content 를 주면 기준일 컬럼의 width:1% 트릭과 상호작용해 테이블이 수천 px로 부풀어오른다.) */
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--fs-md);
-  }
-  thead th {
-    text-align: left;
-    padding: 10px 14px;
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--text-muted);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  thead th.right { text-align: right; }
-  thead th.center { text-align: center; }
-  tbody td {
-    padding: 8px 14px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
-  tbody td.center { text-align: center; }
-  tbody tr:last-child td { border-bottom: none; }
+/* Tables */
+/* 목표 비중·이력·세후 수익 등 앱 공용 테이블 스타일. th/td 의 .right/.center 클래스로 정렬을 지정한다. */
+/* .table-scroll — 넓은 테이블(이력 최대 11열 등)의 가로 스크롤 래퍼. .section 의 overflow:hidden 은 */
+/* 카드 radius 용으로 유지하고, 좁은 화면에서 잘리는 대신 이 래퍼 안에서 좌우 스와이프로 전 컬럼 접근. */
+/* 테이블은 min-content 아래로 줄어들지 않으므로 별도 min-width 없이 자연 오버플로 → 래퍼가 스크롤을 받는다. */
+/* (min-width:max-content 를 주면 기준일 컬럼의 width:1% 트릭과 상호작용해 테이블이 수천 px로 부풀어오른다.) */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+thead th.right {
+  text-align: right;
+}
+thead th.center {
+  text-align: center;
+}
+tbody td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tbody td.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+tbody td.center {
+  text-align: center;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
 
-  /* Inline inputs */
-  /* 표 안에 심는 인라인 입력 칸 — 평소엔 투명하고 호버·포커스 시에만 배경·테두리가 드러난다. */
-  /* .target(노란 배경)은 사용자가 직접 입력해야 하는 셀임을 표시하는 상태 클래스다. */
-  .inp {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: var(--fs-md);
-    width: 100%;
-    transition: all 0.15s;
-    font-variant-numeric: tabular-nums;
-  }
-  .inp:hover { background: var(--surface); border-color: var(--border); }
-  .inp:focus { background: white; border-color: var(--accent); outline: none; }
-  .inp.right { text-align: right; }
-  .inp.center { text-align: center; }
-  .inp.target { background: #fef9c3; }
-  .inp.target:hover { background: #fef08a; }
+/* Inline inputs */
+/* 표 안에 심는 인라인 입력 칸 — 평소엔 투명하고 호버·포커스 시에만 배경·테두리가 드러난다. */
+/* .target(노란 배경)은 사용자가 직접 입력해야 하는 셀임을 표시하는 상태 클래스다. */
+.inp {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: var(--fs-md);
+  width: 100%;
+  transition: all 0.15s;
+  font-variant-numeric: tabular-nums;
+}
+.inp:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.inp:focus {
+  background: white;
+  border-color: var(--accent);
+  outline: none;
+}
+.inp.right {
+  text-align: right;
+}
+.inp.center {
+  text-align: center;
+}
+.inp.target {
+  background: #fef9c3;
+}
+.inp.target:hover {
+  background: #fef08a;
+}
 
-  /* Category badge */
-  /* 카테고리(현금·국내주식 등)와 통화노출(krw·usd·hedge·commodity) 라벨용 알약 배지. 배경색은 :root 의 --c-* 변수와 매칭된다. */
-  .badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 10px; border-radius: 999px;
-    font-size: var(--fs-sm); font-weight: 500;
-    color: white;
-    white-space: nowrap;
-  }
-  .badge.cash { background: var(--c-cash); }
-  .badge.kstock { background: var(--c-kstock); }
-  .badge.fstock { background: var(--c-fstock); }
-  .badge.crypto { background: var(--c-crypto); }
-  .badge.realestate { background: #7c3aed; }
-  .badge.pension-fund { background: var(--c-pension-fund); }
-  .badge.retirement { background: var(--c-retirement); }
-  .badge.isa { background: var(--c-isa); }
-  .badge.gold { background: var(--c-gold); }
-  .badge.debt { background: var(--danger); }
+/* Category badge */
+/* 카테고리(현금·국내주식 등)와 통화노출(krw·usd·hedge·commodity) 라벨용 알약 배지. 배경색은 :root 의 --c-* 변수와 매칭된다. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+}
+.badge.cash {
+  background: var(--c-cash);
+}
+.badge.kstock {
+  background: var(--c-kstock);
+}
+.badge.fstock {
+  background: var(--c-fstock);
+}
+.badge.crypto {
+  background: var(--c-crypto);
+}
+.badge.realestate {
+  background: #7c3aed;
+}
+.badge.pension-fund {
+  background: var(--c-pension-fund);
+}
+.badge.retirement {
+  background: var(--c-retirement);
+}
+.badge.isa {
+  background: var(--c-isa);
+}
+.badge.gold {
+  background: var(--c-gold);
+}
+.badge.debt {
+  background: var(--danger);
+}
 
-  .badge.krw { background: var(--c-krw); }
-  .badge.usd { background: var(--c-usd); }
-  .badge.hedge { background: #eab308; }
-  .badge.commodity { background: var(--c-commodity); }
+.badge.krw {
+  background: var(--c-krw);
+}
+.badge.usd {
+  background: var(--c-usd);
+}
+.badge.hedge {
+  background: #eab308;
+}
+.badge.commodity {
+  background: var(--c-commodity);
+}
 
-  /* Signal pill */
-  /* 리밸런싱 신호 표시용 알약 — buy(초록)·sell(빨강)·ok(강조색)·dash(중립 회색) 네 가지 상태. */
-  .pill {
-    display: inline-block;
-    padding: 3px 10px;  /* 세로 3px — 12px 글자 기준 높이 24px(탭 대상 하한, WCAG 2.5.8) */
-    border-radius: 999px;
-    font-size: var(--fs-sm);
-    font-weight: 500;
-  }
-  .pill.buy { background: #dcfce7; color: #166534; }
-  .pill.sell { background: #fee2e2; color: #991b1b; }
-  .pill.ok { background: var(--accent-soft); color: var(--accent); }
-  .pill.dash { background: var(--bg); color: var(--text-muted); }
+/* Signal pill */
+/* 리밸런싱 신호 표시용 알약 — buy(초록)·sell(빨강)·ok(강조색)·dash(중립 회색) 네 가지 상태. */
+.pill {
+  display: inline-block;
+  padding: 3px 10px; /* 세로 3px — 12px 글자 기준 높이 24px(탭 대상 하한, WCAG 2.5.8) */
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.pill.buy {
+  background: #dcfce7;
+  color: #166534;
+}
+.pill.sell {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.pill.ok {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pill.dash {
+  background: var(--bg);
+  color: var(--text-muted);
+}
 
-  /* Holdings input */
-  /* 자산 입력 탭의 카테고리별 접이식 섹션. 헤더 클릭으로 여닫으며 .collapsed 상태 클래스가 본문 숨김과 화살표 회전을 담당한다. */
-  .cat-section {
-    border-bottom: 1px solid var(--border);
-  }
-  .cat-section:last-child { border-bottom: none; }
-  .cat-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px;
-    background: var(--surface);
-    cursor: pointer;
-    user-select: none;
-  }
-  .cat-header:hover { background: var(--bg); }
-  .cat-header .left { display: flex; align-items: center; gap: 10px; }
-  .cat-header .total {
-    font-size: var(--fs-md); font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-  .cat-header .arrow {
-    width: 8px; height: 8px;
-    border-right: 2px solid var(--text-muted);
-    border-bottom: 2px solid var(--text-muted);
-    transform: rotate(45deg);
-    transition: transform 0.2s;
-  }
-  .cat-section.collapsed .arrow { transform: rotate(-45deg); }
-  .cat-section.collapsed .cat-body { display: none; }
+/* Holdings input */
+/* 자산 입력 탭의 카테고리별 접이식 섹션. 헤더 클릭으로 여닫으며 .collapsed 상태 클래스가 본문 숨김과 화살표 회전을 담당한다. */
+.cat-section {
+  border-bottom: 1px solid var(--border);
+}
+.cat-section:last-child {
+  border-bottom: none;
+}
+.cat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.cat-header:hover {
+  background: var(--bg);
+}
+.cat-header .left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cat-header .total {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cat-header .arrow {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.2s;
+}
+.cat-section.collapsed .arrow {
+  transform: rotate(-45deg);
+}
+.cat-section.collapsed .cat-body {
+  display: none;
+}
 
-  .cat-body { padding: 4px 8px 12px; }
-  /* 자산 입력 한 행(.row) — 종목명/계좌/수량/단가/평가금액/노출/타입/메모/새로고침/삭제 컬럼 구성. render.js renderHoldings 가 생성한다. */
-  /* 통일된 10-column 그리드: 모든 카테고리에서 컬럼 정렬 일치 */
-  .row {
-    display: grid;
-    grid-template-columns: 1.5fr 1.1fr 0.7fr 1.2fr 1.2fr 0.95fr 0.85fr 1fr 28px 28px;
-    gap: 4px;
-    align-items: center;
-    padding: 2px 8px;
-  }
-  .row.has-ticker .search-cell { grid-column: 1 / 3; }
-  .row .col-empty { visibility: hidden; }
-  .row.head {
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    font-weight: 500;
-    padding: 6px 8px;
-  }
-  .row.head > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .computed {
-    text-align: right;
-    font-size: var(--fs-md);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-    padding: 4px 8px;
-  }
-  /* × 삭제 버튼 — 자산 행뿐 아니라 이력 표·입출금 모달·증권사 계좌 목록에서도 같은 클래스를 쓴다. */
-  /* 선택자를 .row 밖으로 넓힌 이유: 이력 표의 버튼이 스타일 없이 8×16px 로 렌더돼 탭 대상 24px 하한에 미달했다. */
-  .icon-btn {
-    width: 24px; height: 24px;
-    border-radius: 6px;
-    color: var(--text-muted);
-    display: inline-flex; align-items: center; justify-content: center;
-    font-size: var(--fs-md);
-  }
-  .icon-btn:hover { background: #fee2e2; color: var(--danger); }
+.cat-body {
+  padding: 4px 8px 12px;
+}
+/* 자산 입력 한 행(.row) — 종목명/계좌/수량/단가/평가금액/노출/타입/메모/새로고침/삭제 컬럼 구성. render.js renderHoldings 가 생성한다. */
+/* 통일된 10-column 그리드: 모든 카테고리에서 컬럼 정렬 일치 */
+.row {
+  display: grid;
+  grid-template-columns: 1.5fr 1.1fr 0.7fr 1.2fr 1.2fr 0.95fr 0.85fr 1fr 28px 28px;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 8px;
+}
+.row.has-ticker .search-cell {
+  grid-column: 1 / 3;
+}
+.row .col-empty {
+  visibility: hidden;
+}
+.row.head {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 6px 8px;
+}
+.row.head > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row .computed {
+  text-align: right;
+  font-size: var(--fs-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  padding: 4px 8px;
+}
+/* × 삭제 버튼 — 자산 행뿐 아니라 이력 표·입출금 모달·증권사 계좌 목록에서도 같은 클래스를 쓴다. */
+/* 선택자를 .row 밖으로 넓힌 이유: 이력 표의 버튼이 스타일 없이 8×16px 로 렌더돼 탭 대상 24px 하한에 미달했다. */
+.icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-md);
+}
+.icon-btn:hover {
+  background: #fee2e2;
+  color: var(--danger);
+}
 
-  .add-row {
-    margin: 4px 8px 0;
-    padding: 6px 12px;
-    width: calc(100% - 16px);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
-    text-align: center;
-    border: 1px dashed var(--border-strong);
-  }
-  .add-row:hover { background: var(--border); color: var(--text); }
+.add-row {
+  margin: 4px 8px 0;
+  padding: 6px 12px;
+  width: calc(100% - 16px);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+}
+.add-row:hover {
+  background: var(--border);
+  color: var(--text);
+}
 
-  /* Highlight metrics box */
-  /* 통화노출 분석(설정 탭)·이력 탭 상단의 요약 지표 박스. 기본 4열 그리드, 1024px 이하에서 2열. */
-  /* .metrics-3 — 설정 탭 통화노출 3칸 변형 (인라인 style이면 미디어쿼리가 못 이겨서 클래스로 분리). */
-  .metrics-box {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    padding: 16px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-  .metrics-box.metrics-3 { grid-template-columns: repeat(3, 1fr); }
-  .metric-cell {
-    text-align: center;
-    padding: 8px;
-  }
-  .metric-cell .lbl {
-    font-size: var(--fs-xs); color: var(--text-muted);
-    margin-bottom: 4px; letter-spacing: 0.3px;
-  }
-  .metric-cell .val {
-    font-size: var(--fs-xl); font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-  .metric-cell.krw .val { color: var(--c-krw); }
-  .metric-cell.usd .val { color: var(--c-usd); }
-  .metric-cell.hedge .val { color: #a16207; }
-  .metric-cell.commodity .val { color: var(--c-commodity); }
-  .metric-cell.usd-total .val { color: #1e40af; }
+/* Highlight metrics box */
+/* 통화노출 분석(설정 탭)·이력 탭 상단의 요약 지표 박스. 기본 4열 그리드, 1024px 이하에서 2열. */
+/* .metrics-3 — 설정 탭 통화노출 3칸 변형 (인라인 style이면 미디어쿼리가 못 이겨서 클래스로 분리). */
+.metrics-box {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.metrics-box.metrics-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.metric-cell {
+  text-align: center;
+  padding: 8px;
+}
+.metric-cell .lbl {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+.metric-cell .val {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.metric-cell.krw .val {
+  color: var(--c-krw);
+}
+.metric-cell.usd .val {
+  color: var(--c-usd);
+}
+.metric-cell.hedge .val {
+  color: #a16207;
+}
+.metric-cell.commodity .val {
+  color: var(--c-commodity);
+}
+.metric-cell.usd-total .val {
+  color: #1e40af;
+}
 
-  /* History */
-  /* 이력 탭 스냅샷 테이블의 보조 스타일 — 입력 배경과 전월 대비 증감 색(양수 초록·음수 빨강). */
-  .history-table input { background: var(--card); }
-  .mom-pos { color: var(--success); font-weight: 500; }
-  .mom-neg { color: var(--danger); font-weight: 500; }
-  /* 기준일 컬럼은 내용 크기로 축소 (width:1% + td의 nowrap 조합) — 남는 폭을 숫자 컬럼들에 양보. */
-  .history-table th:first-child,
-  .history-table td:first-child { width: 1%; }
+/* History */
+/* 이력 탭 스냅샷 테이블의 보조 스타일 — 입력 배경과 전월 대비 증감 색(양수 초록·음수 빨강). */
+.history-table input {
+  background: var(--card);
+}
+.mom-pos {
+  color: var(--success);
+  font-weight: 500;
+}
+.mom-neg {
+  color: var(--danger);
+  font-weight: 500;
+}
+/* 기준일 컬럼은 내용 크기로 축소 (width:1% + td의 nowrap 조합) — 남는 폭을 숫자 컬럼들에 양보. */
+.history-table th:first-child,
+.history-table td:first-child {
+  width: 1%;
+}
 
-  /* File protocol warning banner */
-  /* index.html 의 #fileWarn — file:// 로 직접 열었을 때만 main.js 가 표시하는 노란 경고 배너. */
-  .file-warn {
-    background: #fef3c7;
-    border: 1px solid #f59e0b;
-    border-radius: 10px;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-    font-size: var(--fs-md);
-    color: #78350f;
-    line-height: 1.6;
-  }
-  .file-warn b { color: #92400e; }
-  .file-warn code {
-    background: rgba(255,255,255,0.6);
-    padding: 1px 6px; border-radius: 4px;
-    font-family: 'SF Mono', monospace; font-size: var(--fs-sm);
-  }
+/* File protocol warning banner */
+/* index.html 의 #fileWarn — file:// 로 직접 열었을 때만 main.js 가 표시하는 노란 경고 배너. */
+.file-warn {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: var(--fs-md);
+  color: #78350f;
+  line-height: 1.6;
+}
+.file-warn b {
+  color: #92400e;
+}
+.file-warn code {
+  background: rgba(255, 255, 255, 0.6);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', monospace;
+  font-size: var(--fs-sm);
+}
 
-  /* FX badge in header */
-  /* 헤더의 USD/KRW 환율 배지(#fxBadge). 클릭하면 fetch.js fetchExchangeRate 로 갱신하며 .loading 상태면 반투명 처리된다. */
-  .fx-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 12px;
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-line);
-    border-radius: 8px;
-    font-size: var(--fs-md); font-weight: 500;
-    color: var(--accent);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .fx-badge:hover { background: var(--accent-line); }
-  .fx-badge .fx-rate { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .fx-badge .fx-meta { font-size: var(--fs-xs); color: var(--accent); }
-  .fx-badge.loading { opacity: 0.6; }
+/* FX badge in header */
+/* 헤더의 USD/KRW 환율 배지(#fxBadge). 클릭하면 fetch.js fetchExchangeRate 로 갱신하며 .loading 상태면 반투명 처리된다. */
+.fx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.fx-badge:hover {
+  background: var(--accent-line);
+}
+.fx-badge .fx-rate {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.fx-badge .fx-meta {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+.fx-badge.loading {
+  opacity: 0.6;
+}
 
-  /* Refresh icon button (per-row + global) */
-  /* 시세 새로고침 버튼 — 행별 🔄 와 헤더 전체 갱신 버튼 공용. .spinning 상태가 붙으면 spin 키프레임으로 회전한다. */
-  .refresh-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 26px; height: 26px;
-    border-radius: 6px;
-    color: var(--text-muted);
-    background: transparent;
-    font-size: var(--fs-md);
-    transition: all 0.15s;
+/* Refresh icon button (per-row + global) */
+/* 시세 새로고침 버튼 — 행별 🔄 와 헤더 전체 갱신 버튼 공용. .spinning 상태가 붙으면 spin 키프레임으로 회전한다. */
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-md);
+  transition: all 0.15s;
+}
+.refresh-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.refresh-btn.spinning {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
-  .refresh-btn:hover { background: var(--accent-soft); color: var(--accent); }
-  .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .refresh-btn.spinning { animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+}
 
-  /* Dual price cell (USD + KRW) */
-  /* 해외주식 현재가 셀 — 위에 USD 입력, 아래에 KRW 환산액을 2단으로 표시한다. */
-  .dual-price {
-    display: flex; flex-direction: column; gap: 1px;
-    align-items: flex-end; justify-content: center;
-    padding: 2px 8px; line-height: 1.25;
-    font-variant-numeric: tabular-nums;
-  }
-  /* "$" 라벨과 입력칸을 한 줄에 묶는다 — 입력칸이 width:100%(폭 압축 허용)라
+/* Dual price cell (USD + KRW) */
+/* 해외주식 현재가 셀 — 위에 USD 입력, 아래에 KRW 환산액을 2단으로 표시한다. */
+.dual-price {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 2px 8px;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+/* "$" 라벨과 입력칸을 한 줄에 묶는다 — 입력칸이 width:100%(폭 압축 허용)라
      블록 배치면 라벨이 윗줄로 밀려 올라간다. flex + min-width:0 으로 같은 줄 유지. */
-  .dual-price .usd {
-    font-size: var(--fs-md); font-weight: 600; color: var(--c-usd);
-    display: flex; align-items: center; justify-content: flex-end; gap: 1px;
-    width: 100%;
-  }
-  .dual-price .krw {
-    font-size: var(--fs-xs); color: var(--text-muted);
-  }
-  .dual-price .usd input {
-    background: transparent; border: 1px solid transparent;
-    border-radius: 4px; padding: 1px 4px;
-    width: 100%; min-width: 0; max-width: 110px; text-align: right;
-    font-weight: 600; color: var(--c-usd);
-    font-variant-numeric: tabular-nums; font-family: inherit; font-size: var(--fs-md);
-  }
-  .dual-price .usd input:hover { background: var(--surface); border-color: var(--border); }
-  .dual-price .usd input:focus { background: white; border-color: var(--accent); outline: none; }
+.dual-price .usd {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--c-usd);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1px;
+  width: 100%;
+}
+.dual-price .krw {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.dual-price .usd input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1px 4px;
+  width: 100%;
+  min-width: 0;
+  max-width: 110px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--c-usd);
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  font-size: var(--fs-md);
+}
+.dual-price .usd input:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.dual-price .usd input:focus {
+  background: white;
+  border-color: var(--accent);
+  outline: none;
+}
 
-  /* Ticker chip */
-  /* 티커 입력 칸 — 모노스페이스 폰트에 대문자 강제 표시(placeholder 는 예외). */
-  .ticker-cell input {
-    text-align: center;
-    font-family: 'SF Mono', Monaco, 'Cascadia Mono', monospace;
-    font-size: var(--fs-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  .ticker-cell input::placeholder { text-transform: none; letter-spacing: 0; font-family: inherit; }
+/* Ticker chip */
+/* 티커 입력 칸 — 모노스페이스 폰트에 대문자 강제 표시(placeholder 는 예외). */
+.ticker-cell input {
+  text-align: center;
+  font-family: 'SF Mono', Monaco, 'Cascadia Mono', monospace;
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.ticker-cell input::placeholder {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
 
-  /* Help icon for tooltips */
-  /* 물음표(?) 도움말 아이콘. hover 시 아래 ::after 규칙이 title 속성 내용을 즉시 커스텀 툴팁으로 띄운다. */
-  .help {
-    display: inline-block;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--border);
-    color: var(--text-muted);
-    font-size: var(--fs-xs);
-    font-weight: 700;
-    line-height: 14px;
-    text-align: center;
-    cursor: help;
-    margin-left: 3px;
-    vertical-align: middle;
-    position: relative;
-  }
-  .help:hover { background: var(--border-strong); color: var(--text); }
-  /* 탭 대상 24px 하한(WCAG 2.5.8) — 원은 14px 그대로 두고 투명 ::before 로 터치 영역만 24px 로 넓힌다 (툴팁은 ::after). */
-  .help::before { content: ''; position: absolute; inset: -5px; }
-  th .help { background: var(--bg); }
-  .metric-cell .lbl .help { background: var(--card); }
-  /* 즉시 뜨는 커스텀 툴팁 (native title 딜레이 회피). 툴팁 텍스트는 title 속성 재사용 */
-  /* .tip-open — 터치 기기용 탭 토글 상태 (render.js initHelpTapTooltips가 붙임). hover와 같은 표시 규칙 공유 */
-  .help:hover::after,
-  .help.tip-open::after {
-    content: attr(title);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--primary);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: var(--fs-sm);
-    line-height: 1.5;
-    white-space: normal;
-    width: max-content;
-    max-width: 320px;
-    z-index: 1500;
-    box-shadow: 0 4px 20px rgba(28,27,24,0.25);
-    pointer-events: none;
-    text-align: left;
-    font-weight: 400;
-    letter-spacing: normal;
-  }
-  /* section 안에 있는 .help는 section의 overflow:hidden 때문에 잘릴 수 있어 hover/탭 시 visible 승격 */
-  .section:has(.help:hover),
-  .section:has(.help.tip-open) { overflow: visible; }
+/* Help icon for tooltips */
+/* 물음표(?) 도움말 아이콘. hover 시 아래 ::after 규칙이 title 속성 내용을 즉시 커스텀 툴팁으로 띄운다. */
+.help {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  cursor: help;
+  margin-left: 3px;
+  vertical-align: middle;
+  position: relative;
+}
+.help:hover {
+  background: var(--border-strong);
+  color: var(--text);
+}
+/* 탭 대상 24px 하한(WCAG 2.5.8) — 원은 14px 그대로 두고 투명 ::before 로 터치 영역만 24px 로 넓힌다 (툴팁은 ::after). */
+.help::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
+th .help {
+  background: var(--bg);
+}
+.metric-cell .lbl .help {
+  background: var(--card);
+}
+/* 즉시 뜨는 커스텀 툴팁 (native title 딜레이 회피). 툴팁 텍스트는 title 속성 재사용 */
+/* .tip-open — 터치 기기용 탭 토글 상태 (render.js initHelpTapTooltips가 붙임). hover와 같은 표시 규칙 공유 */
+.help:hover::after,
+.help.tip-open::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: normal;
+  width: max-content;
+  max-width: 320px;
+  z-index: 1500;
+  box-shadow: 0 4px 20px rgba(28, 27, 24, 0.25);
+  pointer-events: none;
+  text-align: left;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+/* section 안에 있는 .help는 section의 overflow:hidden 때문에 잘릴 수 있어 hover/탭 시 visible 승격 */
+.section:has(.help:hover),
+.section:has(.help.tip-open) {
+  overflow: visible;
+}
 
-  /* Asset type chip (현금/주식/원자재/암호화폐) */
-  /* 행별 자산타입 표시 칩 — asset-* 클래스마다 배경·글자·테두리 색이 다르고, .locked 는 타입이 고정된 카테고리용이다. */
-  .asset-chip {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 3px 8px;  /* 높이 25px — 탭 대상 24px 하한 */
-    border-radius: 999px;
-    font-size: var(--fs-xs); font-weight: 500;
-    border: 1px solid transparent;
-    background: #dbeafe; color: #1e40af;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .asset-chip:hover { transform: scale(1.05); }
-  .asset-chip.asset-cash { background: #dcfce7; color: #166534; border-color: #16a34a; }
-  .asset-chip.asset-stock { background: #dbeafe; color: #1e40af; border-color: #2563eb; }
-  .asset-chip.asset-bond { background: #ccfbf1; color: #115e59; border-color: #0d9488; }
-  .asset-chip.asset-gold { background: #fef9c3; color: #854d0e; border-color: #eab308; }
-  .asset-chip.asset-commodity { background: #fef3c7; color: #78350f; border-color: #a16207; }
-  .asset-chip.asset-realestate { background: #ede9fe; color: #5b21b6; border-color: #7c3aed; }
-  .asset-chip.asset-crypto { background: #fce7f3; color: #9d174d; border-color: #ec4899; }
-  .asset-chip.asset-debt { background: #fee2e2; color: #991b1b; border-color: #dc2626; }
-  .asset-chip.locked { cursor: default; opacity: 0.95; }
-  .asset-chip.locked:hover { transform: none; }
-  /* dropdown형 자산타입 (assetTypeFixed 없는 카테고리) */
-  select.asset-chip-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    padding: 3px 18px 3px 8px;
-    font-size: var(--fs-xs); font-weight: 500;
-    border-radius: 999px;
-    cursor: pointer;
-    /* dropdown 화살표 */
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23475569' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 6px center;
-    text-align-last: center;
-    transition: all 0.15s;
-  }
-  select.asset-chip-select:hover { transform: scale(1.05); }
-  select.asset-chip-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Asset type chip (현금/주식/원자재/암호화폐) */
+/* 행별 자산타입 표시 칩 — asset-* 클래스마다 배경·글자·테두리 색이 다르고, .locked 는 타입이 고정된 카테고리용이다. */
+.asset-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px; /* 높이 25px — 탭 대상 24px 하한 */
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  border: 1px solid transparent;
+  background: #dbeafe;
+  color: #1e40af;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.asset-chip:hover {
+  transform: scale(1.05);
+}
+.asset-chip.asset-cash {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #16a34a;
+}
+.asset-chip.asset-stock {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #2563eb;
+}
+.asset-chip.asset-bond {
+  background: #ccfbf1;
+  color: #115e59;
+  border-color: #0d9488;
+}
+.asset-chip.asset-gold {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #eab308;
+}
+.asset-chip.asset-commodity {
+  background: #fef3c7;
+  color: #78350f;
+  border-color: #a16207;
+}
+.asset-chip.asset-realestate {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #7c3aed;
+}
+.asset-chip.asset-crypto {
+  background: #fce7f3;
+  color: #9d174d;
+  border-color: #ec4899;
+}
+.asset-chip.asset-debt {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #dc2626;
+}
+.asset-chip.locked {
+  cursor: default;
+  opacity: 0.95;
+}
+.asset-chip.locked:hover {
+  transform: none;
+}
+/* dropdown형 자산타입 (assetTypeFixed 없는 카테고리) */
+select.asset-chip-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 3px 18px 3px 8px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  border-radius: 999px;
+  cursor: pointer;
+  /* dropdown 화살표 */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23475569' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  text-align-last: center;
+  transition: all 0.15s;
+}
+select.asset-chip-select:hover {
+  transform: scale(1.05);
+}
+select.asset-chip-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
-  /* 유동성 토글 칩 (자산타입 chip 옆) — 💧 유동 / 🔒 묶임 상태를 클릭으로 전환하는 원형 버튼. */
-  /* liq-liquid(하늘색)·liq-locked(회색) 두 상태 클래스로 구분한다. */
-  .chip-cell {
-    display: flex; align-items: center; justify-content: center; gap: 3px;
-    flex-wrap: nowrap;
-  }
-  .liq-chip {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px;  /* 탭 대상 24px 하한 */
-    border-radius: 50%;
-    font-size: var(--fs-sm); line-height: 1;
-    border: 1px solid var(--border);
-    background: white;
-    cursor: pointer;
-    transition: all 0.15s;
-    padding: 0;
-    flex-shrink: 0;
-  }
-  .liq-chip:hover { transform: scale(1.1); }
-  .liq-chip.liq-liquid { background: #ecfeff; border-color: #67e8f9; }
-  .liq-chip.liq-locked { background: var(--bg); border-color: var(--border-strong); opacity: 0.85; }
-  /* locked 행은 옅은 회색 background tint로 시각 cue */
-  .row.is-locked { background: var(--surface); }
-  .row.is-locked:hover { background: var(--bg); }
+/* 유동성 토글 칩 (자산타입 chip 옆) — 💧 유동 / 🔒 묶임 상태를 클릭으로 전환하는 원형 버튼. */
+/* liq-liquid(하늘색)·liq-locked(회색) 두 상태 클래스로 구분한다. */
+.chip-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+}
+.liq-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px; /* 탭 대상 24px 하한 */
+  border-radius: 50%;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.liq-chip:hover {
+  transform: scale(1.1);
+}
+.liq-chip.liq-liquid {
+  background: #ecfeff;
+  border-color: #67e8f9;
+}
+.liq-chip.liq-locked {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  opacity: 0.85;
+}
+/* locked 행은 옅은 회색 background tint로 시각 cue */
+.row.is-locked {
+  background: var(--surface);
+}
+.row.is-locked:hover {
+  background: var(--bg);
+}
 
-  /* Search cell with autocomplete dropdown */
-  /* 종목명 검색 입력 + 자동완성 드롭다운(fetch.js onSearchInput 연동). 드롭다운은 .show 클래스일 때만 표시된다. */
-  .search-cell {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 0;
-    min-width: 0;
-  }
-  .search-cell .search-input {
-    width: 100%;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: var(--fs-md);
-    transition: all 0.15s;
-  }
-  .search-cell .search-input:hover { background: var(--surface); border-color: var(--border); }
-  .search-cell .search-input:focus { background: white; border-color: var(--accent); outline: none; }
-  .search-cell .ticker-info {
-    font-size: var(--fs-xs);
-    font-family: 'SF Mono', Monaco, monospace;
-    color: var(--text-muted);
-    padding: 0 9px;
-    line-height: 1.3;
-    margin-top: -2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .search-cell .ticker-info .sym { color: var(--accent); font-weight: 500; }
+/* Search cell with autocomplete dropdown */
+/* 종목명 검색 입력 + 자동완성 드롭다운(fetch.js onSearchInput 연동). 드롭다운은 .show 클래스일 때만 표시된다. */
+.search-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+}
+.search-cell .search-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: var(--fs-md);
+  transition: all 0.15s;
+}
+.search-cell .search-input:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.search-cell .search-input:focus {
+  background: white;
+  border-color: var(--accent);
+  outline: none;
+}
+.search-cell .ticker-info {
+  font-size: var(--fs-xs);
+  font-family: 'SF Mono', Monaco, monospace;
+  color: var(--text-muted);
+  padding: 0 9px;
+  line-height: 1.3;
+  margin-top: -2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-cell .ticker-info .sym {
+  color: var(--accent);
+  font-weight: 500;
+}
 
-  .search-dropdown {
-    position: absolute;
-    top: 100%; left: 0; right: 0;
-    z-index: 200;
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(28, 27, 24, 0.12);
-    max-height: 280px;
-    overflow-y: auto;
-    margin-top: 4px;
-    display: none;
-    min-width: 280px;
-  }
-  .search-dropdown.show { display: block; }
-  /* 드롭다운이 열린 동안 카드 클리핑 해제 — .section:has(.help:hover) 우회 규칙과 같은 관용구. */
-  /* 좁은 화면에서 드롭다운이 셀 폭을 넘어 펼쳐질 때 잘리지 않게 한다. */
-  .section:has(.search-dropdown.show) { overflow: visible; }
-  .search-dropdown .result {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-  }
-  .search-dropdown .result:last-child { border-bottom: none; }
-  .search-dropdown .result:hover,
-  .search-dropdown .result.active { background: var(--accent-soft); }
-  .search-dropdown .result-name {
-    font-weight: 600; font-size: var(--fs-md); color: var(--text);
-    line-height: 1.3;
-  }
-  .search-dropdown .result-meta {
-    font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .search-dropdown .result-meta .sym {
-    font-family: 'SF Mono', Monaco, monospace;
-    font-weight: 500; color: var(--accent);
-  }
-  .search-dropdown .result-meta .exch {
-    font-size: var(--fs-xs);
-    background: var(--bg);
-    padding: 1px 6px;
-    border-radius: 4px;
-  }
-  .search-dropdown .result-meta .price {
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    color: var(--text);
-  }
-  .search-dropdown .empty,
-  .search-dropdown .loading {
-    padding: 16px; text-align: center;
-    font-size: var(--fs-sm); color: var(--text-muted);
-  }
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(28, 27, 24, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 4px;
+  display: none;
+  min-width: 280px;
+}
+.search-dropdown.show {
+  display: block;
+}
+/* 드롭다운이 열린 동안 카드 클리핑 해제 — .section:has(.help:hover) 우회 규칙과 같은 관용구. */
+/* 좁은 화면에서 드롭다운이 셀 폭을 넘어 펼쳐질 때 잘리지 않게 한다. */
+.section:has(.search-dropdown.show) {
+  overflow: visible;
+}
+.search-dropdown .result {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.search-dropdown .result:last-child {
+  border-bottom: none;
+}
+.search-dropdown .result:hover,
+.search-dropdown .result.active {
+  background: var(--accent-soft);
+}
+.search-dropdown .result-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--text);
+  line-height: 1.3;
+}
+.search-dropdown .result-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.search-dropdown .result-meta .sym {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-weight: 500;
+  color: var(--accent);
+}
+.search-dropdown .result-meta .exch {
+  font-size: var(--fs-xs);
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.search-dropdown .result-meta .price {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--text);
+}
+.search-dropdown .empty,
+.search-dropdown .loading {
+  padding: 16px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
 
-  /* Hidden file input */
-  /* JSON 불러오기 버튼이 대신 클릭해 주는 숨김 파일 입력. */
-  #fileInput { display: none; }
+/* Hidden file input */
+/* JSON 불러오기 버튼이 대신 클릭해 주는 숨김 파일 입력. */
+#fileInput {
+  display: none;
+}
 
-  /* Toast */
-  /* 우하단 고정 알림(#toast). data-io.js 의 toast() 가 .show 를 붙이면 슬라이드 업으로 나타난다. */
-  .toast {
-    position: fixed; bottom: 24px; right: 24px;
-    padding: 12px 18px;
-    background: var(--primary); color: white;
-    border-radius: 8px; font-size: var(--fs-md);
-    box-shadow: var(--shadow-lg);
-    transform: translateY(100px); opacity: 0;
-    transition: all 0.3s;
-    z-index: 1000;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
+/* Toast */
+/* 우하단 고정 알림(#toast). data-io.js 의 toast() 가 .show 를 붙이면 슬라이드 업으로 나타난다. */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 18px;
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  font-size: var(--fs-md);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 1000;
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
 
-  /* ==================== 메모 인디케이터 & 모달 ==================== */
-  /* 행별 메모 UI — 미리보기 칩(.memo-preview), 메모 버튼(.memo-dot), 편집 모달(state.js openMemoModal 이 생성·표시). */
-  /* .memo-dot.has-memo 는 메모가 있는 행의 강조 상태이며 hover 시 툴팁으로 내용을 보여준다. */
-  .memo-cell {
-    display: flex; align-items: center; gap: 4px;
-    min-width: 0;
+/* ==================== 메모 인디케이터 & 모달 ==================== */
+/* 행별 메모 UI — 미리보기 칩(.memo-preview), 메모 버튼(.memo-dot), 편집 모달(state.js openMemoModal 이 생성·표시). */
+/* .memo-dot.has-memo 는 메모가 있는 행의 강조 상태이며 hover 시 툴팁으로 내용을 보여준다. */
+.memo-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.memo-cell input.inp {
+  flex: 1;
+  min-width: 0;
+}
+.memo-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.15s;
+}
+.memo-preview:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+}
+.memo-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  position: relative;
+  padding: 0;
+}
+.memo-dot:hover:not([disabled]) {
+  background: var(--border);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.memo-dot[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.memo-dot.has-memo {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #fbbf24;
+}
+.memo-dot.has-memo:hover {
+  background: #fde68a;
+  color: #92400e;
+}
+/* 호버 시 메모 내용 노출 (CSS-only tooltip) - data-memo 속성에 텍스트 */
+/* 기본은 버튼 위·왼쪽 펼침 (자산 입력 탭 — 메모 컬럼이 오른쪽이라 왼쪽으로 펼쳐야 안 잘림). */
+.memo-dot[data-memo]:not([data-memo='']):hover::after {
+  content: attr(data-memo);
+  position: absolute;
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  max-width: 320px;
+  min-width: 120px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: var(--shadow-lg);
+  z-index: 1500;
+  bottom: calc(100% + 8px);
+  right: 0;
+  pointer-events: none;
+  font-weight: 400;
+  text-align: left;
+}
+/* 이력 테이블에서는 버튼 오른쪽으로 펼침 — 기준일이 첫 컬럼이라 왼쪽 펼침은 테이블 밖으로 잘림. */
+.history-table .memo-dot[data-memo]:not([data-memo='']):hover::after {
+  bottom: auto;
+  right: auto;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* 메모 편집 모달 (배경 + 본문) */
+.memo-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 27, 24, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: memoFade 0.15s ease-out;
+}
+@keyframes memoFade {
+  from {
+    opacity: 0;
   }
-  .memo-cell input.inp { flex: 1; min-width: 0; }
-  .memo-preview {
-    flex: 1; min-width: 0;
-    font-size: var(--fs-sm);
-    color: #92400e;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-radius: 6px;
-    padding: 4px 8px;
-    line-height: 1.3;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: all 0.15s;
+  to {
+    opacity: 1;
   }
-  .memo-preview:hover {
-    background: #fef3c7; border-color: #fbbf24;
-  }
-  .memo-dot {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px;
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text-muted);
-    font-size: var(--fs-md); line-height: 1;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    transition: all 0.15s;
-    flex-shrink: 0;
-    position: relative;
-    padding: 0;
-  }
-  .memo-dot:hover:not([disabled]) {
-    background: var(--border); color: var(--text); border-color: var(--border-strong);
-  }
-  .memo-dot[disabled] {
-    opacity: 0.35; cursor: not-allowed;
-  }
-  .memo-dot.has-memo {
-    color: #b45309;
-    background: #fef3c7;
-    border-color: #fbbf24;
-  }
-  .memo-dot.has-memo:hover {
-    background: #fde68a; color: #92400e;
-  }
-  /* 호버 시 메모 내용 노출 (CSS-only tooltip) - data-memo 속성에 텍스트 */
-  /* 기본은 버튼 위·왼쪽 펼침 (자산 입력 탭 — 메모 컬럼이 오른쪽이라 왼쪽으로 펼쳐야 안 잘림). */
-  .memo-dot[data-memo]:not([data-memo=""]):hover::after {
-    content: attr(data-memo);
-    position: absolute;
-    background: var(--primary); color: white;
-    padding: 8px 12px; border-radius: 6px;
-    font-size: var(--fs-sm); line-height: 1.5;
-    max-width: 320px; min-width: 120px;
-    white-space: pre-wrap; word-break: break-word;
-    box-shadow: var(--shadow-lg);
-    z-index: 1500;
-    bottom: calc(100% + 8px);
-    right: 0;
-    pointer-events: none;
-    font-weight: 400;
-    text-align: left;
-  }
-  /* 이력 테이블에서는 버튼 오른쪽으로 펼침 — 기준일이 첫 컬럼이라 왼쪽 펼침은 테이블 밖으로 잘림. */
-  .history-table .memo-dot[data-memo]:not([data-memo=""]):hover::after {
-    bottom: auto; right: auto;
-    left: calc(100% + 6px);
-    top: 50%;
-    transform: translateY(-50%);
-  }
-  /* 메모 편집 모달 (배경 + 본문) */
-  .memo-modal-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(28, 27, 24, 0.55);
-    backdrop-filter: blur(2px);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 2000;
-    animation: memoFade 0.15s ease-out;
-  }
-  @keyframes memoFade { from { opacity: 0; } to { opacity: 1; } }
-  .memo-modal {
-    background: var(--card);
-    border-radius: 12px;
-    box-shadow: var(--shadow-lg);
-    width: min(560px, 92vw);
-    padding: 20px 22px;
-    max-height: 90vh;
-    max-height: 90dvh;  /* 모바일 주소창 표시/숨김에 따른 뷰포트 변동 대응 — 미지원 브라우저는 윗줄 vh 폴백 */
-    overflow-y: auto;  /* 내용이 90vh를 넘으면(소급 추가·편집 모달 등) 모달 안에서 스크롤 */
-    display: flex; flex-direction: column;
-    gap: 12px;
-  }
-  .memo-modal-head {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    gap: 12px;
-  }
-  .memo-modal-title { font-size: var(--fs-lg); font-weight: 700; color: var(--text); }
-  .memo-modal-sub { font-size: var(--fs-sm); color: var(--text-muted); margin-top: 2px; }
-  .memo-modal-x {
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    color: var(--text-muted); font-size: var(--fs-xl);
-    background: transparent;
-    flex-shrink: 0;
-  }
-  .memo-modal-x:hover { background: var(--bg); color: var(--text); }
-  .memo-modal-hint {
-    font-size: var(--fs-sm); color: var(--text-muted);
-    background: var(--surface);
-    padding: 8px 10px; border-radius: 6px;
-    border-left: 3px solid var(--border-strong);
-  }
-  .memo-modal-textarea {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-family: inherit;
-    font-size: var(--fs-md); line-height: 1.6;
-    resize: vertical;
-    min-height: 120px;
-    color: var(--text);
-    background: white;
-  }
-  .memo-modal-textarea:focus {
-    outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-  .memo-modal-foot {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 8px;
-  }
-  .memo-modal-help { font-size: var(--fs-xs); color: var(--text-muted); }
+}
+.memo-modal {
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  width: min(560px, 92vw);
+  padding: 20px 22px;
+  max-height: 90vh;
+  max-height: 90dvh; /* 모바일 주소창 표시/숨김에 따른 뷰포트 변동 대응 — 미지원 브라우저는 윗줄 vh 폴백 */
+  overflow-y: auto; /* 내용이 90vh를 넘으면(소급 추가·편집 모달 등) 모달 안에서 스크롤 */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.memo-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.memo-modal-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+.memo-modal-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.memo-modal-x {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-xl);
+  background: transparent;
+  flex-shrink: 0;
+}
+.memo-modal-x:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.memo-modal-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--border-strong);
+}
+.memo-modal-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 120px;
+  color: var(--text);
+  background: white;
+}
+.memo-modal-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.memo-modal-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.memo-modal-help {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
 
-  /* 보유 항목 편집 모달(모바일 행 탭) — render.js openHoldingEditModal. 껍데기는 .memo-modal 재사용, */
-  /* 폼은 2열 그리드(.full = 한 줄 통째). 라벨 위·입력 아래의 세로 필드 구성이다. */
-  .hold-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .hold-edit-grid .full { grid-column: 1 / -1; }
-  .hold-edit-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .hold-edit-field > span { font-size: var(--fs-xs); color: var(--text-muted); }
-  .hold-edit-field .inp { width: 100%; padding: 8px 10px; font-size: var(--fs-md); }
-  .hold-edit-ro { font-size: var(--fs-md); font-weight: 600; padding: 6px 0; }
-  .hold-edit-ro .sym { color: var(--accent); font-size: var(--fs-sm); font-weight: 500; }
-  .hold-edit-note { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 400; }
-  .hold-edit-live {
-    font-size: var(--fs-md); font-weight: 600; text-align: right;
-    padding-top: 8px; border-top: 1px solid var(--border);
-    font-variant-numeric: tabular-nums;
+/* 보유 항목 편집 모달(모바일 행 탭) — render.js openHoldingEditModal. 껍데기는 .memo-modal 재사용, */
+/* 폼은 2열 그리드(.full = 한 줄 통째). 라벨 위·입력 아래의 세로 필드 구성이다. */
+.hold-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hold-edit-grid .full {
+  grid-column: 1 / -1;
+}
+.hold-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.hold-edit-field > span {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hold-edit-field .inp {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: var(--fs-md);
+}
+.hold-edit-ro {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  padding: 6px 0;
+}
+.hold-edit-ro .sym {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.hold-edit-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.hold-edit-live {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-align: right;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 입출금 기록/소급 추가 모달의 입력 폼 그리드 (data-io.js). 인라인 style이면 미디어쿼리가 */
+/* 못 이기므로 클래스로 분리 — 모바일(768px 블록)에서 열 수를 줄여 오버플로를 막는다. */
+.cf-form-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+.hist-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Footer */
+/* 페이지 최하단 안내 문구 영역. */
+footer {
+  margin-top: 32px;
+  padding: 16px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ==================== 탭 네비게이션 ==================== */
+/* 상단 5개 탭 버튼(#tabNav)과 탭 패널 전환 스타일 (render.js initTabs/switchTab 연동). */
+/* .tab-btn.active 가 선택된 탭이고, .tab-panel.active 만 표시되며 fadeIn 애니메이션이 걸린다. */
+/* 버튼 안은 .tab-ico(이모지)+.tab-txt(글자) 두 span — 데스크톱은 한 줄(gap 6px), 폰(768px 이하)은 파일 끝 블록에서 2줄로 세운다. */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 110px;
+}
+.tab-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.tab-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 1px 3px rgba(28, 27, 24, 0.2);
+}
+.tab-btn.active:hover {
+  background: var(--primary-hover);
+}
+.tab-panel {
+  display: none;
+}
+.tab-panel.active {
+  display: block;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-
-  /* 입출금 기록/소급 추가 모달의 입력 폼 그리드 (data-io.js). 인라인 style이면 미디어쿼리가 */
-  /* 못 이기므로 클래스로 분리 — 모바일(768px 블록)에서 열 수를 줄여 오버플로를 막는다. */
-  .cf-form-grid { display: grid; grid-template-columns: 130px 1fr 1fr auto; gap: 8px; align-items: end; }
-  .hist-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  /* Footer */
-  /* 페이지 최하단 안내 문구 영역. */
-  footer {
-    margin-top: 32px;
-    padding: 16px 0;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
 
-  /* ==================== 탭 네비게이션 ==================== */
-  /* 상단 5개 탭 버튼(#tabNav)과 탭 패널 전환 스타일 (render.js initTabs/switchTab 연동). */
-  /* .tab-btn.active 가 선택된 탭이고, .tab-panel.active 만 표시되며 fadeIn 애니메이션이 걸린다. */
-  /* 버튼 안은 .tab-ico(이모지)+.tab-txt(글자) 두 span — 데스크톱은 한 줄(gap 6px), 폰(768px 이하)은 파일 끝 블록에서 2줄로 세운다. */
-  .tab-nav {
-    display: flex; gap: 4px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 6px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow);
-    overflow-x: auto;
+/* ==================== 리밸런싱 카드 (대시보드) ==================== */
+/* render.js renderRebalancing/renderRebalancingExposure 가 채우는 4열 제안 카드 그리드 (1024px 이하 2열). */
+/* 카드 상태 클래스 — alert-buy(초록, 매수 필요)·alert-sell(빨강, 매도 필요)·ok(강조색, 허용 범위 내). */
+.rebal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+}
+.rebal-card {
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.15s;
+}
+.rebal-card.alert-buy {
+  background: var(--success-soft);
+  border-color: var(--success-line);
+}
+.rebal-card.alert-sell {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+}
+.rebal-card.ok {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.rebal-card .rebal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.rebal-card .rebal-head .name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.rebal-card .rebal-pct-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.rebal-card .rebal-pct-row .cur {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+.rebal-card .rebal-action {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(28, 27, 24, 0.1);
+  font-variant-numeric: tabular-nums;
+}
+.rebal-card.alert-buy .rebal-action {
+  color: #166534;
+}
+.rebal-card.alert-sell .rebal-action {
+  color: #991b1b;
+}
+.rebal-card.ok .rebal-action {
+  color: var(--accent);
+}
+.rebal-summary {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 16px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.rebal-summary .chip {
+  padding: 4px 10px;
+  background: var(--bg);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+/* ==================== P&L 컬럼 ==================== */
+/* 평단가 입력이 있는 카테고리에서 기본 10-column .row 대신 쓰는 확장 그리드와 손익 셀 스타일. */
+/* 11-column grid (P&L 컬럼 추가): 종목/계좌/수량/평단가/현재가/평가금액/손익/통화/타입/메모/🔄/× */
+.row.pnl {
+  grid-template-columns: 1.5fr 1.1fr 0.7fr 1fr 1fr 1.05fr 0.95fr 0.85fr 0.75fr 0.85fr 28px 28px;
+}
+.row.pnl.has-ticker .search-cell {
+  grid-column: 1 / 3;
+}
+/* span-2 — 첫 두 트랙 병합 (검색형 헤더·skipAccount 이름 칸, 구 인라인 grid-column:1/3). 모바일에선 auto. */
+.row .span-2 {
+  grid-column: 1 / 3;
+}
+/* 손익 셀 — pos(수익 초록)·neg(손실 빨강)·zero(중립 회색) 상태 클래스로 금액·수익률 색을 바꾼다. */
+.pnl-cell {
+  text-align: right;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  padding: 2px 6px;
+}
+.pnl-cell .amt {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.pnl-cell .pct {
+  font-size: var(--fs-xs);
+}
+.pnl-cell.pos .amt,
+.pnl-cell.pos .pct {
+  color: var(--success);
+}
+.pnl-cell.neg .amt,
+.pnl-cell.neg .pct {
+  color: var(--danger);
+}
+.pnl-cell.zero {
+  color: var(--text-muted);
+}
+
+/* ==================== 종목 트리맵 ==================== */
+/* 분석 탭의 종목별 비중 트리맵(charts.js renderTreemap 이 채움). 캔버스 래퍼는 480px 고정 높이. */
+/* 레전드(.lg-toggle)는 클릭으로 자산타입 필터를 켜고 끄며 .hidden 상태면 취소선·회색으로 표시된다. */
+/* .treemap-breadcrumb 는 자산타입 드릴다운 시에만 나타나는 상단 경로·합계 바다. */
+.treemap-wrap {
+  padding: 20px;
+  height: 480px;
+  position: relative;
+}
+.treemap-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 20px 16px;
+  font-size: var(--fs-xs);
+}
+.treemap-legend .lg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.treemap-legend .lg-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+/* 클릭 가능한 레전드 (필터 토글) */
+.treemap-legend .lg-toggle {
+  cursor: pointer;
+  border: 1px solid transparent;
+  padding: 5px 8px; /* 높이 25px — 탭 대상 24px 하한 */
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  transition: all 0.12s;
+}
+.treemap-legend .lg-toggle:hover {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+.treemap-legend .lg-toggle.hidden {
+  opacity: 0.45;
+}
+.treemap-legend .lg-toggle.hidden .lg-name {
+  text-decoration: line-through;
+}
+.treemap-legend .lg-toggle.hidden .lg-swatch {
+  background: var(--border-strong) !important;
+}
+.treemap-legend .lg-reset {
+  margin-left: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  font-weight: 500;
+  font-family: inherit;
+}
+.treemap-legend .lg-reset:hover {
+  background: var(--accent-line);
+}
+.treemap-legend .lg-only {
+  margin-left: 4px;
+  padding: 1px 5px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+}
+.treemap-legend .lg-only:hover {
+  background: white;
+}
+/* 트리맵 드릴다운 브레드크럼 바 */
+.treemap-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--accent-line);
+  font-size: var(--fs-md);
+}
+.treemap-breadcrumb .crumb-back {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.treemap-breadcrumb .crumb-back:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.treemap-breadcrumb .crumb-current {
+  color: var(--accent);
+  font-weight: 600;
+}
+.treemap-breadcrumb .crumb-meta {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.treemap-breadcrumb .crumb-total-label {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  margin-left: auto;
+  padding-right: 6px;
+}
+.treemap-breadcrumb .crumb-total-amt {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+.treemap-breadcrumb .crumb-extra {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  padding-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.treemap-wrap.clickable canvas {
+  cursor: pointer;
+}
+
+/* ==================== 세후 수익 ==================== */
+/* 분석 탭의 세후 평가 영역(render.js renderTaxAnalysis 가 채움). 요약 카드 2열 그리드 + 분류별 상세 테이블. */
+/* 카드 변형 — pretax(세전)·posttax(세후)·tax-amt(세금)·eff(실효세율)별로 값 색상이 다르다. */
+.tax-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px 20px;
+}
+.tax-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.tax-card .tax-lbl {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+.tax-card .tax-val {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+.tax-card .tax-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.tax-card.pretax .tax-val {
+  color: var(--text);
+}
+.tax-card.posttax .tax-val {
+  color: var(--accent);
+}
+.tax-card.tax-amt .tax-val {
+  color: var(--danger);
+}
+.tax-card.eff .tax-val {
+  color: var(--warning);
+} /* 호출처 없음(render.js 는 .eff 를 만들지 않음) — 보존만 */
+/* 손익 카드 — render.js renderTaxAnalysis 가 pos/neg 상태 클래스를 붙인다. 평면 틴트(soft 배경 + line 경계), 그라디언트 없음. */
+.tax-card.pnl-rate.pos {
+  background: var(--success-soft);
+  border-color: var(--success-line);
+}
+.tax-card.pnl-rate.neg {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+}
+.tax-card.pnl-rate.pos .tax-val,
+.tax-card.pnl-rate.pos .tax-pct {
+  color: var(--success);
+}
+.tax-card.pnl-rate.neg .tax-val,
+.tax-card.pnl-rate.neg .tax-pct {
+  color: var(--danger);
+}
+.tax-card .tax-pct {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+.tax-table {
+  width: 100%;
+  font-size: var(--fs-md);
+}
+.tax-table th {
+  font-size: var(--fs-xs);
+}
+.tax-table .tax-pos {
+  color: var(--success);
+}
+.tax-table .tax-neg {
+  color: var(--danger);
+}
+
+/* ==================== 설정 탭 ==================== */
+/* 설정 탭 전용 스타일 — 세로 1열 그리드와 백업/서버 저장 카드. */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+/* 백업/서버 저장 카드 (설정 탭, 노란 강조) */
+.backup-card {
+  padding: 20px;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  border-radius: 10px;
+  margin: 16px 20px;
+}
+.backup-card .backup-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: #713f12;
+  margin-bottom: 8px;
+}
+.backup-card .backup-desc {
+  font-size: var(--fs-md);
+  color: #854d0e;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.backup-actions .btn {
+  background: white;
+  border-color: #facc15;
+  color: #713f12;
+  font-weight: 500;
+}
+.backup-actions .btn:hover {
+  background: #fef9c3;
+  border-color: #eab308;
+}
+.backup-actions .btn.primary {
+  background: #ca8a04;
+  color: white;
+  border-color: #a16207;
+}
+.backup-actions .btn.primary:hover {
+  background: #a16207;
+}
+.backup-meta {
+  font-size: var(--fs-xs);
+  color: #854d0e;
+  margin-top: 10px;
+}
+
+/* 인플레 KPI 카드 (대시보드) — render.js renderInflationKPI 가 채우는 "총 자산 vs 인플레" 카드. */
+/* win(이김, 초록)·lose(짐, 빨강)·flat(데이터 없음, 회색) 상태 클래스가 값 색을 바꾼다. */
+.kpi-card.inflation {
+  position: relative;
+}
+.kpi-card.inflation.win .value {
+  color: var(--success);
+}
+.kpi-card.inflation.lose .value {
+  color: var(--danger);
+}
+.kpi-card.inflation .breakdown {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-card.inflation .empty-msg {
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* Responsive */
+/* 화면 폭 1024px 이하(태블릿 이하) 공통 축소 — KPI 2열·grid-2/3 1열·리밸런싱 2열·세후 그리드 1열·지표 박스 2열. */
+/* 자산 입력 행(.row)은 기본 12트랙 fr 그리드가 자연 압축된다 (입력들이 width:100%). 탭 버튼도 폭·글자를 축소. */
+/* 모바일(768px 이하) 전용 규칙은 파일 끝의 768px 블록에 모여 있다. */
+@media (max-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .metrics-box {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rebal-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .tax-grid {
+    grid-template-columns: 1fr;
   }
   .tab-btn {
-    flex: 1;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: var(--fs-md);
-    font-weight: 500;
-    color: var(--text-muted);
-    background: transparent;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    min-width: 110px;
+    min-width: 90px;
+    padding: 8px 10px;
+    font-size: var(--fs-sm);
   }
-  .tab-btn:hover { background: var(--bg); color: var(--text); }
-  .tab-btn.active {
-    background: var(--primary); color: white;
-    box-shadow: 0 1px 3px rgba(28,27,24,0.2);
-  }
-  .tab-btn.active:hover { background: var(--primary-hover); }
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; animation: fadeIn 0.18s ease; }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+}
 
-  /* ==================== 리밸런싱 카드 (대시보드) ==================== */
-  /* render.js renderRebalancing/renderRebalancingExposure 가 채우는 4열 제안 카드 그리드 (1024px 이하 2열). */
-  /* 카드 상태 클래스 — alert-buy(초록, 매수 필요)·alert-sell(빨강, 매도 필요)·ok(강조색, 허용 범위 내). */
-  .rebal-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    padding: 16px 20px;
+/* 동기화 상태 인디케이터 (헤더) — sync.js updateSyncIndicator 가 문구와 ok/err 클래스를 갱신. */
+/* 클릭하면 savePortfolio()로 즉시 저장. ok=마지막 저장 성공(초록), err=실패·연결 안 됨(빨강). */
+.sync-indicator {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-variant-numeric: tabular-nums;
+}
+.sync-indicator.ok {
+  color: var(--success);
+  border-color: var(--success-line);
+  background: var(--success-soft);
+}
+.sync-indicator.err {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+/* ==================== 모바일 (768px 이하) ==================== */
+/* 4차 개편 — 폰 대응 규칙을 이 블록 하나에 모은다 (320~768px 연속 대응, 별도 480px 분기 없음). */
+/* 여백·헤더 줄바꿈·KPI 2열·지표 박스 2열·섹션 헤더 랩·탭 버튼·차트 높이 축소. */
+/* 넓은 테이블은 전역 .table-scroll 래퍼가, 자산 입력 행은 컴팩트 모드가 담당한다. */
+@media (max-width: 768px) {
+  .app {
+    padding: 12px;
   }
-  .rebal-card {
-    border-radius: 10px;
-    padding: 14px 16px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    transition: all 0.15s;
+  /* iOS Safari 는 16px 미만 입력에 포커스하면 페이지를 확대한다 — 입력 요소만 16px 로 올린다(모달 포함). */
+  /* !important 인 이유: .inp(13px)·모달 인라인 style(11~14px)이 이 미디어쿼리를 이기기 때문. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
-  .rebal-card.alert-buy {
-    background: var(--success-soft);
-    border-color: var(--success-line);
+  /* 컴팩트 행의 이름·평가금액 칸은 표시 전용 — 행 어디를 탭해도 클릭 핸들러(render.js openHoldingEditModal 바인딩)가 편집 모달을 연다. */
+  /* pointer-events:none 이면 e.target 이 행/셀이 돼 핸들러의 closest('input') 가드를 통과한다. 16px 전역 규칙에서 빼서 13px 로 되돌린다 */
+  /* (포커스가 안 가므로 iOS 확대 무관). 키보드 Tab 으로는 여전히 편집 가능 — 접근성 경로로 남긴다. 16px 이면 3트랙 폭에 글자가 크고 잘렸다. */
+  .row input.inp.m-keep,
+  .row .dual-price.m-keep input {
+    font-size: var(--fs-md) !important;
+    pointer-events: none;
   }
-  .rebal-card.alert-sell {
-    background: var(--danger-soft);
-    border-color: var(--danger-line);
+  /* 종목 검색 칸만 직접 입력 유지(드롭다운 [data-dropdown] 이 문서 전역 조회라 모달로 못 옮김, render.js openHoldingEditModal 주석). */
+  /* 평소 13px, 포커스 순간 16px 로 키워 iOS 확대를 피해 본다 — iOS 가 포커스 전 크기로 판정하면 효과 없음(감수). */
+  /* transition 에서 font-size 를 빼는 이유: iOS 는 포커스 순간의 계산값으로 확대를 판정하므로 13→16 전환 애니메이션이 있으면 13px 로 읽힌다. */
+  .row .search-cell .search-input {
+    font-size: var(--fs-md) !important;
+    transition-property: background-color, border-color;
   }
-  .rebal-card.ok {
-    background: var(--accent-soft);
-    border-color: var(--accent-line);
+  .row .search-cell .search-input:focus {
+    font-size: 16px !important;
   }
-  .rebal-card .rebal-head {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 10px;
+  header.top {
+    flex-wrap: wrap;
+    gap: 10px;
   }
-  .rebal-card .rebal-head .name {
-    font-size: var(--fs-md); font-weight: 600;
+  header.top h1 {
+    font-size: var(--fs-xl);
   }
-  .rebal-card .rebal-pct-row {
-    display: flex; align-items: baseline; gap: 6px;
-    font-size: var(--fs-sm); color: var(--text-muted); margin-bottom: 6px;
-    font-variant-numeric: tabular-nums;
-  }
-  .rebal-card .rebal-pct-row .cur {
-    font-size: var(--fs-lg); font-weight: 700; color: var(--text);
-  }
-  .rebal-card .rebal-action {
-    font-size: var(--fs-md); font-weight: 600;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed rgba(28,27,24,0.1);
-    font-variant-numeric: tabular-nums;
-  }
-  .rebal-card.alert-buy .rebal-action { color: #166534; }
-  .rebal-card.alert-sell .rebal-action { color: #991b1b; }
-  .rebal-card.ok .rebal-action { color: var(--accent); }
-  .rebal-summary {
-    display: flex; gap: 8px;
-    padding: 0 20px 16px;
-    font-size: var(--fs-sm); color: var(--text-muted);
+  .actions {
     flex-wrap: wrap;
   }
-  .rebal-summary .chip {
-    padding: 4px 10px;
-    background: var(--bg);
-    border-radius: 999px;
-    border: 1px solid var(--border);
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
-
-  /* ==================== P&L 컬럼 ==================== */
-  /* 평단가 입력이 있는 카테고리에서 기본 10-column .row 대신 쓰는 확장 그리드와 손익 셀 스타일. */
-  /* 11-column grid (P&L 컬럼 추가): 종목/계좌/수량/평단가/현재가/평가금액/손익/통화/타입/메모/🔄/× */
-  .row.pnl {
-    grid-template-columns: 1.5fr 1.1fr 0.7fr 1.0fr 1.0fr 1.05fr 0.95fr 0.85fr 0.75fr 0.85fr 28px 28px;
+  .kpi-card {
+    padding: 14px;
   }
-  .row.pnl.has-ticker .search-cell { grid-column: 1 / 3; }
-  /* span-2 — 첫 두 트랙 병합 (검색형 헤더·skipAccount 이름 칸, 구 인라인 grid-column:1/3). 모바일에선 auto. */
-  .row .span-2 { grid-column: 1 / 3; }
-  /* 손익 셀 — pos(수익 초록)·neg(손실 빨강)·zero(중립 회색) 상태 클래스로 금액·수익률 색을 바꾼다. */
-  .pnl-cell {
-    text-align: right;
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.3;
-    padding: 2px 6px;
+  .kpi-card .value {
+    font-size: var(--fs-lg);
   }
-  .pnl-cell .amt { font-size: var(--fs-sm); font-weight: 600; }
-  .pnl-cell .pct { font-size: var(--fs-xs); }
-  .pnl-cell.pos .amt, .pnl-cell.pos .pct { color: var(--success); }
-  .pnl-cell.neg .amt, .pnl-cell.neg .pct { color: var(--danger); }
-  .pnl-cell.zero { color: var(--text-muted); }
-
-  /* ==================== 종목 트리맵 ==================== */
-  /* 분석 탭의 종목별 비중 트리맵(charts.js renderTreemap 이 채움). 캔버스 래퍼는 480px 고정 높이. */
-  /* 레전드(.lg-toggle)는 클릭으로 자산타입 필터를 켜고 끄며 .hidden 상태면 취소선·회색으로 표시된다. */
-  /* .treemap-breadcrumb 는 자산타입 드릴다운 시에만 나타나는 상단 경로·합계 바다. */
-  .treemap-wrap {
-    padding: 20px;
-    height: 480px;
-    position: relative;
+  .rebal-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    padding: 12px 14px;
   }
-  .treemap-legend {
-    display: flex; gap: 12px; flex-wrap: wrap;
-    padding: 0 20px 16px;
+  .metrics-box,
+  .metrics-box.metrics-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 14px;
+  }
+  .section-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  /* 탭 바 — 폰에서는 아이콘 위·글자 아래 2줄, 5칸 균등(하단 탭 스타일). 320px 에서도 한 줄에 들어간다: */
+  /* 296(app) − 2(border) − 8(padding) − 8(gap) = 278px ÷ 5 = 55.6px ≥ "자산 입력" 11px 글자폭 ≈ 47px. */
+  /* 이전 flex:1 0 auto(shrink 0)+nowrap 은 5개 합 368px 이 321px 를 넘어 가로 스크롤을 만들었다. overflow-x:auto 는 폴백으로 남긴다. */
+  .tab-nav {
+    gap: 2px;
+    padding: 4px;
+  }
+  .tab-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 2px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .tab-ico {
+    font-size: var(--fs-lg);
+    line-height: 1;
+  }
+  .tab-txt {
     font-size: var(--fs-xs);
+    line-height: 1.2;
   }
-  .treemap-legend .lg-item {
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--text-muted);
-  }
-  .treemap-legend .lg-swatch {
-    width: 12px; height: 12px; border-radius: 3px;
-  }
-  /* 클릭 가능한 레전드 (필터 토글) */
-  .treemap-legend .lg-toggle {
-    cursor: pointer;
-    border: 1px solid transparent;
-    padding: 5px 8px;  /* 높이 25px — 탭 대상 24px 하한 */
-    border-radius: 6px;
-    background: transparent;
-    font-size: var(--fs-xs);
-    font-family: inherit;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-muted);
-    transition: all 0.12s;
-  }
-  .treemap-legend .lg-toggle:hover {
-    background: var(--bg);
-    border-color: var(--border);
-    color: var(--text);
-  }
-  .treemap-legend .lg-toggle.hidden { opacity: 0.45; }
-  .treemap-legend .lg-toggle.hidden .lg-name { text-decoration: line-through; }
-  .treemap-legend .lg-toggle.hidden .lg-swatch { background: var(--border-strong) !important; }
-  .treemap-legend .lg-reset {
-    margin-left: 6px;
-    padding: 3px 10px;
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    background: var(--accent-soft);
-    cursor: pointer;
-    font-size: var(--fs-xs);
-    color: var(--accent);
-    font-weight: 500;
-    font-family: inherit;
-  }
-  .treemap-legend .lg-reset:hover { background: var(--accent-line); }
-  .treemap-legend .lg-only {
-    margin-left: 4px;
-    padding: 1px 5px;
-    background: rgba(255,255,255,0.6);
-    border-radius: 3px;
-    font-size: var(--fs-xs);
-    color: var(--accent);
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .treemap-legend .lg-only:hover { background: white; }
-  /* 트리맵 드릴다운 브레드크럼 바 */
-  .treemap-breadcrumb {
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 20px;
-    background: var(--accent-soft);
-    border-bottom: 1px solid var(--accent-line);
-    font-size: var(--fs-md);
-  }
-  .treemap-breadcrumb .crumb-back {
-    padding: 5px 12px;
-    border-radius: 6px;
-    background: white;
-    border: 1px solid var(--accent-line);
-    color: var(--accent);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .treemap-breadcrumb .crumb-back:hover { background: var(--accent-soft); border-color: var(--accent); }
-  .treemap-breadcrumb .crumb-current {
-    color: var(--accent); font-weight: 600;
-  }
-  .treemap-breadcrumb .crumb-meta {
-    color: var(--accent); font-size: var(--fs-xs); margin-left: auto;
-    font-variant-numeric: tabular-nums;
-  }
-  .treemap-breadcrumb .crumb-total-label {
-    font-size: var(--fs-xs); color: var(--accent);
-    margin-left: auto; padding-right: 6px;
-  }
-  .treemap-breadcrumb .crumb-total-amt {
-    font-size: var(--fs-lg); font-weight: 700;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.3px;
-  }
-  .treemap-breadcrumb .crumb-extra {
-    color: var(--accent); font-size: var(--fs-xs);
-    padding-left: 8px;
-    font-variant-numeric: tabular-nums;
-  }
-  .treemap-wrap.clickable canvas { cursor: pointer; }
-
-  /* ==================== 세후 수익 ==================== */
-  /* 분석 탭의 세후 평가 영역(render.js renderTaxAnalysis 가 채움). 요약 카드 2열 그리드 + 분류별 상세 테이블. */
-  /* 카드 변형 — pretax(세전)·posttax(세후)·tax-amt(세금)·eff(실효세율)별로 값 색상이 다르다. */
   .tax-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    padding: 16px 20px;
-  }
-  .tax-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 18px;
-  }
-  .tax-card .tax-lbl {
-    font-size: var(--fs-xs); color: var(--text-muted);
-    margin-bottom: 6px; letter-spacing: 0.3px;
-  }
-  .tax-card .tax-val {
-    font-size: var(--fs-2xl); font-weight: 700;
-    font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
-  }
-  .tax-card .tax-sub {
-    font-size: var(--fs-xs); color: var(--text-muted);
-    margin-top: 4px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tax-card.pretax .tax-val { color: var(--text); }
-  .tax-card.posttax .tax-val { color: var(--accent); }
-  .tax-card.tax-amt .tax-val { color: var(--danger); }
-  .tax-card.eff .tax-val { color: var(--warning); }  /* 호출처 없음(render.js 는 .eff 를 만들지 않음) — 보존만 */
-  /* 손익 카드 — render.js renderTaxAnalysis 가 pos/neg 상태 클래스를 붙인다. 평면 틴트(soft 배경 + line 경계), 그라디언트 없음. */
-  .tax-card.pnl-rate.pos { background: var(--success-soft); border-color: var(--success-line); }
-  .tax-card.pnl-rate.neg { background: var(--danger-soft); border-color: var(--danger-line); }
-  .tax-card.pnl-rate.pos .tax-val, .tax-card.pnl-rate.pos .tax-pct { color: var(--success); }
-  .tax-card.pnl-rate.neg .tax-val, .tax-card.pnl-rate.neg .tax-pct { color: var(--danger); }
-  .tax-card .tax-pct {
-    font-size: var(--fs-lg); font-weight: 600; margin-top: 4px;
-    font-variant-numeric: tabular-nums; letter-spacing: -0.3px;
-  }
-
-  .tax-table {
-    width: 100%;
-    font-size: var(--fs-md);
-  }
-  .tax-table th { font-size: var(--fs-xs); }
-  .tax-table .tax-pos { color: var(--success); }
-  .tax-table .tax-neg { color: var(--danger); }
-
-  /* ==================== 설정 탭 ==================== */
-  /* 설정 탭 전용 스타일 — 세로 1열 그리드와 백업/서버 저장 카드. */
-  .settings-grid {
-    display: grid;
     grid-template-columns: 1fr;
-    gap: 16px;
   }
-  /* 백업/서버 저장 카드 (설정 탭, 노란 강조) */
-  .backup-card {
-    padding: 20px;
-    background: #fefce8;
-    border: 1px solid #fde047;
-    border-radius: 10px;
-    margin: 16px 20px;
+  .cat-header .left {
+    flex-wrap: wrap;
   }
-  .backup-card .backup-title {
-    font-size: var(--fs-md); font-weight: 600;
-    color: #713f12;
-    margin-bottom: 8px;
+  /* 320px 에서 우측 합계 묶음($·₩·%·화살표)이 헤더 폭을 넘어 .section overflow 에 잘리므로 다음 줄로 내린다. */
+  .cat-header {
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
-  .backup-card .backup-desc {
-    font-size: var(--fs-md); color: #854d0e;
-    line-height: 1.5; margin-bottom: 14px;
+  .chart-wrap {
+    height: 260px;
+    padding: 12px;
   }
-  .backup-actions {
-    display: flex; gap: 8px; flex-wrap: wrap;
+  .chart-wrap.tall {
+    height: 320px;
   }
-  .backup-actions .btn {
-    background: white;
-    border-color: #facc15;
-    color: #713f12;
-    font-weight: 500;
+  .treemap-wrap {
+    height: 340px;
+    padding: 12px;
   }
-  .backup-actions .btn:hover { background: #fef9c3; border-color: #eab308; }
-  .backup-actions .btn.primary {
-    background: #ca8a04; color: white; border-color: #a16207;
+  /* 자산 입력 컴팩트 모드 — render.js 가 마킹한 m-keep 3칸(이름/평가금액/손익)만 3트랙 그리드로 표시. */
+  /* 이름·평가금액 입력은 표시 전용(블록 상단 pointer-events 규칙)이고, 종목 검색 칸을 뺀 모든 편집은 행 탭 → 편집 모달(openHoldingEditModal). */
+  /* 트랙 비율 1.2/1.5/0.9 + 입력 좌우 패딩 4px — 320px 에서 평가금액 칸(≈107px)에 13px 숫자 12자리(1,234,567,890)까지 잘리지 않는다. */
+  /* 이전 1.6/1.1/0.9 는 평가금액 칸이 ≈82px 라 285,000,000 조차 앞자리만 보였다(2026-09-07 실측). */
+  .row,
+  .row.pnl {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.9fr);
   }
-  .backup-actions .btn.primary:hover { background: #a16207; }
-  .backup-meta {
-    font-size: var(--fs-xs); color: #854d0e;
-    margin-top: 10px;
+  .row .inp {
+    padding-left: 4px;
+    padding-right: 4px;
   }
-
-  /* 인플레 KPI 카드 (대시보드) — render.js renderInflationKPI 가 채우는 "총 자산 vs 인플레" 카드. */
-  /* win(이김, 초록)·lose(짐, 빨강)·flat(데이터 없음, 회색) 상태 클래스가 값 색을 바꾼다. */
-  .kpi-card.inflation { position: relative; }
-  .kpi-card.inflation.win .value { color: var(--success); }
-  .kpi-card.inflation.lose .value { color: var(--danger); }
-  .kpi-card.inflation .breakdown {
-    font-size: var(--fs-xs); color: var(--text-muted);
-    margin-top: 6px;
-    display: flex; flex-direction: column; gap: 2px;
-    font-variant-numeric: tabular-nums;
+  .row > *:not(.m-keep) {
+    display: none;
   }
-  .kpi-card.inflation .empty-msg {
-    font-size: var(--fs-md); color: var(--text-muted);
-    margin-top: 4px;
-    line-height: 1.4;
+  .row .span-2,
+  .row.pnl.has-ticker .search-cell {
+    grid-column: auto;
   }
-
-  /* Responsive */
-  /* 화면 폭 1024px 이하(태블릿 이하) 공통 축소 — KPI 2열·grid-2/3 1열·리밸런싱 2열·세후 그리드 1열·지표 박스 2열. */
-  /* 자산 입력 행(.row)은 기본 12트랙 fr 그리드가 자연 압축된다 (입력들이 width:100%). 탭 버튼도 폭·글자를 축소. */
-  /* 모바일(768px 이하) 전용 규칙은 파일 끝의 768px 블록에 모여 있다. */
-  @media (max-width: 1024px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    .metrics-box { grid-template-columns: repeat(2, 1fr); }
-    .rebal-grid { grid-template-columns: repeat(2, 1fr); }
-    .tax-grid { grid-template-columns: 1fr; }
-    .tab-btn { min-width: 90px; padding: 8px 10px; font-size: var(--fs-sm); }
+  .row .computed {
+    font-size: var(--fs-sm);
   }
-
-  /* 동기화 상태 인디케이터 (헤더) — sync.js updateSyncIndicator 가 문구와 ok/err 클래스를 갱신. */
-  /* 클릭하면 savePortfolio()로 즉시 저장. ok=마지막 저장 성공(초록), err=실패·연결 안 됨(빨강). */
-  .sync-indicator {
-    font-size: var(--fs-sm); color: var(--text-muted);
-    cursor: pointer; white-space: nowrap;
-    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  .row:not(.head) {
+    cursor: pointer;
+    min-height: 40px;
+  }
+  .search-dropdown {
+    min-width: 0;
+    width: max(100%, 250px);
+    max-width: calc(100vw - 48px);
+  }
+  /* 모달 폼 그리드 축소 — 입출금은 날짜+금액 / 메모+추가버튼 2줄, 소급 추가는 1열 */
+  .cf-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hist-form-grid {
+    grid-template-columns: 1fr;
+  }
+  /* 모달 공통 — 320px 에서 안쪽 폭 ≈250px. 푸터 버튼(편집 모달은 4개)은 줄바꿈, 편집 폼 그리드는 열이 140px 미만이면 1열로 접힌다 */
+  /* (375px 는 2열, 320px 는 1열). 모달 입력은 16px 전역 규칙 그대로(포커스 대상이라 iOS 확대 방지 필요). */
+  .memo-modal {
+    padding: 16px;
+  }
+  .memo-modal-foot {
+    flex-wrap: wrap;
+  }
+  .hold-edit-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  /* 세후 표 — 남길 4열(분류·평가손익·세금·세후 평가금액)에 m-keep 마킹(index.html thead·render.js tbody), 나머지 3열 숨김. */
+  /* 4열도 375px 를 넘으므로(≈420px) .table-scroll 스크롤이 남고, 첫 열을 sticky 로 고정해 행 식별을 유지한다. */
+  /* sticky 셀은 불투명 배경 필수 — 머리글·합계(.tax-sum) 행만 surface. border-collapse:separate 는 collapse 에서 */
+  /* sticky 셀 테두리가 따라오지 않는 문제 회피. 첫 열은 nowrap+ellipsis 로 행 높이 고정(규칙 라벨이 잘리지만 섹션 설명에 같은 정보). */
+  .tax-table th:not(.m-keep),
+  .tax-table td:not(.m-keep) {
+    display: none;
+  }
+  .tax-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .tax-table th,
+  .tax-table td {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .tax-table th:first-child,
+  .tax-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
     background: var(--card);
-    font-variant-numeric: tabular-nums;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .sync-indicator.ok { color: var(--success); border-color: var(--success-line); background: var(--success-soft); }
-  .sync-indicator.err { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
-
-  /* ==================== 모바일 (768px 이하) ==================== */
-  /* 4차 개편 — 폰 대응 규칙을 이 블록 하나에 모은다 (320~768px 연속 대응, 별도 480px 분기 없음). */
-  /* 여백·헤더 줄바꿈·KPI 2열·지표 박스 2열·섹션 헤더 랩·탭 버튼·차트 높이 축소. */
-  /* 넓은 테이블은 전역 .table-scroll 래퍼가, 자산 입력 행은 컴팩트 모드가 담당한다. */
-  @media (max-width: 768px) {
-    .app { padding: 12px; }
-    /* iOS Safari 는 16px 미만 입력에 포커스하면 페이지를 확대한다 — 입력 요소만 16px 로 올린다(모달 포함). */
-    /* !important 인 이유: .inp(13px)·모달 인라인 style(11~14px)이 이 미디어쿼리를 이기기 때문. */
-    input, select, textarea { font-size: 16px !important; }
-    /* 컴팩트 행의 이름·평가금액 칸은 표시 전용 — 행 어디를 탭해도 클릭 핸들러(render.js openHoldingEditModal 바인딩)가 편집 모달을 연다. */
-    /* pointer-events:none 이면 e.target 이 행/셀이 돼 핸들러의 closest('input') 가드를 통과한다. 16px 전역 규칙에서 빼서 13px 로 되돌린다 */
-    /* (포커스가 안 가므로 iOS 확대 무관). 키보드 Tab 으로는 여전히 편집 가능 — 접근성 경로로 남긴다. 16px 이면 3트랙 폭에 글자가 크고 잘렸다. */
-    .row input.inp.m-keep, .row .dual-price.m-keep input { font-size: var(--fs-md) !important; pointer-events: none; }
-    /* 종목 검색 칸만 직접 입력 유지(드롭다운 [data-dropdown] 이 문서 전역 조회라 모달로 못 옮김, render.js openHoldingEditModal 주석). */
-    /* 평소 13px, 포커스 순간 16px 로 키워 iOS 확대를 피해 본다 — iOS 가 포커스 전 크기로 판정하면 효과 없음(감수). */
-    /* transition 에서 font-size 를 빼는 이유: iOS 는 포커스 순간의 계산값으로 확대를 판정하므로 13→16 전환 애니메이션이 있으면 13px 로 읽힌다. */
-    .row .search-cell .search-input { font-size: var(--fs-md) !important; transition-property: background-color, border-color; }
-    .row .search-cell .search-input:focus { font-size: 16px !important; }
-    header.top { flex-wrap: wrap; gap: 10px; }
-    header.top h1 { font-size: var(--fs-xl); }
-    .actions { flex-wrap: wrap; }
-    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .kpi-card { padding: 14px; }
-    .kpi-card .value { font-size: var(--fs-lg); }
-    .rebal-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: 12px 14px; }
-    .metrics-box, .metrics-box.metrics-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 14px; }
-    .section-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
-    /* 탭 바 — 폰에서는 아이콘 위·글자 아래 2줄, 5칸 균등(하단 탭 스타일). 320px 에서도 한 줄에 들어간다: */
-    /* 296(app) − 2(border) − 8(padding) − 8(gap) = 278px ÷ 5 = 55.6px ≥ "자산 입력" 11px 글자폭 ≈ 47px. */
-    /* 이전 flex:1 0 auto(shrink 0)+nowrap 은 5개 합 368px 이 321px 를 넘어 가로 스크롤을 만들었다. overflow-x:auto 는 폴백으로 남긴다. */
-    .tab-nav { gap: 2px; padding: 4px; }
-    .tab-btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; flex-direction: column; gap: 2px; }
-    .tab-ico { font-size: var(--fs-lg); line-height: 1; }
-    .tab-txt { font-size: var(--fs-xs); line-height: 1.2; }
-    .tax-grid { grid-template-columns: 1fr; }
-    .cat-header .left { flex-wrap: wrap; }
-    /* 320px 에서 우측 합계 묶음($·₩·%·화살표)이 헤더 폭을 넘어 .section overflow 에 잘리므로 다음 줄로 내린다. */
-    .cat-header { flex-wrap: wrap; row-gap: 4px; }
-    .chart-wrap { height: 260px; padding: 12px; }
-    .chart-wrap.tall { height: 320px; }
-    .treemap-wrap { height: 340px; padding: 12px; }
-    /* 자산 입력 컴팩트 모드 — render.js 가 마킹한 m-keep 3칸(이름/평가금액/손익)만 3트랙 그리드로 표시. */
-    /* 이름·평가금액 입력은 표시 전용(블록 상단 pointer-events 규칙)이고, 종목 검색 칸을 뺀 모든 편집은 행 탭 → 편집 모달(openHoldingEditModal). */
-    /* 트랙 비율 1.2/1.5/0.9 + 입력 좌우 패딩 4px — 320px 에서 평가금액 칸(≈107px)에 13px 숫자 12자리(1,234,567,890)까지 잘리지 않는다. */
-    /* 이전 1.6/1.1/0.9 는 평가금액 칸이 ≈82px 라 285,000,000 조차 앞자리만 보였다(2026-09-07 실측). */
-    .row, .row.pnl { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.9fr); }
-    .row .inp { padding-left: 4px; padding-right: 4px; }
-    .row > *:not(.m-keep) { display: none; }
-    .row .span-2, .row.pnl.has-ticker .search-cell { grid-column: auto; }
-    .row .computed { font-size: var(--fs-sm); }
-    .row:not(.head) { cursor: pointer; min-height: 40px; }
-    .search-dropdown { min-width: 0; width: max(100%, 250px); max-width: calc(100vw - 48px); }
-    /* 모달 폼 그리드 축소 — 입출금은 날짜+금액 / 메모+추가버튼 2줄, 소급 추가는 1열 */
-    .cf-form-grid { grid-template-columns: 1fr 1fr; }
-    .hist-form-grid { grid-template-columns: 1fr; }
-    /* 모달 공통 — 320px 에서 안쪽 폭 ≈250px. 푸터 버튼(편집 모달은 4개)은 줄바꿈, 편집 폼 그리드는 열이 140px 미만이면 1열로 접힌다 */
-    /* (375px 는 2열, 320px 는 1열). 모달 입력은 16px 전역 규칙 그대로(포커스 대상이라 iOS 확대 방지 필요). */
-    .memo-modal { padding: 16px; }
-    .memo-modal-foot { flex-wrap: wrap; }
-    .hold-edit-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-    /* 세후 표 — 남길 4열(분류·평가손익·세금·세후 평가금액)에 m-keep 마킹(index.html thead·render.js tbody), 나머지 3열 숨김. */
-    /* 4열도 375px 를 넘으므로(≈420px) .table-scroll 스크롤이 남고, 첫 열을 sticky 로 고정해 행 식별을 유지한다. */
-    /* sticky 셀은 불투명 배경 필수 — 머리글·합계(.tax-sum) 행만 surface. border-collapse:separate 는 collapse 에서 */
-    /* sticky 셀 테두리가 따라오지 않는 문제 회피. 첫 열은 nowrap+ellipsis 로 행 높이 고정(규칙 라벨이 잘리지만 섹션 설명에 같은 정보). */
-    .tax-table th:not(.m-keep), .tax-table td:not(.m-keep) { display: none; }
-    .tax-table { border-collapse: separate; border-spacing: 0; }
-    .tax-table th, .tax-table td { padding-left: 10px; padding-right: 10px; }
-    .tax-table th:first-child, .tax-table td:first-child {
-      position: sticky; left: 0; z-index: 1; background: var(--card);
-      max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .tax-table thead th:first-child, .tax-table tr.tax-sum td:first-child { background: var(--surface); }
+  .tax-table thead th:first-child,
+  .tax-table tr.tax-sum td:first-child {
+    background: var(--surface);
   }
+}

@@ -77,7 +77,7 @@ function holdingValueUSD(h) {
 // 섹션 헤더에 달러 합계를 병기하기 위해 render.js에서 호출한다.
 function categoryTotalUSD(catKey) {
   return state.holdings
-    .filter(h => h.category === catKey)
+    .filter((h) => h.category === catKey)
     .reduce((sum, h) => sum + holdingValueUSD(h), 0);
 }
 
@@ -99,11 +99,13 @@ function isDebt(h) {
 }
 // 부채를 제외한 자산 항목만 — 자산 축 집계(총자산·통화노출·자산타입·유동성·검산·트리맵)의 공통 모집단.
 function assetHoldings() {
-  return state.holdings.filter(h => !isDebt(h));
+  return state.holdings.filter((h) => !isDebt(h));
 }
 // 부채 총액 (양수 KRW). 순자산 계산과 KPI 부채 표시에 사용.
 function debtTotal() {
-  return state.holdings.filter(isDebt).reduce((sum, h) => sum + holdingValue(h), 0);
+  return state.holdings
+    .filter(isDebt)
+    .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
 // 특정 카테고리(국내주식·현금 등)에 속한 보유분의 KRW 평가액 합계.
@@ -111,7 +113,7 @@ function debtTotal() {
 // 카테고리를 명시해 조회하므로 '부채'를 넘기면 부채 합계가 나온다 (자산 축 아님).
 function categoryTotal(cat) {
   return state.holdings
-    .filter(h => h.category === cat)
+    .filter((h) => h.category === cat)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
@@ -119,7 +121,7 @@ function categoryTotal(cat) {
 // 스냅샷 기록(krw/usd 필드)의 원천 데이터가 된다.
 function exposureTotal(exp) {
   return assetHoldings()
-    .filter(h => h.exposure === exp)
+    .filter((h) => h.exposure === exp)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
@@ -133,7 +135,7 @@ function assetTypeOf(h) {
 // 도넛·리밸런싱·트리맵·검산이 전부 같은 분류 기준을 공유하게 한다.
 function assetTypeTotal(type) {
   return assetHoldings()
-    .filter(h => assetTypeOf(h) === type)
+    .filter((h) => assetTypeOf(h) === type)
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 
@@ -146,7 +148,11 @@ function grandTotal() {
 // 항목에 유동성 미지정 시 카테고리 기본값(DEFAULT_LIQUIDITY_BY_CAT)으로 판정한다.
 function liquidityTotal(kind /* 'liquid' | 'locked' */) {
   return assetHoldings()
-    .filter(h => (h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid') === kind)
+    .filter(
+      (h) =>
+        (h.liquidity || DEFAULT_LIQUIDITY_BY_CAT[h.category] || 'liquid') ===
+        kind,
+    )
     .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 // 항목 1건의 유동성 값을 확정한다. 사용자 지정 → 카테고리 기본값 → 'liquid' 순 폴백.
@@ -163,20 +169,30 @@ function verifyTotals() {
   const total = grandTotal();
   const r = {
     total,
-    assetType: {}, assetTypeSum: 0,
-    exposure: {}, exposureSum: 0,
+    assetType: {},
+    assetTypeSum: 0,
+    exposure: {},
+    exposureSum: 0,
     liquid: liquidityTotal('liquid'),
     locked: liquidityTotal('locked'),
     liquiditySum: 0,
-    orphans: [],   // 어느 축에서도 안 잡히는 홀딩
-    warnings: [],  // 정합성 경고
+    orphans: [], // 어느 축에서도 안 잡히는 홀딩
+    warnings: [], // 정합성 경고
   };
-  ASSET_TYPES.forEach(t => { const v = assetTypeTotal(t); r.assetType[t] = v; r.assetTypeSum += v; });
-  EXPOSURES.forEach(e => { const v = exposureTotal(e); r.exposure[e] = v; r.exposureSum += v; });
+  ASSET_TYPES.forEach((t) => {
+    const v = assetTypeTotal(t);
+    r.assetType[t] = v;
+    r.assetTypeSum += v;
+  });
+  EXPOSURES.forEach((e) => {
+    const v = exposureTotal(e);
+    r.exposure[e] = v;
+    r.exposureSum += v;
+  });
   r.liquiditySum = r.liquid + r.locked;
 
   // orphan 검사: 각 홀딩이 정의된 그룹에 실제로 매칭되는지 (부채는 자산 축 밖이라 제외)
-  assetHoldings().forEach(h => {
+  assetHoldings().forEach((h) => {
     const v = holdingValue(h);
     if (v <= 0) return;
     const at = assetTypeOf(h);
@@ -184,18 +200,31 @@ function verifyTotals() {
     const missingExp = !EXPOSURES.includes(h.exposure);
     if (missingAT || missingExp) {
       r.orphans.push({
-        id: h.id, name: h.name || '(무명)', value: v,
-        assetType: at, missingAT,
-        exposure: h.exposure || '(빈값)', missingExp,
+        id: h.id,
+        name: h.name || '(무명)',
+        value: v,
+        assetType: at,
+        missingAT,
+        exposure: h.exposure || '(빈값)',
+        missingExp,
       });
     }
   });
 
   // 소수점 오차 허용 임계값 1원
   const eps = 1;
-  if (Math.abs(total - r.assetTypeSum) > eps) r.warnings.push(`자산타입 합계 차이: ${Math.round(total - r.assetTypeSum).toLocaleString()}원`);
-  if (Math.abs(total - r.exposureSum) > eps) r.warnings.push(`통화노출 합계 차이: ${Math.round(total - r.exposureSum).toLocaleString()}원`);
-  if (Math.abs(total - r.liquiditySum) > eps) r.warnings.push(`유동성 합계 차이: ${Math.round(total - r.liquiditySum).toLocaleString()}원`);
+  if (Math.abs(total - r.assetTypeSum) > eps)
+    r.warnings.push(
+      `자산타입 합계 차이: ${Math.round(total - r.assetTypeSum).toLocaleString()}원`,
+    );
+  if (Math.abs(total - r.exposureSum) > eps)
+    r.warnings.push(
+      `통화노출 합계 차이: ${Math.round(total - r.exposureSum).toLocaleString()}원`,
+    );
+  if (Math.abs(total - r.liquiditySum) > eps)
+    r.warnings.push(
+      `유동성 합계 차이: ${Math.round(total - r.liquiditySum).toLocaleString()}원`,
+    );
   r.ok = r.orphans.length === 0 && r.warnings.length === 0;
   return r;
 }
@@ -210,16 +239,21 @@ function renderVerifyResult() {
   const rows = [];
   // 부채가 있으면 순자산까지 같이 보여준다 (검산 축들은 전부 자산 기준).
   const _debt = debtTotal();
-  rows.push(`<div style="font-weight:600;margin-bottom:6px;">총 자산: ${fmtKRW(r.total)}${_debt > 0 ? ` · 부채 ${fmtKRW(_debt)} · 순자산 ${fmtKRW(r.total - _debt)}` : ''}</div>`);
+  rows.push(
+    `<div style="font-weight:600;margin-bottom:6px;">총 자산: ${fmtKRW(r.total)}${_debt > 0 ? ` · 부채 ${fmtKRW(_debt)} · 순자산 ${fmtKRW(r.total - _debt)}` : ''}</div>`,
+  );
 
   // 자산타입 breakdown 표 — 금액 0인 타입은 행 생략, 합계 행은 총자산과의 차이를 색으로 표시.
-  const atRows = ASSET_TYPES.map(t => {
+  const atRows = ASSET_TYPES.map((t) => {
     const v = r.assetType[t];
     if (v === 0) return null;
-    return `<tr><td>${t}</td><td class="right">${fmtKRW(v)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((v/r.total)*100).toFixed(1) : '0.0'}%</td></tr>`;
-  }).filter(Boolean).join('');
+    return `<tr><td>${t}</td><td class="right">${fmtKRW(v)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((v / r.total) * 100).toFixed(1) : '0.0'}%</td></tr>`;
+  })
+    .filter(Boolean)
+    .join('');
   const atDiff = r.total - r.assetTypeSum;
-  const atSumCls = Math.abs(atDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
+  const atSumCls =
+    Math.abs(atDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
       <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">자산타입</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
@@ -230,13 +264,16 @@ function renderVerifyResult() {
   `);
 
   // 통화노출 breakdown 표 — 구조는 자산타입 표와 동일.
-  const expRows = EXPOSURES.map(e => {
+  const expRows = EXPOSURES.map((e) => {
     const v = r.exposure[e];
     if (v === 0) return null;
-    return `<tr><td>${e}</td><td class="right">${fmtKRW(v)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((v/r.total)*100).toFixed(1) : '0.0'}%</td></tr>`;
-  }).filter(Boolean).join('');
+    return `<tr><td>${e}</td><td class="right">${fmtKRW(v)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((v / r.total) * 100).toFixed(1) : '0.0'}%</td></tr>`;
+  })
+    .filter(Boolean)
+    .join('');
   const expDiff = r.total - r.exposureSum;
-  const expSumCls = Math.abs(expDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
+  const expSumCls =
+    Math.abs(expDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
       <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">통화노출</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
@@ -248,13 +285,14 @@ function renderVerifyResult() {
 
   // 유동성 breakdown 표 — 유동/묶임 두 행 고정.
   const liqDiff = r.total - r.liquiditySum;
-  const liqSumCls = Math.abs(liqDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
+  const liqSumCls =
+    Math.abs(liqDiff) <= 1 ? 'color:var(--success)' : 'color:var(--danger)';
   rows.push(`
     <table style="width:100%;margin-bottom:8px;font-size:12px;">
       <thead><tr style="background:var(--surface);"><th style="text-align:left;padding:4px 8px;">유동성</th><th class="right" style="padding:4px 8px;">금액</th><th class="right" style="padding:4px 8px;">비중</th></tr></thead>
       <tbody>
-        <tr><td>💧 유동</td><td class="right">${fmtKRW(r.liquid)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.liquid/r.total)*100).toFixed(1) : '0.0'}%</td></tr>
-        <tr><td>🔒 묶임</td><td class="right">${fmtKRW(r.locked)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.locked/r.total)*100).toFixed(1) : '0.0'}%</td></tr>
+        <tr><td>💧 유동</td><td class="right">${fmtKRW(r.liquid)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.liquid / r.total) * 100).toFixed(1) : '0.0'}%</td></tr>
+        <tr><td>🔒 묶임</td><td class="right">${fmtKRW(r.locked)}</td><td class="right" style="color:var(--text-muted)">${r.total ? ((r.locked / r.total) * 100).toFixed(1) : '0.0'}%</td></tr>
         <tr style="background:var(--surface);font-weight:600;"><td>합계</td><td class="right">${fmtKRW(r.liquiditySum)}</td><td class="right" style="${liqSumCls}">${Math.abs(liqDiff) <= 1 ? '✓ 일치' : '차이 ' + fmtKRW(liqDiff)}</td></tr>
       </tbody>
     </table>
@@ -262,12 +300,16 @@ function renderVerifyResult() {
 
   // orphan 홀딩·합계 차이 경고 박스, 이상 없으면 초록 확인 박스.
   if (r.orphans.length > 0) {
-    const orphanRows = r.orphans.map(o => `<tr>
+    const orphanRows = r.orphans
+      .map(
+        (o) => `<tr>
       <td>${escapeHtml(o.name)}</td>
       <td class="right">${fmtKRW(o.value)}</td>
       <td>${o.missingAT ? `<span style="color:var(--danger)">자산타입 '${escapeHtml(o.assetType)}' 미등록</span>` : o.assetType}</td>
       <td>${o.missingExp ? `<span style="color:var(--danger)">통화노출 '${escapeHtml(o.exposure)}' 미등록</span>` : o.exposure}</td>
-    </tr>`).join('');
+    </tr>`,
+      )
+      .join('');
     rows.push(`
       <div style="margin-top:12px;padding:10px;background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;">
         <div style="color:var(--danger);font-weight:600;margin-bottom:6px;">⚠️ 어느 축에도 안 잡히는 홀딩 ${r.orphans.length}개</div>
@@ -280,7 +322,7 @@ function renderVerifyResult() {
   }
   if (r.warnings.length > 0) {
     rows.push(`<div style="margin-top:8px;padding:10px;background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;color:var(--danger);">
-      ${r.warnings.map(w => `⚠️ ${w}`).join('<br/>')}
+      ${r.warnings.map((w) => `⚠️ ${w}`).join('<br/>')}
     </div>`);
   }
   if (r.ok) {
@@ -296,7 +338,7 @@ function renderVerifyResult() {
 // 아래 scoped 계열 합계 함수들이 전부 이 필터를 공유해, 스코프 전환 시 대시보드가 일괄 전환된다.
 function scopedHoldings() {
   if ((state.viewScope || 'all') === 'liquid') {
-    return assetHoldings().filter(h => holdingLiquidity(h) === 'liquid');
+    return assetHoldings().filter((h) => holdingLiquidity(h) === 'liquid');
   }
   return assetHoldings();
 }
@@ -306,15 +348,21 @@ function scopedTotal() {
 }
 // View Scope를 적용한 통화노출별 KRW 합계. 환노출 리밸런싱 표에서 사용한다.
 function scopedExposureTotal(exp) {
-  return scopedHoldings().filter(h => h.exposure === exp).reduce((sum, h) => sum + holdingValue(h), 0);
+  return scopedHoldings()
+    .filter((h) => h.exposure === exp)
+    .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 // View Scope를 적용한 자산타입별 KRW 합계. 도넛 차트·자산타입 리밸런싱 계산에서 사용한다.
 function scopedAssetTypeTotal(type) {
-  return scopedHoldings().filter(h => assetTypeOf(h) === type).reduce((sum, h) => sum + holdingValue(h), 0);
+  return scopedHoldings()
+    .filter((h) => assetTypeOf(h) === type)
+    .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 // View Scope를 적용한 카테고리별 KRW 합계. 스코프를 반영해야 하는 차트·표에서 사용한다.
 function scopedCategoryTotal(cat) {
-  return scopedHoldings().filter(h => h.category === cat).reduce((sum, h) => sum + holdingValue(h), 0);
+  return scopedHoldings()
+    .filter((h) => h.category === cat)
+    .reduce((sum, h) => sum + holdingValue(h), 0);
 }
 // 현재 뷰가 '유동만' 모드인지 여부. 렌더 쪽에서 안내 문구·목표 비중 해석을 분기할 때 쓴다.
 function isLiquidScope() {
@@ -334,18 +382,19 @@ function setViewScope(scope) {
 // 현재 state.viewScope에 맞춰 동기화한다. DOM만 갱신하며 저장·재계산은 하지 않는다.
 function syncScopeToggleUI() {
   const scope = state.viewScope || 'all';
-  ['scopeAllBtn', 'scopeAllBtn2'].forEach(id => {
+  ['scopeAllBtn', 'scopeAllBtn2'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('primary', scope === 'all');
   });
-  ['scopeLiquidBtn', 'scopeLiquidBtn2'].forEach(id => {
+  ['scopeLiquidBtn', 'scopeLiquidBtn2'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('primary', scope === 'liquid');
   });
-  const hintText = scope === 'liquid'
-    ? '💧 유동 자산만 — 즉시 매매·리밸런싱 가능한 자산 기준 (목표 비중도 유동 기준으로 해석)'
-    : '전체 자산 기준 — 부동산·연금·청약 등 묶인 자산 모두 포함';
-  ['scopeHint', 'scopeHint2'].forEach(id => {
+  const hintText =
+    scope === 'liquid'
+      ? '💧 유동 자산만 — 즉시 매매·리밸런싱 가능한 자산 기준 (목표 비중도 유동 기준으로 해석)'
+      : '전체 자산 기준 — 부동산·연금·청약 등 묶인 자산 모두 포함';
+  ['scopeHint', 'scopeHint2'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.textContent = hintText;
   });
@@ -401,7 +450,7 @@ function computeTWRSeries() {
 function computeRiskStats() {
   const snaps = [...state.history]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .filter(s => (s.totalUSD || 0) > 0);
+    .filter((s) => (s.totalUSD || 0) > 0);
   if (snaps.length < 2) return null;
   // MDD — 전 기간
   let peak = snaps[0].totalUSD;
@@ -415,15 +464,18 @@ function computeRiskStats() {
   // 변동성 — 마지막 스냅샷 기준 최근 1년 안의 스냅샷만 사용
   const lastDate = new Date(snaps[snaps.length - 1].date);
   const cutoff = new Date(lastDate.getTime() - 365.25 * 86400000);
-  const win = snaps.filter(s => new Date(s.date) >= cutoff);
-  let vol = null, volYears = null;
+  const win = snaps.filter((s) => new Date(s.date) >= cutoff);
+  let vol = null,
+    volYears = null;
   if (win.length >= 2) {
     let sumSq = 0;
     for (let i = 1; i < win.length; i++) {
       const r = Math.log(win[i].totalUSD / win[i - 1].totalUSD);
       sumSq += r * r;
     }
-    volYears = (new Date(win[win.length - 1].date) - new Date(win[0].date)) / (365.25 * 86400000);
+    volYears =
+      (new Date(win[win.length - 1].date) - new Date(win[0].date)) /
+      (365.25 * 86400000);
     if (volYears > 0) vol = Math.sqrt(sumSq / volYears);
   }
   return { mdd, vol, volYears };
@@ -438,10 +490,24 @@ function debounce(fn, wait = 200) {
   let t = null;
   const debounced = (...args) => {
     if (t) clearTimeout(t);
-    t = setTimeout(() => { t = null; fn(...args); }, wait);
+    t = setTimeout(() => {
+      t = null;
+      fn(...args);
+    }, wait);
   };
-  debounced.flush = () => { if (t) { clearTimeout(t); t = null; fn(); } };
-  debounced.cancel = () => { if (t) { clearTimeout(t); t = null; } };
+  debounced.flush = () => {
+    if (t) {
+      clearTimeout(t);
+      t = null;
+      fn();
+    }
+  };
+  debounced.cancel = () => {
+    if (t) {
+      clearTimeout(t);
+      t = null;
+    }
+  };
   return debounced;
 }
 
@@ -499,16 +565,16 @@ function holdingPnL(h) {
 // - 현금/부동산: 분석 제외 (부동산은 별도 양도소득세)
 
 const TAX_RULES = {
-  '국내주식':     { rate: 0.00, deduction: 0,         label: '비과세 (일반)' },
-  '해외주식':     { rate: 0.22, deduction: 2_500_000, label: '22% (250만 공제)' },
-  '암호화폐':     { rate: 0.22, deduction: 2_500_000, label: '22% (250만 공제)' },
-  '금':           { rate: 0.00, deduction: 0,         label: '비과세 (KRX 금현물)' },
-  'ISA':          { rate: 0.00, deduction: 0,         label: '비과세' },
-  '연금저축펀드': { rate: 0.00, deduction: 0,         label: '비과세 (인출 시 별도)' },
-  '퇴직연금':     { rate: 0.00, deduction: 0,         label: '비과세 (인출 시 별도)' },
-  '현금':         null,
-  '부동산':       null,
-  '부채':         null,
+  국내주식: { rate: 0.0, deduction: 0, label: '비과세 (일반)' },
+  해외주식: { rate: 0.22, deduction: 2_500_000, label: '22% (250만 공제)' },
+  암호화폐: { rate: 0.22, deduction: 2_500_000, label: '22% (250만 공제)' },
+  금: { rate: 0.0, deduction: 0, label: '비과세 (KRX 금현물)' },
+  ISA: { rate: 0.0, deduction: 0, label: '비과세' },
+  연금저축펀드: { rate: 0.0, deduction: 0, label: '비과세 (인출 시 별도)' },
+  퇴직연금: { rate: 0.0, deduction: 0, label: '비과세 (인출 시 별도)' },
+  현금: null,
+  부동산: null,
+  부채: null,
 };
 
 // 카테고리별 평가금액·평가손익을 합산해 전량 매도를 가정한 예상 세금을 추정한다.
@@ -518,20 +584,25 @@ const TAX_RULES = {
 // 세금 분석 화면(renderTaxAnalysis)이 표를 그릴 때 그대로 사용한다.
 function computeTaxByCategory() {
   const result = [];
-  CATEGORIES.forEach(cat => {
+  CATEGORIES.forEach((cat) => {
     const rule = TAX_RULES[cat.key];
     if (!rule) return; // 현금/부동산 제외
 
-    const items = state.holdings.filter(h => h.category === cat.key);
+    const items = state.holdings.filter((h) => h.category === cat.key);
     let totalValue = 0;
     let totalPnL = 0;
     let totalCost = 0;
     let totalEvalForPnL = 0; // 평단가 입력된 종목의 현재 평가액 (원가와 같은 종목 집합)
     let hasPnL = false;
-    items.forEach(h => {
+    items.forEach((h) => {
       totalValue += holdingValue(h);
       const p = holdingPnL(h);
-      if (p) { totalPnL += p.pnl; totalCost += p.costKRW; totalEvalForPnL += p.curKRW; hasPnL = true; }
+      if (p) {
+        totalPnL += p.pnl;
+        totalCost += p.costKRW;
+        totalEvalForPnL += p.curKRW;
+        hasPnL = true;
+      }
     });
     if (totalValue <= 0 && !hasPnL) return;
 
@@ -547,7 +618,8 @@ function computeTaxByCategory() {
       cost: totalCost,
       evalForPnL: totalEvalForPnL,
       hasPnL,
-      deduction: hasPnL && totalPnL > 0 ? Math.min(rule.deduction, totalPnL) : 0,
+      deduction:
+        hasPnL && totalPnL > 0 ? Math.min(rule.deduction, totalPnL) : 0,
       taxableBase,
       tax,
       afterTax,
@@ -556,4 +628,3 @@ function computeTaxByCategory() {
   });
   return result;
 }
-

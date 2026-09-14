@@ -14,7 +14,10 @@
 // '<'로 시작하거나 에러 문구가 보이면 즉시 throw 해 fetchViaProxy가 다음 프록시로 넘어가게 한다.
 function _validateJSON(text) {
   const trimmed = text.trimStart();
-  if (trimmed.startsWith('<') || /access denied|forbidden|<html/i.test(trimmed.substring(0, 200))) {
+  if (
+    trimmed.startsWith('<') ||
+    /access denied|forbidden|<html/i.test(trimmed.substring(0, 200))
+  ) {
     throw new Error('Proxy returned HTML/error page');
   }
   return JSON.parse(text);
@@ -30,18 +33,19 @@ const CORS_PROXIES = [
   {
     // 같은 origin의 /api/proxy — 배포(Cloudflare Pages Functions)와 로컬(proxy_server.py) 모두 이 경로
     name: 'api-proxy',
-    build: url => `/api/proxy?url=${encodeURIComponent(url)}`,
-    parse: async r => _validateJSON(await r.text()),
+    build: (url) => `/api/proxy?url=${encodeURIComponent(url)}`,
+    parse: async (r) => _validateJSON(await r.text()),
   },
   {
     name: 'corsproxy.io',
-    build: url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    parse: async r => _validateJSON(await r.text()),
+    build: (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    parse: async (r) => _validateJSON(await r.text()),
   },
   {
     name: 'allorigins/get',
-    build: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    parse: async r => {
+    build: (url) =>
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    parse: async (r) => {
       const wrapped = await r.json();
       if (!wrapped.contents) throw new Error('빈 응답');
       return _validateJSON(wrapped.contents);
@@ -49,8 +53,9 @@ const CORS_PROXIES = [
   },
   {
     name: 'codetabs',
-    build: url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    parse: async r => _validateJSON(await r.text()),
+    build: (url) =>
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    parse: async (r) => _validateJSON(await r.text()),
   },
 ];
 
@@ -62,7 +67,10 @@ async function fetchViaProxy(url) {
   for (const p of CORS_PROXIES) {
     try {
       const r = await fetch(p.build(url));
-      if (!r.ok) { lastErr = new Error(`${p.name}: HTTP ${r.status}`); continue; }
+      if (!r.ok) {
+        lastErr = new Error(`${p.name}: HTTP ${r.status}`);
+        continue;
+      }
       const data = await p.parse(r);
       if (data) return data;
     } catch (e) {
@@ -73,7 +81,9 @@ async function fetchViaProxy(url) {
 }
 
 // 문자열에 한글(음절·자모)이 있는지 검사. 검색어가 한글이면 네이버 우선 경로로 분기하는 데 쓴다.
-function hasKorean(s) { return /[가-힯ᄀ-ᇿ㄰-㆏]/.test(s); }
+function hasKorean(s) {
+  return /[가-힯ᄀ-ᇿ㄰-㆏]/.test(s);
+}
 
 // 네이버 자동완성 응답을 앱 공통 검색 결과 형식으로 변환한다.
 // KOSPI/KOSDAQ 국내주식만 남기고 최대 10건으로 자른 뒤,
@@ -81,13 +91,18 @@ function hasKorean(s) { return /[가-힯ᄀ-ᇿ㄰-㆏]/.test(s); }
 function parseNaverResults(data) {
   const items = data?.result?.items || data?.items || [];
   return items
-    .filter(it => {
+    .filter((it) => {
       const tc = it.typeCode || '';
       const tn = it.typeName || '';
-      return tc === 'KOSPI' || tc === 'KOSDAQ' || tn.includes('주식') || tn.includes('국내');
+      return (
+        tc === 'KOSPI' ||
+        tc === 'KOSDAQ' ||
+        tn.includes('주식') ||
+        tn.includes('국내')
+      );
     })
     .slice(0, 10)
-    .map(it => {
+    .map((it) => {
       const code = it.code || it.itemCode;
       let yahooSym;
       if (it.typeCode === 'KOSPI') yahooSym = code + '.KS';
@@ -135,7 +150,8 @@ async function fetchExchangeRate(showToast = false) {
   let source = '';
   // 1순위: Yahoo Finance KRW=X (실시간 환율, 프록시 경유)
   try {
-    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/KRW%3DX?interval=1d&range=1d';
+    const url =
+      'https://query1.finance.yahoo.com/v8/finance/chart/KRW%3DX?interval=1d&range=1d';
     const data = await fetchViaProxy(url);
     const meta = data?.chart?.result?.[0]?.meta;
     const yPrice = meta?.regularMarketPrice;
@@ -149,7 +165,9 @@ async function fetchExchangeRate(showToast = false) {
   // 2순위: Frankfurter (ECB 공식, 일 1회 갱신)
   if (!rate) {
     try {
-      const res = await fetch('https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW');
+      const res = await fetch(
+        'https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW',
+      );
       if (!res.ok) throw new Error('Frankfurter 응답 실패');
       const data = await res.json();
       rate = data?.rates?.KRW;
@@ -179,7 +197,9 @@ async function fetchExchangeRate(showToast = false) {
 // 상단 환율 배지(#fxRate/#fxMeta)에 현재 환율(소수 2자리)과 마지막 갱신 시각(HH:MM)을 표시한다.
 // 갱신 이력이 없으면 '미갱신'으로 표시. DOM만 갱신하는 순수 표시 함수.
 function updateFxBadge() {
-  document.getElementById('fxRate').textContent = num(state.usdKrwRate).toFixed(2);
+  document.getElementById('fxRate').textContent = num(state.usdKrwRate).toFixed(
+    2,
+  );
   if (state.rateUpdatedAt) {
     const dt = new Date(state.rateUpdatedAt);
     const hh = String(dt.getHours()).padStart(2, '0');
@@ -197,32 +217,42 @@ function updateFxBadge() {
 // 이 값들은 검색 자동완성으로 종목을 선택해야 채워진다(직접 타이핑만 하면 비어 있음).
 // 성공 시 h.price(KRW)와 lastFetched를 갱신·저장하고 { ok, price }를 반환, 실패 시 토스트 알림.
 async function fetchCryptoPrice(holdingId) {
-  const h = state.holdings.find(x => x.id === holdingId);
+  const h = state.holdings.find((x) => x.id === holdingId);
   if (!h) return;
   const exch = state.cryptoExchange || 'bithumb';
   const symbol = String(h.symbol || '').toUpperCase();
   const coinId = String(h.ticker || '').toLowerCase();
 
-  if (!symbol && !coinId) { toast('⚠️ 종목을 검색해서 선택하세요'); return; }
+  if (!symbol && !coinId) {
+    toast('⚠️ 종목을 검색해서 선택하세요');
+    return;
+  }
 
   try {
     let price;
     if (exch === 'bithumb') {
       if (!symbol) throw new Error('빗썸용 심볼 없음 (검색해서 선택 후 사용)');
-      const r = await fetch(`https://api.bithumb.com/public/ticker/${symbol}_KRW`);
+      const r = await fetch(
+        `https://api.bithumb.com/public/ticker/${symbol}_KRW`,
+      );
       const data = await r.json();
-      if (data.status !== '0000') throw new Error('빗썸 응답: ' + (data.message || data.status));
+      if (data.status !== '0000')
+        throw new Error('빗썸 응답: ' + (data.message || data.status));
       price = num(data.data.closing_price);
     } else if (exch === 'upbit') {
       if (!symbol) throw new Error('업비트용 심볼 없음');
-      const r = await fetch(`https://api.upbit.com/v1/ticker?markets=KRW-${symbol}`);
+      const r = await fetch(
+        `https://api.upbit.com/v1/ticker?markets=KRW-${symbol}`,
+      );
       const data = await r.json();
       if (!Array.isArray(data) || !data[0]) throw new Error('업비트 응답 없음');
       price = num(data[0].trade_price);
     } else {
       // CoinGecko (글로벌 평균)
       if (!coinId) throw new Error('CoinGecko ID 없음');
-      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coinId)}&vs_currencies=krw`);
+      const r = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coinId)}&vs_currencies=krw`,
+      );
       const data = await r.json();
       price = num(data?.[coinId]?.krw);
     }
@@ -249,12 +279,14 @@ async function searchQuotes(query, isCrypto) {
   query = String(query || '').trim();
   if (query.length < 1) return [];
   if (isCrypto) {
-    const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+    const r = await fetch(
+      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`,
+    );
     const data = await r.json();
-    return (data.coins || []).slice(0, 10).map(c => ({
+    return (data.coins || []).slice(0, 10).map((c) => ({
       name: c.name,
-      ticker: c.id,           // CoinGecko id (저장용)
-      symbol: (c.symbol || '').toUpperCase(),  // 거래소용 심볼
+      ticker: c.id, // CoinGecko id (저장용)
+      symbol: (c.symbol || '').toUpperCase(), // 거래소용 심볼
       exchange: 'Crypto',
       thumb: c.thumb,
     }));
@@ -272,9 +304,9 @@ async function searchQuotes(query, isCrypto) {
     const data = await fetchViaProxy(url);
     const wantedTypes = ['EQUITY', 'ETF', 'MUTUALFUND'];
     return (data.quotes || [])
-      .filter(q => wantedTypes.includes(q.quoteType))
+      .filter((q) => wantedTypes.includes(q.quoteType))
       .slice(0, 10)
-      .map(q => ({
+      .map((q) => ({
         name: q.shortname || q.longname || q.symbol,
         ticker: q.symbol,
         symbol: q.symbol,
@@ -288,7 +320,7 @@ async function searchQuotes(query, isCrypto) {
 // 결과 클릭은 blur보다 먼저 잡히도록 mousedown에 바인딩한다(선택 시 시세 갱신으로 이어짐).
 function onSearchInput(e) {
   const id = e.target.getAttribute('data-search');
-  const h = state.holdings.find(x => x.id === id);
+  const h = state.holdings.find((x) => x.id === id);
   if (!h) return;
   const value = e.target.value;
   // name 도 동기 저장 (사용자가 원하면 직접 타이핑한 이름 유지)
@@ -317,7 +349,9 @@ function onSearchInput(e) {
         dropdown.innerHTML = '<div class="empty">결과 없음</div>';
         return;
       }
-      dropdown.innerHTML = results.map((r, i) => `
+      dropdown.innerHTML = results
+        .map(
+          (r, i) => `
         <div class="result" data-idx="${i}">
           <div class="result-name">${escapeHtml(r.name)}</div>
           <div class="result-meta">
@@ -325,10 +359,12 @@ function onSearchInput(e) {
             ${r.exchange ? `<span class="exch">${escapeHtml(r.exchange)}</span>` : ''}
           </div>
         </div>
-      `).join('');
+      `,
+        )
+        .join('');
       dropdown._results = results;
       dropdown._holdingId = id;
-      dropdown.querySelectorAll('.result').forEach(el => {
+      dropdown.querySelectorAll('.result').forEach((el) => {
         el.addEventListener('mousedown', (ev) => {
           ev.preventDefault();
           const idx = parseInt(el.getAttribute('data-idx'));
@@ -346,7 +382,11 @@ function onSearchFocus(e) {
   // 포커스 시 기존 드롭다운 표시 (있으면)
   const id = e.target.getAttribute('data-search');
   const dropdown = document.querySelector(`[data-dropdown="${id}"]`);
-  if (dropdown && dropdown.innerHTML.trim() && e.target.value.trim().length > 0) {
+  if (
+    dropdown &&
+    dropdown.innerHTML.trim() &&
+    e.target.value.trim().length > 0
+  ) {
     dropdown.classList.add('show');
   }
 }
@@ -365,7 +405,7 @@ function onSearchBlur(e) {
 // 자동완성 결과 선택 처리. 선택한 종목의 이름·ticker·symbol을 holdings에 반영·저장하고
 // 전체 재렌더한 뒤 refreshHolding()으로 곧바로 해당 종목 시세까지 받아온다.
 async function selectSearchResult(holdingId, result) {
-  const h = state.holdings.find(x => x.id === holdingId);
+  const h = state.holdings.find((x) => x.id === holdingId);
   if (!h) return;
   h.name = result.name;
   h.ticker = result.ticker;
@@ -382,10 +422,15 @@ async function selectSearchResult(holdingId, result) {
 // 해외주식(isUSD 카테고리)은 h.priceUSD(USD)에, 나머지는 h.price(KRW)에 저장하고
 // lastFetched 기록 후 { ok, price, currency }를 반환한다. 실패 시 토스트로 알린다.
 async function fetchStockPrice(holdingId) {
-  const h = state.holdings.find(x => x.id === holdingId);
+  const h = state.holdings.find((x) => x.id === holdingId);
   if (!h) return;
-  let ticker = String(h.ticker || '').trim().toUpperCase();
-  if (!ticker) { toast('⚠️ 종목코드를 입력하세요'); return; }
+  let ticker = String(h.ticker || '')
+    .trim()
+    .toUpperCase();
+  if (!ticker) {
+    toast('⚠️ 종목코드를 입력하세요');
+    return;
+  }
   // 한국 거래소: 6자리 숫자면 .KS 자동 추가 (코스닥은 .KQ로 변경 가능)
   if (/^\d{6}$/.test(ticker)) ticker = ticker + '.KS';
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
@@ -416,7 +461,7 @@ async function fetchStockPrice(holdingId) {
 // fetchCryptoPrice/fetchStockPrice로 분기하고, 진행 중엔 해당 행 갱신 버튼에 스피너를 돌린다.
 // 완료 후 전체 재렌더로 평가액·차트까지 반영한다.
 async function refreshHolding(holdingId) {
-  const h = state.holdings.find(x => x.id === holdingId);
+  const h = state.holdings.find((x) => x.id === holdingId);
   if (!h) return;
   const cat = CATEGORY_MAP[h.category];
   const btn = document.querySelector(`[data-refresh="${holdingId}"]`);
@@ -440,7 +485,8 @@ async function refreshHolding(holdingId) {
 // 반환 { spx: {YYYY-MM-DD: 종가}, ndx: {...} } — ^GSPC=S&P500, ^IXIC=나스닥 종합.
 // 주말·휴장일 보정을 위해 fromDate 앞 7일 여유를 두고 받는다.
 async function fetchBenchmarkSeries(fromDate) {
-  const p1 = Math.floor(new Date(fromDate + 'T00:00:00').getTime() / 1000) - 7 * 86400;
+  const p1 =
+    Math.floor(new Date(fromDate + 'T00:00:00').getTime() / 1000) - 7 * 86400;
   const p2 = Math.floor(Date.now() / 1000) + 86400;
   const symbols = { spx: '^GSPC', ndx: '^IXIC' };
   const out = {};
@@ -453,7 +499,8 @@ async function fetchBenchmarkSeries(fromDate) {
     const map = {};
     ts.forEach((t, i) => {
       const c = closes[i];
-      if (c !== null && c !== undefined && isFinite(c)) map[localDateStr(new Date(t * 1000))] = c;
+      if (c !== null && c !== undefined && isFinite(c))
+        map[localDateStr(new Date(t * 1000))] = c;
     });
     out[key] = map;
   }
@@ -464,7 +511,9 @@ async function fetchBenchmarkSeries(fromDate) {
 // 범위 내 값이 없으면 null — "데이터 없음"으로 확정 저장되어 재조회 대상에서 빠진다.
 function _closeOnOrBefore(map, date) {
   if (map[date] !== undefined) return map[date];
-  const keys = Object.keys(map).filter(d => d <= date).sort();
+  const keys = Object.keys(map)
+    .filter((d) => d <= date)
+    .sort();
   return keys.length ? map[keys[keys.length - 1]] : null;
 }
 
@@ -474,18 +523,24 @@ function _closeOnOrBefore(map, date) {
 // 시세 갱신 때 자연히 재시도된다 (undefined 로 남아 있으므로).
 async function applyBenchmarksToHistory() {
   const snaps = state.history || [];
-  const missing = snaps.filter(s => s.spx === undefined || s.ndx === undefined);
+  const missing = snaps.filter(
+    (s) => s.spx === undefined || s.ndx === undefined,
+  );
   if (missing.length === 0) return;
-  const firstDate = [...snaps].sort((a, b) => a.date.localeCompare(b.date))[0].date;
+  const firstDate = [...snaps].sort((a, b) => a.date.localeCompare(b.date))[0]
+    .date;
   try {
     const series = await fetchBenchmarkSeries(firstDate);
-    snaps.forEach(s => {
+    snaps.forEach((s) => {
       if (s.spx === undefined) s.spx = _closeOnOrBefore(series.spx, s.date);
       if (s.ndx === undefined) s.ndx = _closeOnOrBefore(series.ndx, s.date);
     });
     saveState();
   } catch (e) {
-    console.warn('벤치마크 지수 수집 실패 (다음 시세 갱신 때 재시도):', e.message);
+    console.warn(
+      '벤치마크 지수 수집 실패 (다음 시세 갱신 때 재시도):',
+      e.message,
+    );
   }
 }
 
@@ -498,9 +553,11 @@ async function applyBenchmarksToHistory() {
 // 반환 { value: 십억 달러, date, label: "YYYY-MM", yoyPct: 전년 동월 대비 증가율(소수 비율) }.
 // data-io.js의 snapshot()이 호출해 자산 이력에 M2를 같이 기록한다(실질가치 비교용).
 async function fetchM2() {
-  const url = 'https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&file_type=json&sort_order=desc&limit=13';
+  const url =
+    'https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&file_type=json&sort_order=desc&limit=13';
   const data = await fetchViaProxy(url);
-  if (!data.observations || !data.observations.length) throw new Error('M2 데이터 없음');
+  if (!data.observations || !data.observations.length)
+    throw new Error('M2 데이터 없음');
   const latest = data.observations[0];
   const value = parseFloat(latest.value);
   if (!isFinite(value)) throw new Error('M2 값 없음 (.)');
@@ -509,14 +566,14 @@ async function fetchM2() {
   if (data.observations.length >= 13) {
     const prev = parseFloat(data.observations[12].value);
     if (isFinite(prev) && prev > 0) {
-      yoyPct = (value / prev) - 1;
+      yoyPct = value / prev - 1;
     }
   }
   return {
     value,
-    date: latest.date,  // YYYY-MM-DD (월말 기준)
-    label: latest.date.slice(0, 7),  // YYYY-MM
-    yoyPct,             // 전년 동월 대비 M2 증가율
+    date: latest.date, // YYYY-MM-DD (월말 기준)
+    label: latest.date.slice(0, 7), // YYYY-MM
+    yoyPct, // 전년 동월 대비 M2 증가율
   };
 }
 
@@ -538,32 +595,37 @@ async function fetchUSCPI() {
     console.warn('BLS 직접 호출 실패, 프록시로:', e.message);
     data = await fetchViaProxy(url);
   }
-  if (data.status !== 'REQUEST_SUCCEEDED') throw new Error('BLS: ' + data.status);
+  if (data.status !== 'REQUEST_SUCCEEDED')
+    throw new Error('BLS: ' + data.status);
   const series = data.Results?.series?.[0];
   if (!series?.data?.length) throw new Error('CPI 데이터 없음');
   // 가장 최근 월 데이터
   const sorted = [...series.data].sort((a, b) =>
-    (b.year + b.period).localeCompare(a.year + a.period));
+    (b.year + b.period).localeCompare(a.year + a.period),
+  );
   const latest = sorted[0];
   // YoY (전년 동월 대비): 같은 period(월) + year - 1 찾기
   // 뉴스에서 보는 "미국 CPI 3.5% 상승" 과 동일한 지표
-  const prevYearSamePeriod = sorted.find(d =>
-    d.period === latest.period && parseInt(d.year) === parseInt(latest.year) - 1);
+  const prevYearSamePeriod = sorted.find(
+    (d) =>
+      d.period === latest.period &&
+      parseInt(d.year) === parseInt(latest.year) - 1,
+  );
   let yoyPct = null;
   if (prevYearSamePeriod) {
     const cur = parseFloat(latest.value);
     const prev = parseFloat(prevYearSamePeriod.value);
     if (isFinite(cur) && isFinite(prev) && prev > 0) {
-      yoyPct = (cur / prev) - 1;
+      yoyPct = cur / prev - 1;
     }
   }
   return {
     index: parseFloat(latest.value),
     year: latest.year,
-    period: latest.period,           // M01-M12
-    periodName: latest.periodName,   // January-December
+    period: latest.period, // M01-M12
+    periodName: latest.periodName, // January-December
     label: `${latest.year}-${latest.period.slice(1)}`, // "2024-12"
-    yoyPct,                          // 전년 동월 대비 (뉴스 인플레율)
+    yoyPct, // 전년 동월 대비 (뉴스 인플레율)
   };
 }
 
@@ -574,11 +636,15 @@ async function fetchUSCPI() {
 // 국제 시세 환산값이라 KRX 국내 금시세와 약간의 괴리가 있을 수 있음 — 의도된 동작.
 async function fetchAndApplyGoldPrice(btn) {
   const original = btn?.textContent;
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 갱신 중...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ 갱신 중...';
+  }
   try {
     // 환율 우선 갱신 (없거나 오래되었으면)
-    const rateStale = !state.rateUpdatedAt
-      || (Date.now() - new Date(state.rateUpdatedAt).getTime()) > 3600 * 1000;
+    const rateStale =
+      !state.rateUpdatedAt ||
+      Date.now() - new Date(state.rateUpdatedAt).getTime() > 3600 * 1000;
     if (rateStale) await fetchExchangeRate(false);
 
     // GC=F: COMEX 금 선물 (USD/oz)
@@ -593,7 +659,7 @@ async function fetchAndApplyGoldPrice(btn) {
 
     // 모든 금 카테고리 행에 적용
     let count = 0;
-    state.holdings.forEach(h => {
+    state.holdings.forEach((h) => {
       if (h.category === '금') {
         h.price = String(krwPerGram);
         h.lastFetched = new Date().toISOString();
@@ -602,11 +668,16 @@ async function fetchAndApplyGoldPrice(btn) {
     });
     saveState();
     render();
-    toast(`🥇 금 1g = ₩${krwPerGram.toLocaleString('ko-KR')} · ${count}개 행 적용 (국제 금시세 환산)`);
+    toast(
+      `🥇 금 1g = ₩${krwPerGram.toLocaleString('ko-KR')} · ${count}개 행 적용 (국제 금시세 환산)`,
+    );
   } catch (e) {
     toast('⚠️ 금 시세 갱신 실패: ' + e.message);
     console.error('Gold fetch error:', e);
-    if (btn) { btn.disabled = false; btn.textContent = original; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
   }
 }
 
@@ -622,25 +693,33 @@ async function refreshAllPrices() {
   await fetchExchangeRate(false);
   // 시세 가능한 모든 행 (주식/암호화폐).
   // 증권사 동기화가 만든 예수금 행(source '<id>:cash')은 티커가 없는 금액 행이라 제외.
-  const targets = state.holdings.filter(h => {
+  const targets = state.holdings.filter((h) => {
     const cat = CATEGORY_MAP[h.category];
     if (String(h.source || '').endsWith(':cash')) return false;
     return cat?.hasTicker && (h.ticker || h.name);
   });
-  let ok = 0, fail = 0;
+  let ok = 0,
+    fail = 0;
   for (const h of targets) {
     const cat = CATEGORY_MAP[h.category];
     let result;
     if (cat?.isCrypto) result = await fetchCryptoPrice(h.id);
     else result = await fetchStockPrice(h.id);
-    if (result?.ok) ok++; else fail++;
-    await new Promise(r => setTimeout(r, 250));
+    if (result?.ok) ok++;
+    else fail++;
+    await new Promise((r) => setTimeout(r, 250));
   }
   // 금 카테고리에 보유분이 있으면 같이 갱신
-  const hasGold = state.holdings.some(h => h.category === '금' && (num(h.quantity) > 0 || h.name));
+  const hasGold = state.holdings.some(
+    (h) => h.category === '금' && (num(h.quantity) > 0 || h.name),
+  );
   if (hasGold) {
-    try { await fetchAndApplyGoldPrice(null); ok++; }
-    catch { fail++; }
+    try {
+      await fetchAndApplyGoldPrice(null);
+      ok++;
+    } catch {
+      fail++;
+    }
   }
   btn.disabled = false;
   btn.textContent = '🔄 전체 시세 갱신';
@@ -652,4 +731,3 @@ async function refreshAllPrices() {
   await snapshot(true);
   flushServerSave();
 }
-

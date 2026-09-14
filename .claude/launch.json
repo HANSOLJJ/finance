@@ -4,7 +4,11 @@
     {
       "name": "finance-server",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--disable-warning=ExperimentalWarning", "--env-file-if-exists=.env", "server/index.js"],
+      "runtimeArgs": [
+        "--disable-warning=ExperimentalWarning",
+        "--env-file-if-exists=.env",
+        "server/index.js"
+      ],
       "port": 8787
     }
   ]

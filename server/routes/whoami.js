@@ -18,12 +18,18 @@ export default function whoamiRoutes() {
   const r = Router();
   r.get('/', async (req, res) => {
     const jwt = req.get('Cf-Access-Jwt-Assertion');
-    res.set('Content-Type', 'application/json').send(JSON.stringify({
-      email: req.get('Cf-Access-Authenticated-User-Email') || null,
-      verifiedEmail: await getVerifiedEmail(req),
-      hasJwt: !!jwt,
-      claims: jwt ? decodeJwtPayload(jwt) : null,
-    }, null, 2));
+    res.set('Content-Type', 'application/json').send(
+      JSON.stringify(
+        {
+          email: req.get('Cf-Access-Authenticated-User-Email') || null,
+          verifiedEmail: await getVerifiedEmail(req),
+          hasJwt: !!jwt,
+          claims: jwt ? decodeJwtPayload(jwt) : null,
+        },
+        null,
+        2,
+      ),
+    );
   });
   return r;
 }

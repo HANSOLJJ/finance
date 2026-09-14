@@ -19,13 +19,18 @@
 //
 // [보안] 조회 TR만 호출한다. 주문 계열 API는 어떤 provider 에도 추가하지 않는다.
 // ============================================================================
-import { normalizeKis, normalizeKwDomestic, normalizeKwUs, normalizeBithumb } from './brokers.js';
+import {
+  normalizeKis,
+  normalizeKwDomestic,
+  normalizeKwUs,
+  normalizeBithumb,
+} from './brokers.js';
 
 const KIS_BASE = 'https://openapi.koreainvestment.com:9443';
 const KW_BASE = 'https://api.kiwoom.com';
 const FETCH_TIMEOUT_MS = 8000;
 
-export const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 접근 토큰 캐시 — 연결(connId)마다 앱키가 다르므로 캐시 키도 연결 단위로 나눈다.
 // KIS 는 토큰 발급이 1분 1회 제한이라 캐시가 사실상 필수. 만료(23시간)는 db.getToken 이 읽을 때 검사한다.
@@ -56,33 +61,53 @@ async function kisIssueToken(creds) {
   const res = await fetch(`${KIS_BASE}/oauth2/tokenP`, {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ grant_type: 'client_credentials', appkey: creds.appkey, appsecret: creds.appsecret }),
+    body: JSON.stringify({
+      grant_type: 'client_credentials',
+      appkey: creds.appkey,
+      appsecret: creds.appsecret,
+    }),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   const body = await res.json();
-  if (!body.access_token) throw new Error(`토큰 발급 실패: ${body.error_description || body.error_code || res.status}`);
+  if (!body.access_token)
+    throw new Error(
+      `토큰 발급 실패: ${body.error_description || body.error_code || res.status}`,
+    );
   return body.access_token;
 }
 
 // 국내주식 잔고조회(TTTC8434R). 페이지네이션은 미구현 — 개인 계좌 규모(50건 미만)에서 1페이지로 충분.
 async function kisBalance(creds, token, prdtCd) {
   const params = new URLSearchParams({
-    CANO: creds.cano, ACNT_PRDT_CD: prdtCd,
-    AFHR_FLPR_YN: 'N', OFL_YN: '', INQR_DVSN: '02', UNPR_DVSN: '01',
-    FUND_STTL_ICLD_YN: 'N', FNCG_AMT_AUTO_RDPT_YN: 'N', PRCS_DVSN: '00',
-    CTX_AREA_FK100: '', CTX_AREA_NK100: '',
+    CANO: creds.cano,
+    ACNT_PRDT_CD: prdtCd,
+    AFHR_FLPR_YN: 'N',
+    OFL_YN: '',
+    INQR_DVSN: '02',
+    UNPR_DVSN: '01',
+    FUND_STTL_ICLD_YN: 'N',
+    FNCG_AMT_AUTO_RDPT_YN: 'N',
+    PRCS_DVSN: '00',
+    CTX_AREA_FK100: '',
+    CTX_AREA_NK100: '',
   });
-  const res = await fetch(`${KIS_BASE}/uapi/domestic-stock/v1/trading/inquire-balance?${params}`, {
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      authorization: `Bearer ${token}`,
-      appkey: creds.appkey, appsecret: creds.appsecret,
-      tr_id: 'TTTC8434R', custtype: 'P',
+  const res = await fetch(
+    `${KIS_BASE}/uapi/domestic-stock/v1/trading/inquire-balance?${params}`,
+    {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        authorization: `Bearer ${token}`,
+        appkey: creds.appkey,
+        appsecret: creds.appsecret,
+        tr_id: 'TTTC8434R',
+        custtype: 'P',
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  );
   const body = await res.json();
-  if (body.rt_cd !== '0') throw new Error((body.msg1 || `rt_cd=${body.rt_cd}`).trim());
+  if (body.rt_cd !== '0')
+    throw new Error((body.msg1 || `rt_cd=${body.rt_cd}`).trim());
   return normalizeKis(body.output1, body.output2);
 }
 
@@ -95,11 +120,16 @@ async function kwIssueToken(creds) {
   const res = await fetch(`${KW_BASE}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-    body: JSON.stringify({ grant_type: 'client_credentials', appkey: creds.appkey, secretkey: creds.secretkey }),
+    body: JSON.stringify({
+      grant_type: 'client_credentials',
+      appkey: creds.appkey,
+      secretkey: creds.secretkey,
+    }),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   const body = await res.json();
-  if (body.return_code !== 0 || !body.token) throw new Error(`토큰 발급 실패: ${body.return_msg || res.status}`);
+  if (body.return_code !== 0 || !body.token)
+    throw new Error(`토큰 발급 실패: ${body.return_msg || res.status}`);
   return body.token;
 }
 
@@ -110,13 +140,16 @@ async function kwCall(token, url, apiId, body) {
     headers: {
       'Content-Type': 'application/json;charset=UTF-8',
       authorization: `Bearer ${token}`,
-      'api-id': apiId, 'cont-yn': 'N', 'next-key': '',
+      'api-id': apiId,
+      'cont-yn': 'N',
+      'next-key': '',
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   const out = await res.json();
-  if (out.return_code !== 0) throw new Error(`${apiId}: ${out.return_msg || res.status}`);
+  if (out.return_code !== 0)
+    throw new Error(`${apiId}: ${out.return_msg || res.status}`);
   return out;
 }
 
@@ -124,16 +157,36 @@ async function kwCall(token, url, apiId, body) {
 // 빗썸 — API 2.0(업비트식 JWT HS256). 토큰 발급 절차 없이 요청마다 서명한다.
 // ---------------------------------------------------------------------------
 async function bithumbJwt(creds) {
-  const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const b64u = (buf) =>
+    btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
   const enc = new TextEncoder();
   const header = b64u(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-  const payload = b64u(enc.encode(JSON.stringify({
-    access_key: creds.key, nonce: crypto.randomUUID(), timestamp: Date.now(),
-  })));
+  const payload = b64u(
+    enc.encode(
+      JSON.stringify({
+        access_key: creds.key,
+        nonce: crypto.randomUUID(),
+        timestamp: Date.now(),
+      }),
+    ),
+  );
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', enc.encode(creds.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = b64u(await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(`${header}.${payload}`)));
+    'raw',
+    enc.encode(creds.secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = b64u(
+    await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      enc.encode(`${header}.${payload}`),
+    ),
+  );
   return `${header}.${payload}.${sig}`;
 }
 
@@ -156,7 +209,11 @@ export const PROVIDERS = {
     discoverCodes: ['01', '22', '29', '21', '25', '63'],
     rateDelayMs: 1100, // 실측: 250ms 간격에도 "초당 거래건수 초과" 발생
     async fetchAccount(ctx, code) {
-      return withToken(ctx, () => kisIssueToken(ctx.creds), (t) => kisBalance(ctx.creds, t, code));
+      return withToken(
+        ctx,
+        () => kisIssueToken(ctx.creds),
+        (t) => kisBalance(ctx.creds, t, code),
+      );
     },
   },
 
@@ -173,18 +230,31 @@ export const PROVIDERS = {
     ],
     rateDelayMs: 300,
     async fetchAccount(ctx, code) {
-      return withToken(ctx, () => kwIssueToken(ctx.creds), async (t) => {
-        if (code === 'kr') {
-          const balance = await kwCall(t, '/api/dostk/acnt', 'kt00018', { qry_tp: '1', dmst_stex_tp: 'KRX' });
+      return withToken(
+        ctx,
+        () => kwIssueToken(ctx.creds),
+        async (t) => {
+          if (code === 'kr') {
+            const balance = await kwCall(t, '/api/dostk/acnt', 'kt00018', {
+              qry_tp: '1',
+              dmst_stex_tp: 'KRX',
+            });
+            await sleep(300);
+            const status = await kwCall(t, '/api/dostk/acnt', 'kt00004', {
+              qry_tp: '0',
+              dmst_stex_tp: 'KRX',
+            });
+            return normalizeKwDomestic(balance, status);
+          }
+          const ledger = await kwCall(t, '/api/us/acnt', 'ust21070', {
+            stex_tp: '',
+            stk_cd: '',
+          });
           await sleep(300);
-          const status = await kwCall(t, '/api/dostk/acnt', 'kt00004', { qry_tp: '0', dmst_stex_tp: 'KRX' });
-          return normalizeKwDomestic(balance, status);
-        }
-        const ledger = await kwCall(t, '/api/us/acnt', 'ust21070', { stex_tp: '', stk_cd: '' });
-        await sleep(300);
-        const deposit = await kwCall(t, '/api/us/acnt', 'ust21160', {});
-        return normalizeKwUs(ledger, deposit);
-      });
+          const deposit = await kwCall(t, '/api/us/acnt', 'ust21160', {});
+          return normalizeKwUs(ledger, deposit);
+        },
+      );
     },
   },
 
@@ -205,7 +275,10 @@ export const PROVIDERS = {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       const body = await res.json();
-      if (!Array.isArray(body)) throw new Error((body && body.error && body.error.message) || `HTTP ${res.status}`);
+      if (!Array.isArray(body))
+        throw new Error(
+          (body && body.error && body.error.message) || `HTTP ${res.status}`,
+        );
       return normalizeBithumb(body);
     },
   },
@@ -222,7 +295,8 @@ export function providerMeta() {
       accounts: p.accounts || null,
       accountCodeLabel: p.accountCodeLabel || null,
       accountCodeHint: p.accountCodeHint || null,
-      discoverable: Array.isArray(p.discoverCodes) && p.discoverCodes.length > 0,
+      discoverable:
+        Array.isArray(p.discoverCodes) && p.discoverCodes.length > 0,
     };
   }
   return out;
