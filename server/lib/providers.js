@@ -48,7 +48,7 @@ async function cachedToken(ctx, issue, force = false) {
 async function withToken(ctx, issue, call) {
   try {
     return await call(await cachedToken(ctx, issue, false));
-  } catch (_) {
+  } catch {
     return await call(await cachedToken(ctx, issue, true));
   }
 }

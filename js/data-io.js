@@ -181,7 +181,6 @@ function applyHistoricalAsset(data) {
   // 1. 현재 holdings에 추가 (amount-only로 처리: price=금액, quantity=1)
   // 카테고리가 amountOnly가 아니어도 단순화 위해 quantity=1, price=금액으로 저장
   // (퇴직연금/연금저축은 hasTicker인데 사용자 편의상 amount 입력으로 처리)
-  const isAmountOnly = !!(cat && cat.amountOnly);
   state.holdings.push({
     id: uid(),
     category: data.category,
@@ -245,7 +244,9 @@ async function exportJSON() {
     try {
       const res = await fetch('/api/portfolio', { cache: 'no-store' });
       if (res.ok) json = await res.text();
-    } catch (_) {}
+    } catch {
+      // 서버 조회 실패(오프라인 등)는 아래에서 현재 state 로 폴백한다
+    }
     const fromServer = json !== null;
     if (!fromServer) json = JSON.stringify(state, null, 2);
     const filename = `portfolio_${localDateStr()}.json`;
@@ -262,7 +263,9 @@ async function exportJSON() {
     setTimeout(() => {
       try {
         document.body.removeChild(a);
-      } catch (_) {}
+      } catch {
+        // 이미 떼어진 요소면 무시한다
+      }
       URL.revokeObjectURL(url);
     }, 1000);
 

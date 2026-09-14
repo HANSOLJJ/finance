@@ -130,7 +130,7 @@ async function searchNaverFinance(query) {
       const results = parseNaverResults(data);
       if (results.length > 0) return results;
     }
-  } catch (e) {
+  } catch {
     // CORS 에러 등 -> 프록시로 폴백
   }
   // 2) 프록시 폴백

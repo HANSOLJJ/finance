@@ -207,7 +207,6 @@ function renderCharts() {
   const first = sorted[0];
   const baseCPI = first?.cpiIndex || null;
   const baseM2 = first?.m2 || null;
-  const baseFX = first?.fxRate || null;
   const baseUSD = first?.totalUSD || 0;
   const fallbackRate = num(state.usCpiAnnual) || 0.035;
 
@@ -490,7 +489,7 @@ function usdLineOpts(rawMap) {
               return ['📝 ' + memo.split(/\r?\n/)[0]].concat(
                 memo.split(/\r?\n/).slice(1),
               );
-            } catch (e) {
+            } catch {
               return '';
             }
           },
@@ -552,7 +551,7 @@ function normLineOpts(rawMap) {
               return ['📝 ' + memo.split(/\r?\n/)[0]].concat(
                 memo.split(/\r?\n/).slice(1),
               );
-            } catch (e) {
+            } catch {
               return '';
             }
           },
@@ -970,8 +969,6 @@ function renderTreemap() {
   const visibleTotal = items.reduce((s, i) => s + i._value, 0);
   // 비중 계산 기준: 현재 보이는(렌더되는) 타일 합. 그래야 필터/drill 시 비중 합이 100%.
   const baseTotal = visibleTotal;
-  const isFiltered = _treemapHidden.size > 0;
-  const isFilteredOrDrill = isFiltered || _treemapDrill;
 
   // 기존 트리맵 destroy
   if (charts.treemap) {
@@ -1126,7 +1123,6 @@ function renderTreemap() {
     const allTypesPresent = [
       ...new Set(allItemsUnfiltered.map((i) => i._atype)),
     ];
-    const visibleCount = allTypesPresent.length - _treemapHidden.size;
     const buttons = allTypesPresent
       .map((t) => {
         const isHidden = _treemapHidden.has(t);
@@ -1178,7 +1174,6 @@ function renderTreemap() {
   //   - default (테마별): 자산타입 5개 rectangle만 표시 (종목 안 보임). groups: ['_atype']
   //   - flat 모드 (전체 펼침): 모든 종목을 leaf로, 같은 자산타입끼리 색상 클러스터링. groups: ['_atype', '_uid']
   //   - drill 모드: 그룹 없이 한 자산타입의 종목만 (다채로운 팔레트). groups 없음
-  const useGroups = !_treemapDrill;
   const drillBaseColor = _treemapDrill
     ? ASSET_TYPE_COLORS[_treemapDrill] || cssVar('--c-pension-fund', '#94a3b8')
     : null;
@@ -1518,7 +1513,7 @@ function renderTreemap() {
                 // 멀티라인 array 반환 → Chart.js가 줄별로 그려줌
                 const lines = memo.split(/\r?\n/);
                 return ['', '📝 ' + lines[0]].concat(lines.slice(1));
-              } catch (e) {
+              } catch {
                 return '';
               }
             },

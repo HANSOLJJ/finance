@@ -34,7 +34,9 @@ function switchTab(tabName) {
   setTimeout(() => {
     try {
       renderCharts();
-    } catch (_) {}
+    } catch {
+      // 차트 재렌더 실패는 무시한다 — 다음 렌더에서 다시 그린다
+    }
   }, 50);
 }
 
@@ -330,19 +332,16 @@ function _removed_renderHedgePerformance() {
     a.date.localeCompare(b.date),
   );
   let cpiCum = null;
-  let cpiPeriodLabel = '';
   if (sorted.length >= 2) {
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
     if (first.cpiIndex && last.cpiIndex) {
       cpiCum = last.cpiIndex / first.cpiIndex - 1;
-      cpiPeriodLabel = `${first.date} ~ ${last.date}`;
     } else {
       const fallback = num(state.usCpiAnnual) || 0.035;
       const elapsed =
         (new Date(last.date) - new Date(first.date)) / (365.25 * 86400000);
       cpiCum = Math.pow(1 + fallback, elapsed) - 1;
-      cpiPeriodLabel = `${first.date} ~ ${last.date} (CPI 추정)`;
     }
   }
 
@@ -1390,7 +1389,9 @@ function onNumericFocus(e) {
   setTimeout(() => {
     try {
       e.target.setSelectionRange(raw.length, raw.length);
-    } catch (_) {}
+    } catch {
+      // 선택 영역을 지원하지 않는 입력 타입이면 무시한다
+    }
   }, 0);
 }
 

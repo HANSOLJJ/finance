@@ -9,7 +9,7 @@ function decodeJwtPayload(jwt) {
   try {
     const b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     return JSON.parse(atob(b64));
-  } catch (_) {
+  } catch {
     return null;
   }
 }

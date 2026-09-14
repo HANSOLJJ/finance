@@ -91,7 +91,7 @@ export async function getVerifiedEmail(req) {
       signed,
     );
     return ok ? payload.email : null;
-  } catch (_) {
+  } catch {
     return null;
   }
 }

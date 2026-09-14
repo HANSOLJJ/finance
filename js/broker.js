@@ -409,7 +409,9 @@ async function openBrokerSyncModal(debugResponse) {
         if (!h) continue;
         try {
           await refreshHolding(h.id);
-        } catch (_) {}
+        } catch {
+          // 실패한 종목은 건너뛰고 다음 종목 갱신을 계속한다
+        }
         await new Promise((r) => setTimeout(r, 250));
       }
     })();
@@ -456,7 +458,7 @@ async function refreshBrokerConnections() {
     if (!res.ok || !data.ok) throw new Error(`HTTP ${res.status}`);
     _bkConns = data.connections || [];
     _bkProviders = data.providers || {};
-  } catch (_) {
+  } catch {
     box.innerHTML =
       '<div class="backup-desc">연결 상태를 확인할 수 없습니다 (서버 연결 필요)</div>';
     return;

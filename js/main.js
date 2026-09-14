@@ -72,7 +72,9 @@ async function bootstrap() {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('pf_pw');
-  } catch (_) {}
+  } catch {
+    // localStorage 를 쓸 수 없는 환경(사생활 보호 모드 등)이면 청소를 건너뛴다
+  }
   try {
     const res = await fetch('/api/portfolio', { cache: 'no-store' });
     if (res.ok) {
@@ -86,7 +88,7 @@ async function bootstrap() {
     } else {
       showBootFail('서버 응답 오류 (HTTP ' + res.status + ')');
     }
-  } catch (_) {
+  } catch {
     showBootFail(
       '서버에 연결하지 못했습니다 — 네트워크 확인 후 새로고침하세요',
     );
