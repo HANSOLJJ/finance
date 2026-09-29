@@ -144,13 +144,13 @@
 2. `~/.finance/env` 생성(권한 600) — 내용은 `FRED_API_KEY=…` 한 줄. **`DEV_EMAIL`은 절대 넣지 않는다**(로그인 우회).
 3. `pm2 start ecosystem.config.cjs` → `pm2 save` → `pm2 startup`(출력되는 sudo 명령을 실행해 launchd 등록. `~/Library/LaunchAgents` 폴더가 없으면 ENOENT 로 실패하니 `mkdir -p` 먼저). 첫 기동 로그에 "새 암호화 키 생성됨: ~/.finance/secret.key" 가 찍힌다 — **이 파일을 비밀번호 관리자에 백업**(DB 백업과 다른 곳에). 분실하면 증권사 연결만 재등록하면 되고 포트폴리오는 무관.
 4. 로컬 확인 — `curl -i http://127.0.0.1:8787/api/whoami`(200 + `verifiedEmail: null` 이면 정상. JWT 는 Tunnel 을 거쳐야 온다).
-5. `cloudflared tunnel login`(출력되는 URL을 아무 기기 브라우저에서 열어 승인) → `cloudflared tunnel create finance` → `~/.cloudflared/config.yml`에 `tunnel:`·`credentials-file:`·ingress(`fin.hansoljj.com → http://127.0.0.1:8787`, 마지막 `http_status:404`) → `cloudflared tunnel ingress validate` → 상시 실행은 **`cloudflared service install` 후 plist 수정이 필요하다**: brew 서비스와 기본 plist 모두 인자 없이 `cloudflared`만 실행해 "use `cloudflared tunnel run`"으로 거부되므로, `plutil -replace ProgramArguments -json '["/opt/homebrew/bin/cloudflared","tunnel","--config","/Users/hansol/.cloudflared/config.yml","run"]' ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist` 후 `launchctl unload`/`load`. 연결 확인 `cloudflared tunnel info finance`. 여기까지는 운영에 영향이 없다.
+5. `cloudflared tunnel login`(출력되는 URL을 아무 기기 브라우저에서 열어 승인) → `cloudflared tunnel create finance` → `~/.cloudflared/config.yml`에 `tunnel:`·`credentials-file:`·ingress(`fin.hansoljj.com → http://127.0.0.1:8787`, 마지막 `http_status:404`) → `cloudflared tunnel ingress validate` → 상시 실행은 `ecosystem.config.cjs` 의 **finance-tunnel 앱**이 맡는다(3번의 `pm2 start ecosystem.config.cjs` 가 서버와 터널을 함께 띄운다). 연결 확인 `cloudflared tunnel info finance`. 여기까지는 운영에 영향이 없다. (전환 초기엔 `cloudflared service install` 로 macOS LaunchAgent 를 썼다 — brew 서비스·기본 plist 모두 인자 없이 `cloudflared`만 실행해 "use `cloudflared tunnel run`"으로 거부되는 함정이 있어 plutil 로 ProgramArguments 를 고쳐 썼는데, 2026-09-29 lol 서비스 추가를 계기로 프로세스 관리 창구를 pm2 하나로 통일하며 이관했다. 구 plist 는 `~/Library/LaunchAgents/com.cloudflare.cloudflared.plist.bak-20260929-pm2` 로 백업.)
 6. **전환** — Pages 프로젝트 Custom domains 에서 `fin.hansoljj.com` 제거 → `cloudflared tunnel route dns finance fin.hansoljj.com`.
 7. 브라우저에서 fin.hansoljj.com → 구글 로그인 → `/api/whoami`의 `verifiedEmail`에 이메일이 나오면 JWT 가 오리진까지 온 것.
 8. **데이터 이전** — 전환 전에 구 사이트에서 `/api/portfolio?download=1`로 받아둔 JSON 을, 로그인 상태에서 설정 탭 "📂 JSON에서 복원"으로 넣는다(형식 동일). 증권사 연결은 자격증명이라 옮기지 않고 **재등록**.
 9. 재부팅 후 pm2·cloudflared 자동 기동 확인. `data/`를 백업 대상에 포함하되 WAL 이라 실행 중 `.db`만 복사하면 깨진다 — 7절의 `.backup` 사용.
 
-pm2·cloudflared 모두 **사용자 LaunchAgent** 라 **자동 로그인이 켜져 있어야 재부팅 후 올라온다**(`defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser` 로 확인. FileVault 와는 양립 불가 — 집 서버 용도라 자동 로그인 쪽을 택했다).
+pm2 가 **사용자 LaunchAgent**(pm2.hansol.plist)로 뜨고 터널(finance-tunnel)은 그 pm2 가 되살리므로, **자동 로그인이 켜져 있어야 재부팅 후 올라온다**(`defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser` 로 확인. FileVault 와는 양립 불가 — 집 서버 용도라 자동 로그인 쪽을 택했다).
 
 **Windows 개발 PC.** `.env`에 `DEV_EMAIL=test@x.com`을 두고 `npm run dev`(또는 `.claude/launch.json`의 `finance-server`). 데이터는 로컬 `data/finance.db`, 암호화 키는 `%USERPROFILE%\.finance\secret.key`. 한투는 IP 제한이 없어 실키로 로컬 검증이 가능하고, 개발 PC가 Mac mini 와 같은 공유기(같은 공인 IP)면 키움·빗썸도 로컬에서 실검증된다.
 
@@ -158,18 +158,20 @@ pm2·cloudflared 모두 **사용자 LaunchAgent** 라 **자동 로그인이 켜�
 
 전부 Mac mini 터미널(또는 SSH) 기준. brew 경로가 PATH에 없으면 앞에 `export PATH=/opt/homebrew/bin:$PATH`.
 
-| 하고 싶은 것                       | 명령                                                                                                                                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 서버 상태                          | `pm2 status` (online / restarts 횟수)                                                                                                                                           |
-| 서버 **재시작**                    | `pm2 restart finance` — `~/.finance/env`를 고쳤을 때 반드시 (env 는 기동 시 한 번만 읽는다)                                                                                     |
-| 서버 로그                          | `pm2 logs finance --lines 50` (실시간은 `pm2 logs finance`, Ctrl+C 로 나감). 파일은 `~/.pm2/logs/finance-out.log`·`finance-error.log`                                           |
-| **코드 배포** (main 에 push 한 뒤) | `cd ~/projects/finance && git pull && npm ci && pm2 restart finance` — js/css/html 만 바뀌었으면 `git pull` 만으로 반영되지만(디스크에서 그대로 서빙) 재시작해도 손해 없다      |
-| 환경변수 편집                      | `nano ~/.finance/env` → 저장 → `pm2 restart finance`. `DEV_EMAIL` 은 절대 넣지 않는다                                                                                           |
-| 터널 상태                          | `cloudflared tunnel info finance` (CONNECTOR 행이 있으면 연결됨) · `launchctl list \| grep cloudflare` (PID 와 종료코드 0)                                                      |
-| 터널 로그                          | `tail -50 ~/Library/Logs/com.cloudflare.cloudflared.err.log`                                                                                                                    |
-| 터널 재시작                        | `launchctl unload ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist && launchctl load ~/Library/LaunchAgents/com.cloudflare.cloudflared.plist`                            |
-| 재부팅 후 점검                     | `pm2 status` 에 finance online · `cloudflared tunnel info finance` 에 커넥터 · 브라우저에서 fin.hansoljj.com. 둘 다 사용자 LaunchAgent 라 자동 로그인이 꺼져 있으면 안 올라온다 |
-| 인증 진단                          | 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` → `verifiedEmail` 에 이메일이 나와야 정상                                                                                   |
+| 하고 싶은 것                       | 명령                                                                                                                                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 서버 상태                          | `pm2 status` (online / restarts 횟수)                                                                                                                                                           |
+| 서버 **재시작**                    | `pm2 restart finance` — `~/.finance/env`를 고쳤을 때 반드시 (env 는 기동 시 한 번만 읽는다)                                                                                                     |
+| 서버 로그                          | `pm2 logs finance --lines 50` (실시간은 `pm2 logs finance`, Ctrl+C 로 나감). 파일은 `~/.pm2/logs/finance-out.log`·`finance-error.log`                                                           |
+| **코드 배포** (main 에 push 한 뒤) | `cd ~/projects/finance && git pull && npm ci && pm2 restart finance` — js/css/html 만 바뀌었으면 `git pull` 만으로 반영되지만(디스크에서 그대로 서빙) 재시작해도 손해 없다                      |
+| 환경변수 편집                      | `nano ~/.finance/env` → 저장 → `pm2 restart finance`. `DEV_EMAIL` 은 절대 넣지 않는다                                                                                                           |
+| 터널 상태                          | `pm2 status` 의 finance-tunnel 이 online · `cloudflared tunnel info finance` (CONNECTOR 행이 있으면 연결됨)                                                                                     |
+| 터널 로그                          | `pm2 logs finance-tunnel --lines 50` — cloudflared 는 stderr 로 쓰므로 파일은 `~/.pm2/logs/finance-tunnel-error.log`                                                                            |
+| 터널 재시작                        | `pm2 restart finance-tunnel`                                                                                                                                                                    |
+| 재부팅 후 점검                     | `pm2 status` 에 finance·finance-tunnel online · `cloudflared tunnel info finance` 에 커넥터 · 브라우저에서 fin.hansoljj.com. pm2 가 사용자 LaunchAgent 라 자동 로그인이 꺼져 있으면 안 올라온다 |
+| 인증 진단                          | 로그인된 브라우저에서 `fin.hansoljj.com/api/whoami` → `verifiedEmail` 에 이메일이 나와야 정상                                                                                                   |
+
+**finance-tunnel 도 repo 의 `ecosystem.config.cjs` 에 정의돼 있다**(2026-09-29 LaunchAgent 에서 이관). 맥미니를 새로 세팅하거나 pm2 목록에서 앱이 사라졌을 때는 `pm2 start ecosystem.config.cjs` → `pm2 save` 만 하면 서버와 터널이 함께 등록된다. cloudflared 바이너리 경로(`/opt/homebrew/bin/cloudflared`)와 `~/.cloudflared/config.yml` 은 Mac mini 에만 있으므로 이 앱은 운영 기기 전용이다.
 
 **DB 보기** — `sqlite3 ~/projects/finance/data/finance.db` 로 들어가면 프롬프트가 뜬다(`.quit` 로 나감). 자주 쓰는 질의는 아래. 실행 중인 서버와 동시에 읽어도 안전하다(WAL).
 
