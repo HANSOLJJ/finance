@@ -11,6 +11,7 @@ import proxyRoutes from './routes/proxy.js';
 import brokerRoutes from './routes/broker.js';
 import brokerConnectionsRoutes from './routes/broker-connections.js';
 import brokerDiscoverRoutes from './routes/broker-discover.js';
+import reportsRoutes from './routes/reports.js';
 
 // 빗썸 allowlist 가 IPv4 만 받으므로 아웃바운드 DNS 를 IPv4 우선으로.
 // 기동 플래그 대신 코드에 두어 dev(npm run dev)·prod(pm2) 가 동일하게 동작한다.
@@ -38,6 +39,11 @@ app.get('/', (req, res) => {
 });
 app.use('/css', express.static(path.join(ROOT, 'css')));
 app.use('/js', express.static(path.join(ROOT, 'js')));
+// 채점표 리포트 — 같은 상위 폴더에 clone 한 stock-report-harness 의 output/ 을 읽는다(Mac mini·PC 배치 동일).
+app.use(
+  '/reports',
+  reportsRoutes(path.resolve(ROOT, '..', 'stock-report-harness', 'output')),
+);
 
 // 클라이언트는 Content-Type 없이 fetch 한다(브라우저가 text/plain 을 붙임). express.json() 은 그 요청을
 // 파싱하지 않으므로 타입을 가리지 않고 원문 문자열로 받고, 각 핸들러가 JSON.parse 한다.
