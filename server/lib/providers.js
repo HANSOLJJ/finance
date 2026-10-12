@@ -34,22 +34,46 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 접근 토큰 캐시 — 연결(connId)마다 앱키가 다르므로 캐시 키도 연결 단위로 나눈다.
 // KIS 는 토큰 발급이 1분 1회 제한이라 캐시가 사실상 필수. 만료(23시간)는 db.getToken 이 읽을 때 검사한다.
+// 반환의 fresh 는 "이 호출에서 방금 발급했다"는 표시 — withToken 이 재발급 여부를 정할 때 쓴다.
 async function cachedToken(ctx, issue, force = false) {
   if (!force) {
     const cached = ctx.db.getToken(ctx.email, ctx.connId);
-    if (cached) return cached;
+    if (cached) return { token: cached, fresh: false };
   }
   const token = await issue();
   ctx.db.putToken(ctx.email, ctx.connId, token);
-  return token;
+  return { token, fresh: true };
 }
 
-// 캐시된 토큰이 죽어 있을 수 있으므로 "실패 → 강제 재발급 → 1회 재시도" 공통 래퍼.
+// 토큰 자체가 원인인 오류만 재발급 대상 — KIS msg1 "기간이 만료된 token 입니다"·"유효하지 않은 token 입니다", HTTP 401.
+const TOKEN_ERROR_RE = /token|토큰|\b401\b/i;
+// 발급 직후 KIS 가 몇 초간 토큰을 거부하는 사례 대비 — 같은 토큰으로 1회 재시도 전 대기.
+const FRESH_TOKEN_RETRY_MS = 1500;
+
+// 캐시된 토큰이 죽어 있을 수 있으므로 실패 시 1회 재시도하는 공통 래퍼. 재시도 방식은 상황별로 다르다.
+// - 방금 발급한 토큰: 재발급하지 않는다(KIS 는 1분 1회 제한이라 어차피 거부됨). 잠깐 기다렸다 같은 토큰으로 재시도.
+// - 캐시 토큰 + 토큰 오류: 강제 재발급 후 재시도. 재발급마저 실패하면 원래 오류를 함께 보여준다(원인이 가려지지 않게).
+// - 캐시 토큰 + 그 밖의 오류: 재발급해도 소용없으므로 그대로 던진다.
+// (2026-10-12 실제 사고: 무조건 재발급하던 구현이 1분 제한에 걸려 원래 오류 대신 "토큰 발급 실패"만 보였다.)
 async function withToken(ctx, issue, call) {
+  const { token, fresh } = await cachedToken(ctx, issue, false);
   try {
-    return await call(await cachedToken(ctx, issue, false));
-  } catch {
-    return await call(await cachedToken(ctx, issue, true));
+    return await call(token);
+  } catch (err) {
+    if (fresh) {
+      await sleep(FRESH_TOKEN_RETRY_MS);
+      return await call(token);
+    }
+    if (!TOKEN_ERROR_RE.test(err.message || '')) throw err;
+    let reissued;
+    try {
+      reissued = await cachedToken(ctx, issue, true);
+    } catch (reErr) {
+      throw new Error(`${err.message} (토큰 재발급도 실패: ${reErr.message})`, {
+        cause: reErr,
+      });
+    }
+    return await call(reissued.token);
   }
 }
 
