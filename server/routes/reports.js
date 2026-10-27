@@ -28,6 +28,19 @@ function readTitle(file) {
   }
 }
 
+// 확인 기록(approval.json)의 확인 날짜를 읽는다. 없거나 읽지 못하면 빈 문자열이라 목록 맨 뒤로 간다.
+function readApprovedAt(dir, id) {
+  try {
+    const rec = JSON.parse(
+      fs.readFileSync(path.join(dir, id, 'approval.json'), 'utf8'),
+    );
+    return typeof rec.approved_at === 'string' ? rec.approved_at : '';
+  } catch {
+    return '';
+  }
+}
+
+// 최신이 맨 위: 확인 날짜 내림차순, 같은 날이면 실행 이름 역순(q3b 가 q3a 위).
 function listRuns(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -35,8 +48,15 @@ function listRuns(dir) {
     .filter((e) => e.isDirectory() && RUN_RE.test(e.name))
     .map((e) => ({ id: e.name, file: path.join(dir, e.name, 'report.html') }))
     .filter((r) => fs.existsSync(r.file))
-    .map((r) => ({ id: r.id, title: readTitle(r.file) }))
-    .sort((a, b) => b.id.localeCompare(a.id));
+    .map((r) => ({
+      id: r.id,
+      title: readTitle(r.file),
+      approvedAt: readApprovedAt(dir, r.id),
+    }))
+    .sort(
+      (a, b) =>
+        b.approvedAt.localeCompare(a.approvedAt) || b.id.localeCompare(a.id),
+    );
 }
 
 function indexPage(runs) {
